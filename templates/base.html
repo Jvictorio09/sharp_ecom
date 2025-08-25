@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}Sharp Jordan{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+</head>
+<body class="bg-white text-gray-900 font-sans flex flex-col min-h-screen">
+
+  <!-- Header / Nav -->
+  <header class="border-b border-gray-200">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+      <a href="/" class="text-2xl font-bold tracking-tight">Sharp Jordan</a>
+      <nav class="space-x-6 flex items-center">
+        <a href="{% url 'home' %}" class="hover:text-gray-600 flex items-center space-x-1">
+          <i class="fa-solid fa-house"></i><span>Home</span>
+        </a>
+        <a href="{% url 'product_list' %}" class="hover:text-gray-600 flex items-center space-x-1">
+          <i class="fa-solid fa-bottle-droplet"></i><span>Products</span>
+        </a>
+        <a href="{% url 'contact' %}" class="hover:text-gray-600 flex items-center space-x-1">
+          <i class="fa-solid fa-envelope"></i><span>Contact</span>
+        </a>
+        <!-- Cart trigger -->
+        <a href="{% url 'cart' %}" id="open-cart"
+           class="relative hover:text-gray-600 flex items-center space-x-1">
+          <i class="fa-solid fa-cart-shopping"></i><span>Cart</span>
+          <span id="cart-count"
+                class="absolute -top-2 -right-3 min-w-[20px] h-5 px-1 text-xs rounded-full bg-gray-900 text-white flex items-center justify-center">
+            {{ cart_count|default:0 }}
+          </span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Page Content -->
+  <main class="flex-grow max-w-6xl mx-auto px-4 py-8">
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for m in messages %}
+          <div class="rounded-lg px-4 py-3
+                      {% if m.tags == 'error' %} bg-red-50 text-red-700 border border-red-200
+                      {% elif m.tags == 'success' %} bg-emerald-50 text-emerald-700 border border-emerald-200
+                      {% else %} bg-gray-50 text-gray-700 border border-gray-200 {% endif %}">
+            {{ m }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-200 py-6 text-center text-sm text-gray-600">
+    &copy; {{ now|date:"Y" }} Sharp Jordan. All rights reserved.
+  </footer>
+
+  <!-- Overlay -->
+  <div id="cart-overlay" class="fixed inset-0 bg-black/40 hidden"></div>
+
+  <!-- Cart Drawer -->
+  <aside id="cart-drawer"
+         class="fixed top-0 right-0 h-screen w-[380px] max-w-[90vw] bg-white border-l border-gray-200 shadow-xl translate-x-full
+                transition-transform duration-300 z-50 flex flex-col">
+    <header class="p-4 border-b flex items-center justify-between">
+      <h3 class="font-semibold">Your Bag</h3>
+      <button id="close-cart" class="text-gray-600 hover:text-gray-900">
+        <i class="fa-solid fa-xmark text-xl"></i>
+      </button>
+    </header>
+
+    <div id="cart-items" class="flex-1 overflow-auto p-4 space-y-3">
+      <!-- items injected by JS -->
+    </div>
+
+    <footer class="p-4 border-t">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-gray-600">Subtotal</span>
+        <strong id="cart-subtotal">₱0.00</strong>
+      </div>
+      <a href="{% url 'checkout' %}"
+         class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-5 py-3 text-white hover:bg-gray-800">
+        <i class="fa-solid fa-bag-shopping"></i> Checkout
+      </a>
+    </footer>
+  </aside>
+
+  <!-- Scripts -->
+  <script>
+  // --- CSRF helper (Django) ---
+  function getCookie(name) {
+    const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? m.pop() : '';
+  }
+  const CSRF = getCookie('csrftoken');
+
+  // --- Drawer controls ---
+  const drawer = document.getElementById('cart-drawer');
+  const overlay = document.getElementById('cart-overlay');
+  const openCartBtn = document.getElementById('open-cart');
+  const closeCartBtn = document.getElementById('close-cart');
+  const cartCountEl = document.getElementById('cart-count');
+  const cartItemsEl = document.getElementById('cart-items');
+  const cartSubtotalEl = document.getElementById('cart-subtotal');
+
+  function openDrawer() {
+    overlay.classList.remove('hidden');
+    drawer.classList.remove('translate-x-full');
+  }
+  function closeDrawer() {
+    overlay.classList.add('hidden');
+    drawer.classList.add('translate-x-full');
+  }
+  openCartBtn?.addEventListener('click', (e) => { e.preventDefault(); refreshDrawer(); });
+  closeCartBtn?.addEventListener('click', closeDrawer);
+  overlay?.addEventListener('click', closeDrawer);
+
+  // --- Render drawer ---
+  function renderCart(data) {
+    const cart = data.cart;
+    cartItemsEl.innerHTML = '';
+    if (!cart.items.length) {
+      cartItemsEl.innerHTML = `<div class="text-gray-600 text-center py-10">Your bag is empty.</div>`;
+    } else {
+      cart.items.forEach(it => {
+        cartItemsEl.insertAdjacentHTML('beforeend', `
+          <div class="flex items-center gap-3 rounded-xl border border-gray-200 p-3">
+            <div class="w-16 h-16 overflow-hidden rounded-lg bg-gray-100">
+              ${it.image_url ? `<img src="${it.image_url}" class="w-full h-full object-cover">` : ''}
+            </div>
+            <div class="flex-1">
+              <div class="flex items-start justify-between">
+                <a href="/products/${it.slug}/" class="font-semibold text-gray-900 hover:underline">${it.name}</a>
+                <strong class="whitespace-nowrap">₱${it.line_total}</strong>
+              </div>
+              <div class="text-sm text-gray-500">Qty: ${it.qty}</div>
+            </div>
+            <button class="text-gray-500 hover:text-gray-900" data-remove="${it.id}" title="Remove">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        `);
+      });
+    }
+    cartSubtotalEl.textContent = `₱${cart.subtotal}`;
+    cartCountEl.textContent = cart.count;
+
+    // wire remove buttons
+    cartItemsEl.querySelectorAll('[data-remove]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const pid = btn.getAttribute('data-remove');
+        const res = await fetch(`/cart/remove/${pid}/`, { headers: {'X-Requested-With':'XMLHttpRequest'} });
+        const data = await res.json();
+        renderCart(data);
+      });
+    });
+  }
+
+  async function refreshDrawer() {
+    const res = await fetch('{% url "cart_summary_json" %}');
+    const data = await res.json();
+    renderCart(data);
+    openDrawer();
+  }
+
+  // --- AJAX add-to-cart ---
+  document.querySelectorAll('form[data-add-to-cart]').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const res = await fetch(form.action, {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF, 'X-Requested-With':'XMLHttpRequest'},
+        body: new FormData(form)
+      });
+      const data = await res.json();
+      renderCart(data);
+      openDrawer();
+    });
+  });
+  </script>
+</body>
+</html>
