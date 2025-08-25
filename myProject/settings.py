@@ -31,6 +31,11 @@ ALLOWED_HOSTS = [
     'localhost',                            # Localhost name
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://sharpecom-production.up.railway.app",
+]
+
+
 
 # Application definition
 
