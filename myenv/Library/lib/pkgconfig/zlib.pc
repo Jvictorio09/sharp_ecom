@@ -1,0 +1,13 @@
+prefix=E:/New Downloads/sharp_ecom/myenv/Library
+exec_prefix=E:/New Downloads/sharp_ecom/myenv/Library
+libdir=E:/New Downloads/sharp_ecom/myenv/Library/lib
+sharedlibdir=E:/New Downloads/sharp_ecom/myenv/Library/lib
+includedir=E:/New Downloads/sharp_ecom/myenv/Library/include
+
+Name: zlib
+Description: zlib compression library
+Version: 1.2.13
+
+Requires:
+Libs: -L${libdir} -L${sharedlibdir} -lz
+Cflags: -I${includedir}
