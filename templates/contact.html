@@ -1,107 +1,68 @@
 {% extends "base.html" %}
-{% block title %}Contact — Sharp Jordan{% endblock %}
-
+{% block title %}Contact — SHARP{% endblock %}
 {% block content %}
-<h1 class="text-3xl font-bold tracking-tight mb-8">Contact Us</h1>
 
-<!-- Top: Form + Brand Info -->
-<section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-  <!-- Form -->
-  <form method="post" class="lg:col-span-2 rounded-3xl border border-gray-200 bg-white p-8 space-y-5">
-    {% csrf_token %}
-    <div>
-      <label class="text-sm text-gray-700">Name</label>
-      <input name="name" required class="mt-1 w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-gray-200">
-    </div>
-
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div>
-        <label class="text-sm text-gray-700">Email (optional)</label>
-        <input type="email" name="email" class="mt-1 w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-gray-200">
-      </div>
-      <div>
-        <label class="text-sm text-gray-700">Phone (optional)</label>
-        <input type="text" name="phone" class="mt-1 w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-gray-200">
-      </div>
-    </div>
-
-    <div>
-      <label class="text-sm text-gray-700">Message</label>
-      <textarea name="message" required rows="5" class="mt-1 w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-gray-200"></textarea>
-    </div>
-
-    <button class="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-6 py-3 text-white hover:bg-gray-800 transition">
-      <i class="fa-solid fa-paper-plane"></i><span>Send Message</span>
-    </button>
-  </form>
-
-  <!-- Brand / Contact Info -->
-  <aside class="rounded-3xl border border-gray-200 bg-white p-8 space-y-6">
-    <div>
-      <h2 class="text-xl font-semibold">Sharp Jordan HQ</h2>
-      <p class="mt-1 text-sm text-gray-600">We’ll get back within 24–48 hours.</p>
-    </div>
-
-    <div class="space-y-3 text-gray-800">
-      <div class="flex items-start gap-3">
-        <i class="fa-solid fa-location-dot mt-1"></i>
-        <div>
-          <div class="font-medium">Address</div>
-          <div class="text-sm text-gray-600">
-            Abdali Boulevard, Amman, Jordan<br>
-            (Central Business District)
-          </div>
-        </div>
-      </div>
-
-      <div class="flex items-start gap-3">
-        <i class="fa-solid fa-envelope mt-1"></i>
-        <div>
-          <div class="font-medium">Email</div>
-          <a href="mailto:hello@sharpjordan.com" class="text-sm text-gray-600 hover:underline">
-            hello@sharpjordan.com
-          </a>
-        </div>
-      </div>
-
-      <div class="flex items-start gap-3">
-        <i class="fa-solid fa-phone mt-1"></i>
-        <div>
-          <div class="font-medium">Phone</div>
-          <a href="tel:+962700000000" class="text-sm text-gray-600 hover:underline">
-            +962 7 0000 0000
-          </a>
-        </div>
-      </div>
-
-      <div class="flex items-start gap-3">
-        <i class="fa-solid fa-clock mt-1"></i>
-        <div>
-          <div class="font-medium">Hours</div>
-          <div class="text-sm text-gray-600">
-            Sun–Thu: 10:00–19:00<br>
-            Fri–Sat: 11:00–17:00
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="pt-4 border-t border-gray-200">
-      <p class="text-sm text-gray-600">
-        Prefer maps? Scroll below for our exact location.
+<!-- Contact Section -->
+<section class="py-16 bg-ivory">
+  <div class="max-w-5xl mx-auto px-4">
+    <!-- Header -->
+    <div class="mb-10 text-center">
+      <h1 class="text-3xl md:text-5xl font-extrabold mb-4">Get in Touch</h1>
+      <p class="text-ink/70 max-w-2xl mx-auto">
+        Have questions about our essentials, your order, or just want to say hi? 
+        Fill out the form below and our team will respond shortly.
       </p>
     </div>
-  </aside>
-</section>
 
-<!-- Bottom: Full-bleed Map -->
-<section class="mt-12 -mx-4 sm:-mx-6 lg:-mx-20">
-  <div class="rounded-none lg:rounded-3xl overflow-hidden border-t border-b lg:border lg:border-gray-200">
-    <iframe
-      src="https://www.google.com/maps?q=Amman,Jordan&output=embed"
-      width="100%" height="520" style="border:0;"
-      allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade">
-    </iframe>
+    <!-- Contact Form -->
+    <form method="post" class="space-y-5 bg-white border border-line rounded-2xl p-8 shadow-md">
+      {% csrf_token %}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="text-sm font-medium">Name</label>
+          <input 
+            name="name" 
+            required 
+            class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white 
+                   focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
+        </div>
+        <div>
+          <label class="text-sm font-medium">Email</label>
+          <input 
+            name="email" 
+            type="email" 
+            class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white 
+                   focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
+        </div>
+      </div>
+      <div>
+        <label class="text-sm font-medium">Message</label>
+        <textarea 
+          name="message" 
+          rows="5" 
+          required 
+          class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white 
+                 focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"></textarea>
+      </div>
+      <button 
+        class="btn px-8 py-3 rounded-full text-white bg-[var(--sharp-gold)] 
+               hover:bg-[var(--sharp-hunter)]">
+        Send Message
+      </button>
+    </form>
   </div>
 </section>
+
+<!-- Google Map (Jordan) -->
+<section class="relative h-[400px] w-full border-t border-line">
+  <iframe
+    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3367842.662621051!2d34.9560028!3d31.2451987!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x1502d05d0b79d6ff%3A0x4a00d31f5fbc3d5f!2sJordan!5e0!3m2!1sen!2sjo!4v1703795021234!5m2!1sen!2sjo"
+    class="absolute inset-0 w-full h-full"
+    style="border:0;"
+    allowfullscreen=""
+    loading="lazy"
+    referrerpolicy="no-referrer-when-downgrade">
+  </iframe>
+</section>
+
 {% endblock %}

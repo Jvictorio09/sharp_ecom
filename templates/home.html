@@ -1,169 +1,200 @@
 {% extends "base.html" %}
-{% block title %}Sharp Jordan — Quiet Luxury Hair Care{% endblock %}
-
+{% block title %}SHARP — Quiet Luxury, Every Day{% endblock %}
 {% block content %}
 
-<!-- HERO -->
-<section class="relative overflow-hidden rounded-3xl border border-gray-200 bg-white mb-16">
-  <div class="absolute inset-0">
-    <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1800&q=80"
-         alt="Sharp Jordan Hero" 
-         class="w-full h-full object-cover object-center">
-    <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent"></div>
-  </div>
-  <div class="relative z-10 max-w-4xl mx-auto px-6 sm:px-12 py-40 text-center">
-    <h1 class="text-5xl sm:text-6xl font-bold text-white tracking-tight leading-tight">
-      Everyday Rituals. <br><span class="text-gray-200">Elevated.</span>
+<!-- Hero Section -->
+<section class="relative h-[95vh] flex items-center justify-center overflow-hidden">
+  <!-- Background image with slow zoom -->
+  <img src="https://images.unsplash.com/photo-1522252234503-e356532cafd5?auto=format&fit=crop&w=1600&q=80" 
+       alt="Luxury workspace" 
+       class="absolute inset-0 w-full h-full object-cover scale-105 animate-[slowZoom_20s_ease-in-out_infinite_alternate]"/>
+  <!-- Overlay -->
+  <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60"></div>
+
+  <!-- Content -->
+  <div class="relative z-10 text-center px-6 max-w-4xl">
+    <p class="uppercase tracking-[0.25em] text-sm text-white/80 mb-4 opacity-0 animate-fadeInUp delay-200">Studio Edition</p>
+    <h1 class="text-4xl md:text-6xl font-extrabold leading-tight text-white mb-6 opacity-0 animate-fadeInUp delay-300">
+      Quiet Luxury, <span class="text-[var(--sharp-gold)]">Every Day</span>.
     </h1>
-    <p class="mt-6 text-lg sm:text-xl text-gray-200 max-w-2xl mx-auto">
-      Four essentials. Quiet formulas. A routine that looks effortless—because it is.
+    <p class="text-base md:text-lg leading-relaxed text-white/90 max-w-2xl mx-auto mb-10 opacity-0 animate-fadeInUp delay-500">
+      Essential care, perfectly considered. Precision formulas and refined tools designed to outlast trends and elevate the everyday.
     </p>
-    <div class="mt-8 flex justify-center gap-4">
-      <a href="{% url 'product_list' %}" class="px-6 py-3 bg-white text-gray-900 font-semibold rounded-lg shadow hover:bg-gray-200 transition">
-        <i class="fa-solid fa-cart-shopping mr-2"></i> Shop Now
+    <div class="flex flex-wrap justify-center items-center gap-4 opacity-0 animate-fadeInUp delay-700">
+      <a href="{% url 'product_list' %}" 
+         class="btn inline-flex items-center gap-2 px-8 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] focus-ring shadow-lg hover:shadow-xl transition">
+         Shop the Essentials
       </a>
-      <a href="{% url 'product_list' %}" class="px-6 py-3 border border-white text-white font-semibold rounded-lg hover:bg-white hover:text-gray-900 transition">
-        <i class="fa-solid fa-box mr-2"></i> Build Your Set
+      <a href="#story" 
+         class="btn inline-flex items-center gap-2 px-8 py-3 rounded-full border border-white/40 bg-white/10 text-white hover:bg-white/20 focus-ring transition">
+         Discover the Story
       </a>
     </div>
   </div>
-</section>
 
-<!-- THE RITUAL -->
-<section class="max-w-6xl mx-auto px-6 sm:px-8 mb-20">
-  <h2 class="text-3xl font-bold tracking-tight text-gray-900 text-center mb-12">The Ritual</h2>
-  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10">
-
-    <div class="flex flex-col items-center text-center">
-      <img src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=800&q=80"
-           class="w-40 h-40 object-cover rounded-full mb-4" alt="Shampoo">
-      <h3 class="font-semibold text-lg">Shampoo</h3>
-      <p class="text-sm text-gray-600 mt-2">Cleans without stripping. Reset your canvas.</p>
-    </div>
-
-    <div class="flex flex-col items-center text-center">
-      <img src="https://images.unsplash.com/photo-1522252234503-e356532cafd5?auto=format&fit=crop&w=800&q=80"
-           class="w-40 h-40 object-cover rounded-full mb-4" alt="Conditioner">
-      <h3 class="font-semibold text-lg">Conditioner</h3>
-      <p class="text-sm text-gray-600 mt-2">Moisture, slip, shine. Weightless detangle.</p>
-    </div>
-
-    <div class="flex flex-col items-center text-center">
-      <img src="https://images.unsplash.com/photo-1529101091764-c3526daf38fe?auto=format&fit=crop&w=800&q=80"
-           class="w-40 h-40 object-cover rounded-full mb-4" alt="Treatment Oil">
-      <h3 class="font-semibold text-lg">Treatment Oil</h3>
-      <p class="text-sm text-gray-600 mt-2">Polish and frizz control. Pocket-gloss power.</p>
-    </div>
-
-    <div class="flex flex-col items-center text-center">
-      <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80"
-           class="w-40 h-40 object-cover rounded-full mb-4" alt="Sea Salt Spray">
-      <h3 class="font-semibold text-lg">Sea Salt Spray</h3>
-      <p class="text-sm text-gray-600 mt-2">Texture and control. Matte, not messy.</p>
-    </div>
-
+  <!-- Scroll indicator -->
+  <div class="absolute bottom-8 w-full flex justify-center">
+    <div class="animate-bounce text-white/70 text-xs tracking-wide">▼ Scroll</div>
   </div>
 </section>
 
 
-<!-- EDITORIAL QUOTE -->
-<section class="relative overflow-hidden rounded-3xl border border-gray-200 bg-gray-50 mb-20">
-  <div class="max-w-5xl mx-auto px-6 sm:px-12 py-20 text-center">
-    <blockquote class="text-2xl sm:text-3xl font-semibold leading-snug text-gray-900 max-w-3xl mx-auto">
-      “Hair care that feels invisible — until you notice how much better you look.”
-    </blockquote>
-    <p class="mt-4 text-sm text-gray-500">— The Sharp Jordan Philosophy</p>
-  </div>
-</section>
+<!-- Essentials Section -->
+<section class="relative py-20 border-t border-line bg-cream" data-animate-section>
+  <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--sharp-gold)]/40 to-transparent"></div>
 
-<!-- BEST SELLERS -->
-<section class="max-w-6xl mx-auto px-6 sm:px-8 mb-20">
-  <div class="mb-8 flex items-end justify-between">
-    <div>
-      <h2 class="text-2xl font-bold tracking-tight text-gray-900">Best Sellers</h2>
-      <p class="text-sm text-gray-500">Essentials our community can’t stop reaching for.</p>
+  <div class="max-w-7xl mx-auto px-4 md:px-8">
+    <!-- Header row -->
+    <div class="flex items-end justify-between gap-6 mb-12">
+      <div>
+        <p class="uppercase tracking-[0.18em] text-xs text-ink/60 will-reveal">Featured</p>
+        <h2 class="text-2xl md:text-4xl font-extrabold will-reveal delay-100">
+          The Essentials, Refined
+        </h2>
+        <p class="mt-2 text-ink/70 max-w-2xl will-reveal delay-200">
+          Considered materials. Built to last. Designed for real life.
+        </p>
+      </div>
+
+      <!-- Primary CTA (desktop) -->
+      <a href="{% url 'product_list' %}"
+         class="hidden md:inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] focus-ring will-reveal delay-300">
+        View all products
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
     </div>
-    <a href="{% url 'product_list' %}" class="hidden sm:inline-flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900">
-      View all <i class="fa-solid fa-arrow-right text-xs"></i>
-    </a>
-  </div>
 
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-    {% for p in featured %}
-      <a href="{% url 'product_detail' p.slug %}" class="group block overflow-hidden rounded-2xl border border-gray-200 bg-white hover:shadow-lg transition">
-        <div class="relative">
-          {% if p.image_url %}
-            <img src="{{ p.image_url }}" alt="{{ p.name }}" class="h-64 w-full object-cover transition duration-300 group-hover:scale-[1.02]">
-          {% else %}
-            <img src="https://images.unsplash.com/photo-1607082349566-187342da3a62?w=1200&q=80" alt="Placeholder" class="h-64 w-full object-cover">
-          {% endif %}
+    <!-- Grid -->
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      {% for p in featured %}
+        <div class="will-reveal delay-[{{ forloop.counter|add:1 }}00ms]" data-animate-card>
+          {% include "partials/_product_card.html" with p=p %}
         </div>
-        <div class="p-4">
-          <div class="flex items-start justify-between">
-            <h3 class="font-semibold text-gray-900">{{ p.name }}</h3>
-            <div class="font-semibold text-gray-900 whitespace-nowrap">₱{{ p.price }}</div>
-          </div>
-          <p class="mt-1 text-sm text-gray-600">{{ p.short_description }}</p>
-          <div class="mt-4 flex items-center justify-between text-sm">
-            <span class="text-gray-500">Ships in 24–48h</span>
-            <span class="inline-flex items-center gap-1 text-gray-900">
-              Add <i class="fa-solid fa-cart-plus"></i>
-            </span>
+      {% empty %}
+        <div class="col-span-full">
+          <div class="rounded-2xl border border-line bg-white p-8 text-center will-reveal">
+            <p class="text-ink/80">No featured products yet.</p>
+            <a href="{% url 'product_list' %}" class="inline-flex mt-4 items-center gap-2 px-5 py-2.5 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] focus-ring">
+              Browse all products
+            </a>
           </div>
         </div>
+      {% endfor %}
+    </div>
+
+    <!-- Mobile CTA -->
+    <div class="mt-10 md:hidden flex justify-center">
+      <a href="{% url 'product_list' %}"
+         class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] focus-ring will-reveal delay-300">
+        View all products
       </a>
-    {% empty %}
-      <p class="text-gray-600">No products yet. Add some in the admin.</p>
-    {% endfor %}
-  </div>
-</section>
-
-<!-- TRUST PILLARS -->
-<section class="max-w-5xl mx-auto px-6 sm:px-8 mb-20">
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-    <div class="rounded-2xl border border-gray-200 bg-white p-6 text-center">
-      <i class="fa-solid fa-truck text-2xl text-gray-900 mb-3"></i>
-      <h3 class="font-semibold">Free Shipping</h3>
-      <p class="text-sm text-gray-600">Complimentary shipping for orders over ₱999.</p>
-    </div>
-    <div class="rounded-2xl border border-gray-200 bg-white p-6 text-center">
-      <i class="fa-solid fa-money-bill-wave text-2xl text-gray-900 mb-3"></i>
-      <h3 class="font-semibold">Cash on Delivery</h3>
-      <p class="text-sm text-gray-600">Available nationwide, because convenience matters.</p>
-    </div>
-    <div class="rounded-2xl border border-gray-200 bg-white p-6 text-center">
-      <i class="fa-solid fa-leaf text-2xl text-gray-900 mb-3"></i>
-      <h3 class="font-semibold">Clean & Cruelty-Free</h3>
-      <p class="text-sm text-gray-600">Formulas crafted responsibly, no compromises.</p>
     </div>
   </div>
 </section>
 
 
-<!-- SUBSCRIBE SECTION -->
-<section class="relative rounded-3xl overflow-hidden border border-gray-200 bg-gray-900 mb-20">
-  <div class="absolute inset-0">
-    <!-- You can replace this background with a product/tech stock photo -->
-    <img src="https://images.unsplash.com/photo-1522252234503-e356532cafd5?auto=format&fit=crop&w=1200&q=80" 
-         alt="Subscribe Background" 
-         class="w-full h-full object-cover opacity-50">
-  </div>
-  <div class="relative z-10 max-w-2xl mx-auto px-6 py-24 text-center text-white">
-    <h2 class="text-3xl sm:text-4xl font-bold mb-4">Subscribe Now!</h2>
-    <p class="text-gray-200 mb-8">
-      Be the first to receive exclusive promotions, updates, and product announcements.  
-      Subscribe to our newsletter and stay updated.
-    </p>
-    <form method="post" action="#" class="flex flex-col sm:flex-row gap-3 justify-center">
-      {% csrf_token %}
-      <input type="email" name="email" placeholder="Enter your email" required
-             class="w-full sm:w-80 px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-200">
-      <button type="submit"
-              class="px-6 py-3 bg-white text-gray-900 font-semibold rounded-lg hover:bg-gray-200 transition">
-        Subscribe
-      </button>
-    </form>
+
+<!-- Story / Brand Values -->
+<section id="story" class="py-20 border-y border-line bg-ivory" data-animate-section>
+  <div class="max-w-7xl mx-auto px-4 md:px-8 grid lg:grid-cols-2 gap-12 items-center">
+    <div class="rounded-2xl overflow-hidden aspect-[4/3] bg-ivory shadow-lg opacity-0 translate-y-6 transition-all duration-700" data-animate-card>
+      <img src="https://images.unsplash.com/photo-1542744173-05336fcc7ad4?auto=format&fit=crop&w=1200&q=80" 
+           alt="Studio bench with lab glassware" 
+           class="w-full h-full object-cover scale-105 hover:scale-110 transition-transform duration-700"/>
+    </div>
+    <div class="opacity-0 translate-y-6 transition-all duration-700 delay-200" data-animate-card>
+      <h2 class="text-2xl md:text-4xl font-extrabold">We design tools, not trends.</h2>
+      <p class="mt-4 text-ink/80 leading-relaxed">Fewer, better products—engineered for daily use. Traceable supply chain, fair-wage partners, and zero-waste packaging. Luxury that whispers, not shouts.</p>
+      <div class="mt-8 grid sm:grid-cols-3 gap-6 text-sm">
+        <div class="border-l-2 pl-4 border-[var(--sharp-gold)]">
+          <p class="font-semibold">Traceable</p>
+          <p class="opacity-70">Supply chain</p>
+        </div>
+        <div class="border-l-2 pl-4 border-[var(--sharp-gold)]">
+          <p class="font-semibold">Zero-Waste</p>
+          <p class="opacity-70">Packaging</p>
+        </div>
+        <div class="border-l-2 pl-4 border-[var(--sharp-gold)]">
+          <p class="font-semibold">Fair-Wage</p>
+          <p class="opacity-70">Partners</p>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
+
+
+<!-- Animation Styles -->
+<style>
+  @keyframes fadeInUp {
+    0% {opacity:0; transform: translateY(20px);}
+    100% {opacity:1; transform: translateY(0);}
+  }
+  .animate-fadeInUp { animation: fadeInUp 0.8s ease forwards; }
+  .delay-200 { animation-delay: 0.2s; }
+  .delay-300 { animation-delay: 0.3s; }
+  .delay-500 { animation-delay: 0.5s; }
+  .delay-700 { animation-delay: 0.7s; }
+
+  @keyframes slowZoom {
+    from { transform: scale(1.05); }
+    to { transform: scale(1.1); }
+  }
+
+  .will-reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 700ms ease, transform 700ms ease;
+  }
+  .delay-100 { transition-delay: .1s; }
+  .delay-200 { transition-delay: .2s; }
+  .delay-300 { transition-delay: .3s; }
+  /* supports arbitrary delays like delay-[300ms] already used on cards */
+  .in-view .will-reveal,
+  .will-reveal.revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+
+<!-- Scroll-triggered reveal -->
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.remove("opacity-0","translate-y-6");
+          entry.target.classList.add("opacity-100","translate-y-0");
+        }
+      });
+    }, { threshold: 0.2 });
+
+    document.querySelectorAll("[data-animate-section], [data-animate-card]").forEach(el => observer.observe(el));
+  });
+
+
+    document.addEventListener("DOMContentLoaded", () => {
+    const sections = document.querySelectorAll("[data-animate-section]");
+    const cards = document.querySelectorAll("[data-animate-card]");
+
+    const sectionObs = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) entry.target.classList.add("in-view");
+      });
+    }, { threshold: 0.2 });
+
+    sections.forEach(s => sectionObs.observe(s));
+
+    const cardObs = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) entry.target.classList.add("revealed");
+      });
+    }, { threshold: 0.15 });
+
+    cards.forEach(c => cardObs.observe(c));
+  });
+</script>
 
 {% endblock %}
