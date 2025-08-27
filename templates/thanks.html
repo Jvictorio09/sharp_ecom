@@ -1,12 +1,141 @@
 {% extends "base.html" %}
 {% block title %}Thank You — SHARP{% endblock %}
 {% block content %}
-<section class="py-24">
-  <div class="max-w-xl mx-auto px-4 text-center">
-    <h1 class="text-3xl md:text-5xl font-extrabold">Order placed!</h1>
-    <p class="mt-3 opacity-80">We’ll confirm via Email. You’re minutes away from better.</p>
-    <a href="{% url 'product_list' %}" class="btn mt-8 inline-flex items-center gap-2 px-6 py-3 rounded-full text-ink bg-[var(--sharp-gold)] hover:bg-ink hover:text-cream">Continue Shopping</a>
-  </div>
-</section>
-{% endblock %}
 
+<section class="relative py-20 md:py-28 bg-cream">
+  <!-- subtle top divider accent -->
+  <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--sharp-gold)]/40 to-transparent"></div>
+
+  <div class="max-w-2xl mx-auto px-4 text-center">
+    <!-- Animated check -->
+    <div class="mx-auto mb-6 w-16 h-16 rounded-full bg-[var(--sharp-gold)]/10 flex items-center justify-center">
+      <svg class="w-8 h-8 text-[var(--sharp-gold)] animate-[pop_500ms_ease-out]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" opacity="0.35"/>
+        <path d="M7 12l3 3 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
+    <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight">Order placed!</h1>
+    <p class="mt-3 text-ink/80">We’ve sent a confirmation email with your details. We’ll notify you as soon as it ships.</p>
+
+    {% if order_number %}
+      <!-- Order number card -->
+      <div class="mt-8 inline-flex items-center gap-3 px-4 py-3 rounded-full border border-line bg-white">
+        <span class="text-sm uppercase tracking-widest text-ink/60">Order</span>
+        <span class="font-semibold">{{ order_number }}</span>
+        <button id="copyOrderBtn"
+                class="ml-1 text-sm px-3 py-1.5 rounded-full border border-line bg-cream hover:border-[var(--sharp-gold)]">
+          Copy
+        </button>
+      </div>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
+      <a href="{% url 'order_status' %}" 
+         class="btn w-full sm:w-auto inline-flex items-center gap-2 px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]">
+        Track your order
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+
+      <a href="{% url 'product_list' %}" 
+         class="btn w-full sm:w-auto inline-flex items-center gap-2 px-6 py-3 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]">
+        Continue shopping
+      </a>
+    </div>
+
+    <!-- Reassurance row -->
+    <div class="mt-8 flex items-center justify-center gap-4 text-xs text-ink/70">
+      <span class="inline-flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-[var(--sharp-gold)]"></span> Encrypted checkout
+      </span>
+      <span>•</span>
+      <span>30-day guarantee</span>
+      <span>•</span>
+      <span>24/7 human support</span>
+    </div>
+  </div>
+
+  <!-- Confetti canvas -->
+  <canvas id="confetti" class="pointer-events-none absolute inset-0 w-full h-full"></canvas>
+</section>
+
+<!-- Styles for tiny pop animation -->
+<style>
+@keyframes pop { 0%{ transform: scale(.7); opacity:.3 } 100%{ transform: scale(1); opacity:1 } }
+</style>
+
+<!-- Copy + confetti script -->
+<script>
+  // Copy order number
+  (function(){
+    const btn = document.getElementById('copyOrderBtn');
+    if(!btn) return;
+    const num = "{{ order_number|default_if_none:'' }}";
+    btn.addEventListener('click', async () => {
+      try{
+        await navigator.clipboard.writeText(num);
+        const prev = btn.textContent;
+        btn.textContent = "Copied!";
+        setTimeout(()=> btn.textContent = prev, 1200);
+      }catch(e){ console.warn(e); }
+    });
+  })();
+
+  // Tasteful confetti
+  (function(){
+    const canvas = document.getElementById('confetti');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let W, H, pieces = [];
+
+    function resize(){
+      W = canvas.width = canvas.offsetWidth;
+      H = canvas.height = canvas.offsetHeight;
+    }
+    window.addEventListener('resize', resize, { passive: true });
+    resize();
+
+    // palette uses brand tokens
+    const colors = [
+      getComputedStyle(document.documentElement).getPropertyValue('--sharp-gold').trim() || '#C7A66A',
+      'rgba(0,0,0,0.08)',
+      'rgba(0,0,0,0.16)'
+    ];
+
+    function spawn(n=60){
+      pieces = Array.from({length:n}).map(() => ({
+        x: Math.random()*W,
+        y: -20 - Math.random()*H*0.2,
+        w: 6 + Math.random()*6,
+        h: 8 + Math.random()*10,
+        c: colors[Math.floor(Math.random()*colors.length)],
+        vy: 1.2 + Math.random()*1.6,
+        vx: -0.6 + Math.random()*1.2,
+        rot: Math.random()*Math.PI,
+        vr: -0.05 + Math.random()*0.1,
+      }));
+    }
+
+    function step(){
+      ctx.clearRect(0,0,W,H);
+      pieces.forEach(p => {
+        p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.c;
+        ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+        ctx.restore();
+      });
+      pieces = pieces.filter(p => p.y < H+30);
+      if (pieces.length) requestAnimationFrame(step);
+    }
+
+    // fire once after slight delay
+    setTimeout(() => { spawn(); step(); }, 200);
+  })();
+</script>
+{% endblock %}

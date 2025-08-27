@@ -1,0 +1,22 @@
+New order: {{ order.order_number }}
+
+Customer:
+- Name: {{ order.full_name }}
+- Phone: {{ order.phone }}
+- Email: {{ order.email }}
+
+Items:
+{% for it in order.items.all %}
+- {{ it.name }} × {{ it.quantity }} — ₱{{ it.line_total }}
+{% endfor %}
+
+Subtotal: ₱{{ order.subtotal }}
+Shipping: ₱{{ order.shipping_cost }}
+Discount: ₱{{ order.discount_total }}
+Total: ₱{{ order.grand_total }}
+
+Ship to:
+{{ order.address_line1 }}{% if order.city %}, {{ order.city }}{% endif %}{% if order.province %}, {{ order.province }}{% endif %}{% if order.zip_code %}, {{ order.zip_code }}{% endif %}
+
+Notes:
+{{ order.notes }}

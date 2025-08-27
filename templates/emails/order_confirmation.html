@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+  <body style="font-family: Inter, Arial, sans-serif;">
+    <h2 style="margin:0 0 8px">Thanks for your order, {{ order.full_name }}.</h2>
+    <p style="margin:0 0 12px">Order <strong>{{ order.order_number }}</strong></p>
+
+    <table cellpadding="6" cellspacing="0" border="0" style="border-collapse:collapse; width:100%; max-width:520px;">
+      {% for it in order.items.all %}
+      <tr>
+        <td>{{ it.name }} × {{ it.quantity }}</td>
+        <td align="right">₱{{ it.line_total }}</td>
+      </tr>
+      {% endfor %}
+      <tr><td colspan="2"><hr></td></tr>
+      <tr><td>Subtotal</td><td align="right">₱{{ order.subtotal }}</td></tr>
+      <tr><td>Shipping</td><td align="right">₱{{ order.shipping_cost }}</td></tr>
+      {% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
+      <tr><td>Discount</td><td align="right">-₱{{ order.discount_total }}</td></tr>
+      {% endif %}
+      <tr><td><strong>Total</strong></td><td align="right"><strong>₱{{ order.grand_total }}</strong></td></tr>
+    </table>
+
+    <p style="margin-top:16px">
+      Ship to: {{ order.full_name }}, {{ order.address_line1 }}{% if order.city %}, {{ order.city }}{% endif %}{% if order.province %}, {{ order.province }}{% endif %}{% if order.zip_code %}, {{ order.zip_code }}{% endif %}
+    </p>
+
+    <p>Track your order: <a href="{{ request.scheme }}://{{ request.get_host }}{% url 'order_status' %}">Order Status</a></p>
+    <p>— SHARP</p>
+  </body>
+</html>

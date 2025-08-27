@@ -1,0 +1,22 @@
+Hi {{ order.full_name }},
+
+Thanks for your order {{ order.order_number }}.
+
+Items:
+{% for it in order.items.all %}
+- {{ it.name }} × {{ it.quantity }} — ₱{{ it.line_total }}
+{% endfor %}
+
+Subtotal: ₱{{ order.subtotal }}
+Shipping: ₱{{ order.shipping_cost }}{% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
+Discount: -₱{{ order.discount_total }}{% endif %}
+Total: ₱{{ order.grand_total }}
+
+Ship to:
+{{ order.full_name }}
+{{ order.address_line1 }}{% if order.city %}, {{ order.city }}{% endif %}{% if order.province %}, {{ order.province }}{% endif %}{% if order.zip_code %}, {{ order.zip_code }}{% endif %}
+
+Track your order:
+{{ request.scheme }}://{{ request.get_host }}{% url 'order_status' %}
+
+— SHARP

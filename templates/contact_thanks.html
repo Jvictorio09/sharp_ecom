@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Thanks — We’ve got your message{% endblock %}
+{% block content %}
+<section class="relative py-20 md:py-28 bg-cream">
+  <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--sharp-gold)]/40 to-transparent"></div>
+
+  <div class="max-w-xl mx-auto px-4 text-center">
+    <div class="mx-auto mb-6 w-16 h-16 rounded-full bg-[var(--sharp-gold)]/10 flex items-center justify-center">
+      <svg class="w-8 h-8 text-[var(--sharp-gold)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" opacity="0.35"/>
+        <path d="M7 12l3 3 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
+    <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight">Message received</h1>
+    <p class="mt-3 text-ink/80">Thanks for getting in touch. A product specialist will reply shortly.</p>
+
+    <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
+      <a href="{% url 'product_list' %}" class="btn w-full sm:w-auto inline-flex items-center gap-2 px-6 py-3 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]">
+        Continue shopping
+      </a>
+      <a href="{% url 'order_status' %}" class="btn w-full sm:w-auto inline-flex items-center gap-2 px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]">
+        Track an order
+      </a>
+    </div>
+  </div>
+</section>
+{% endblock %}
