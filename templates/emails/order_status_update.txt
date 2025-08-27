@@ -1,0 +1,18 @@
+Hi {{ order.full_name|default:"there" }},
+
+Good news — we’ve updated your order {{ order.order_number }}.
+
+Current status: {{ order.get_status_display|default:order.status|title }}
+
+{% if tracking_changed and order.tracking_number %}
+Tracking number: {{ order.tracking_number }}
+{% endif %}
+
+Order total: ₱{{ order.grand_total }}
+Placed: {{ order.created_at|date:"M d, Y H:i" }}
+
+You can check the latest status here:
+{{ request.build_absolute_uri|cut:"/dashboard/" }}order-status/
+
+Thanks for choosing SHARP,
+The SHARP Team

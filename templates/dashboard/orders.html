@@ -1,0 +1,54 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block content %}
+<form method="get" class="flex flex-wrap items-end gap-3 mb-4">
+  <div>
+    <<label class="text-xs">Status</label>
+<select name="status" class="block mt-1 px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white">
+  <option value="all" {% if status == "all" %}selected{% endif %}>All</option>
+  {% for s in order_statuses %}
+    <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s|title }}</option>
+  {% endfor %}
+</select>
+
+
+
+  </div>
+  <div class="flex-1 min-w-[200px]">
+    <label class="text-xs">Search</label>
+    <input name="q" value="{{ q }}" placeholder="Order #, name, email, phone" class="block w-full mt-1 px-4 py-2 rounded-xl border border-[#E1E1E1] bg-white">
+  </div>
+  <button class="px-5 py-2 rounded-full text-white bg-[var(--sharp-mineral)] hover:bg-[var(--sharp-hunter)]">Filter</button>
+</form>
+
+<div class="overflow-auto rounded-2xl border border-[#E1E1E1] bg-white">
+  <table class="w-full text-sm">
+    <thead class="bg-[#FAFAF8]">
+      <tr>
+        <th class="text-left px-4 py-3">Order</th>
+        <th class="text-left px-4 py-3">Customer</th>
+        <th class="text-left px-4 py-3">Total</th>
+        <th class="text-left px-4 py-3">Status</th>
+        <th class="text-left px-4 py-3">Placed</th>
+        <th class="text-left px-4 py-3"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for o in orders %}
+      <tr class="border-t border-[#E1E1E1] hover:bg-[#FCFCFA]">
+        <td class="px-4 py-3 font-medium">{{ o.order_number }}</td>
+        <td class="px-4 py-3">
+          {{ o.full_name }}<br>
+          <span class="text-black/60">{{ o.email }}</span>
+        </td>
+        <td class="px-4 py-3">₱{{ o.grand_total }}</td>
+        <td class="px-4 py-3">{{ o.get_status_display }}</td>
+        <td class="px-4 py-3">{{ o.created_at|date:"M d, Y H:i" }}</td>
+        <td class="px-4 py-3"><a class="underline" href="{% url 'dashboard_order_detail' o.order_number %}">View</a></td>
+      </tr>
+      {% empty %}
+      <tr><td class="px-4 py-6" colspan="6">No orders found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

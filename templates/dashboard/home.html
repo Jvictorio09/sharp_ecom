@@ -1,0 +1,235 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block content %}
+
+<!-- KPIs -->
+<div class="grid sm:grid-cols-3 gap-6">
+  <div class="rounded-2xl border border-[#E1E1E1] bg-white p-6">
+    <p class="text-sm text-black/60">Pending</p>
+    <p class="text-3xl font-extrabold mt-1">{{ kpi.pending }}</p>
+  </div>
+  <div class="rounded-2xl border border-[#E1E1E1] bg-white p-6">
+    <p class="text-sm text-black/60">Orders today</p>
+    <p class="text-3xl font-extrabold mt-1">{{ kpi.today }}</p>
+  </div>
+  <div class="rounded-2xl border border-[#E1E1E1] bg-white p-6">
+    <p class="text-sm text-black/60">Sales (30 days)</p>
+    <p class="text-3xl font-extrabold mt-1">₱{{ kpi.sales_30 }}</p>
+  </div>
+</div>
+
+<!-- Recent Orders -->
+<div class="mt-8">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold">Recent orders</h2>
+    <a href="{% url 'dashboard_order_list' %}" class="text-sm underline">View all</a>
+  </div>
+
+  <div class="overflow-hidden rounded-2xl border border-[#E1E1E1] bg-white">
+    <table class="w-full text-sm">
+      <thead class="bg-[#FAFAF8]">
+        <tr>
+          <th class="text-left px-4 py-3">Order</th>
+          <th class="text-left px-4 py-3">Customer</th>
+          <th class="text-left px-4 py-3">Total</th>
+          <th class="text-left px-4 py-3">Status</th>
+          <th class="text-left px-4 py-3">Placed</th>
+          <th class="text-left px-4 py-3">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in recent %}
+        <tr class="border-t border-[#E1E1E1]">
+          <td class="px-4 py-3">
+            <a class="underline" href="{% url 'dashboard_order_detail' o.order_number %}">{{ o.order_number }}</a>
+          </td>
+          <td class="px-4 py-3">{{ o.full_name }}</td>
+          <td class="px-4 py-3">₱{{ o.grand_total }}</td>
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center px-2 py-1 rounded-full border
+               {% if o.status == 'pending' %}border-amber-400 text-amber-700 bg-amber-50
+               {% elif o.status == 'confirmed' %}border-sky-400 text-sky-700 bg-sky-50
+               {% elif o.status == 'shipped' %}border-indigo-400 text-indigo-700 bg-indigo-50
+               {% elif o.status == 'delivered' %}border-emerald-400 text-emerald-700 bg-emerald-50
+               {% elif o.status == 'canceled' %}border-rose-400 text-rose-700 bg-rose-50
+               {% else %}border-gray-300 text-gray-700 bg-gray-50{% endif %}">
+              {{ o.get_status_display }}
+            </span>
+          </td>
+          <td class="px-4 py-3">{{ o.created_at|date:"M d, Y H:i" }}</td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-2">
+              <button
+                class="px-3 py-1.5 rounded-full border border-[#E1E1E1] hover:border-black/30"
+                data-edit
+                data-order="{{ o.order_number }}"
+                data-customer="{{ o.full_name|escape }}"
+                data-status="{{ o.status }}"
+                data-notes="{{ o.notes|default_if_none:''|escape }}">
+                Update
+              </button>
+              <button
+                class="px-3 py-1.5 rounded-full border border-rose-300 text-rose-700 hover:bg-rose-50"
+                data-delete
+                data-order="{{ o.order_number }}"
+                data-customer="{{ o.full_name|escape }}">
+                Delete
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td class="px-4 py-6" colspan="6">No orders yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===========================
+     UPDATE MODAL (single instance)
+=========================== -->
+<div id="updateModal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black/40" data-close></div>
+  <div class="relative mx-auto mt-[10vh] w-[92%] max-w-xl rounded-2xl bg-white shadow-2xl border border-[#E1E1E1]">
+    <div class="px-6 py-4 border-b border-[#E1E1E1] flex items-center justify-between">
+      <h3 class="text-lg font-semibold">Update order <span id="umOrder"></span></h3>
+      <button class="w-9 h-9 rounded-full border border-[#E1E1E1] hover:bg-gray-50" aria-label="Close" data-close>✕</button>
+    </div>
+    <form id="updateForm" method="post" action="{% url 'dashboard_order_update' 'ORDNUM' %}" class="p-6 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <div>
+        <label class="text-xs text-black/70">Customer</label>
+        <p id="umCustomer" class="mt-1 font-medium"></p>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          
+          <label class="text-xs text-black/70">Status</label>
+            <select name="status" id="umStatus" class="mt-1 w-full px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white">
+            {% for s in order_statuses %}
+                <option value="{{ s }}">{{ s|title }}</option>
+            {% endfor %}
+            </select>
+
+        </div>
+        <div>
+          <label class="text-xs text-black/70">Tracking # (optional)</label>
+          <input name="tracking" id="umTracking" class="mt-1 w-full px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white" placeholder="e.g., LBC123456789">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-black/70">Internal notes</label>
+        <textarea name="notes" id="umNotes" rows="3" class="mt-1 w-full px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white" placeholder="Only visible to staff"></textarea>
+      </div>
+      <div class="pt-2 flex items-center justify-end gap-2">
+        <button type="button" class="px-4 py-2 rounded-full border border-[#E1E1E1] bg-white hover:bg-gray-50" data-close>Cancel</button>
+        <button class="px-5 py-2 rounded-full text-white bg-[var(--sharp-mineral)] hover:bg-[var(--sharp-hunter)]">Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===========================
+     DELETE MODAL (single instance)
+=========================== -->
+<div id="deleteModal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black/40" data-close></div>
+  <div class="relative mx-auto mt-[15vh] w-[92%] max-w-md rounded-2xl bg-white shadow-2xl border border-[#E1E1E1]">
+    <div class="px-6 py-4 border-b border-[#E1E1E1] flex items-center justify-between">
+      <h3 class="text-lg font-semibold">Delete order</h3>
+      <button class="w-9 h-9 rounded-full border border-[#E1E1E1] hover:bg-gray-50" aria-label="Close" data-close>✕</button>
+    </div>
+    <form id="deleteForm" method="post" action="{% url 'dashboard_order_delete' 'ORDNUM' %}" class="p-6 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <p class="text-sm">You’re about to delete <strong id="dmOrder"></strong> for <strong id="dmCustomer"></strong>. This action cannot be undone.</p>
+      <div class="pt-2 flex items-center justify-end gap-2">
+        <button type="button" class="px-4 py-2 rounded-full border border-[#E1E1E1] bg-white hover:bg-gray-50" data-close>Cancel</button>
+        <button class="px-5 py-2 rounded-full text-white bg-rose-600 hover:bg-rose-700">Delete</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal + actions script -->
+<script>
+  (function () {
+    const uModal = document.getElementById('updateModal');
+    const dModal = document.getElementById('deleteModal');
+
+    const umOrder = document.getElementById('umOrder');
+    const umCustomer = document.getElementById('umCustomer');
+    const umStatus = document.getElementById('umStatus');
+    const umNotes = document.getElementById('umNotes');
+    const umTracking = document.getElementById('umTracking');
+    const updateForm = document.getElementById('updateForm');
+
+    const dmOrder = document.getElementById('dmOrder');
+    const dmCustomer = document.getElementById('dmCustomer');
+    const deleteForm = document.getElementById('deleteForm');
+
+    // Helpers
+    const open = el => el.classList.remove('hidden');
+    const close = el => el.classList.add('hidden');
+
+    // Close handlers
+    document.querySelectorAll('[data-close]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        close(uModal); close(dModal);
+      });
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { close(uModal); close(dModal); }
+    });
+
+    // Edit buttons
+    document.querySelectorAll('[data-edit]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const order = btn.getAttribute('data-order');
+        const customer = btn.getAttribute('data-customer') || '';
+        const status = btn.getAttribute('data-status') || 'pending';
+        const notes = btn.getAttribute('data-notes') || '';
+
+        umOrder.textContent = order;
+        umCustomer.textContent = customer;
+        umStatus.value = status;
+        umNotes.value = notes;
+        umTracking.value = '';
+
+        // Replace placeholder in action URL
+        const baseAction = updateForm.getAttribute('action'); // e.g., /dashboard/orders/ORDNUM/update/
+        updateForm.setAttribute('action', baseAction.replace('ORDNUM', order));
+
+        open(uModal);
+      });
+    });
+
+    // Delete buttons
+    document.querySelectorAll('[data-delete]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const order = btn.getAttribute('data-order');
+        const customer = btn.getAttribute('data-customer') || '';
+
+        dmOrder.textContent = order;
+        dmCustomer.textContent = customer;
+
+        const baseAction = deleteForm.getAttribute('action'); // /dashboard/orders/ORDNUM/delete/
+        deleteForm.setAttribute('action', baseAction.replace('ORDNUM', order));
+
+        open(dModal);
+      });
+    });
+
+    // Clicking backdrop closes modals
+    [uModal, dModal].forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target && e.target.getAttribute('data-close') !== null) {
+          close(modal);
+        }
+      });
+    });
+  })();
+</script>
+
+{% endblock %}

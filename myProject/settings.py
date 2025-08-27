@@ -164,3 +164,6 @@ EMAIL_TIMEOUT = env_int("EMAIL_TIMEOUT", 20)
 
 
 CONTACT_TO = "juliavictorio16@gmail.com"
+
+
+LOGIN_URL = "dashboard_login"
