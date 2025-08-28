@@ -156,7 +156,7 @@ else:
     EMAIL_USE_SSL = False
 
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "juliavictorio16@gmail.com")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "hqfr kvhy mkfo uenn")  # Gmail App Password
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")  # Gmail App Password
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", f"Julia Victorio <{EMAIL_HOST_USER}>")
 SERVER_EMAIL = os.environ.get("SERVER_EMAIL", DEFAULT_FROM_EMAIL)  # used by Django for error mails
 CONTACT_TO = os.environ.get("CONTACT_TO", "juliavictorio16@gmail.com")
