@@ -411,21 +411,18 @@ def contact_thanks(request):
 # =======================
 # Email helpers
 # =======================
-def _email_order_confirmation(request, order: Order):
-    """Email customer (if email provided)."""
+def _email_order_confirmation(request, order):
     if not order.email:
         return
-    context = {"order": order, "request": request}
+    context = {
+        "order": order,
+        "items": list(order.items.all()),  # <-- add this
+        "request": request,
+    }
     subject = f"Your SHARP Order {order.order_number}"
     text_body = render_to_string("emails/order_confirmation.txt", context)
     html_body = render_to_string("emails/order_confirmation.html", context)
-    send_mail(
-        subject=subject,
-        message=text_body,
-        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-        recipient_list=[order.email],
-        html_message=html_body,
-    )
+    send_mail(subject, text_body, settings.DEFAULT_FROM_EMAIL, [order.email], html_message=html_body)
 
 
 def _email_admin_new_order(request, order: Order):
@@ -433,14 +430,21 @@ def _email_admin_new_order(request, order: Order):
     admin_email = getattr(settings, "ADMIN_ORDER_EMAIL", None)
     if not admin_email:
         return
-    context = {"order": order, "request": request}
+
+    try:
+        items_qs = order.items.all()
+    except Exception:
+        items_qs = order.orderitem_set.all()
+
+    context = {"order": order, "items": items_qs, "request": request}
+
     subject = f"New Order: {order.order_number}"
     text_body = render_to_string("emails/admin_new_order.txt", context)
-    # If you add an HTML template: html_body = render_to_string("emails/admin_new_order.html", context)
+    # If you later add HTML: html_body = render_to_string("emails/admin_new_order.html", context)
+
     send_mail(
         subject=subject,
         message=text_body,
         from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
         recipient_list=[admin_email],
-        html_message=None,
     )

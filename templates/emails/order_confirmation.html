@@ -9,54 +9,62 @@
         </td>
       </tr>
 
+      <!-- Items -->
       <tr>
         <td style="padding:0 24px 16px">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse">
             <tr>
-              <th align="left" style="padding:8px 0;color:#777;font-weight:600;border-bottom:1px solid #eee">Item</th>
+              <th align="left"  style="padding:8px 0;color:#777;font-weight:600;border-bottom:1px solid #eee">Item</th>
               <th align="right" style="padding:8px 0;color:#777;font-weight:600;border-bottom:1px solid #eee">Total</th>
             </tr>
-            {% for it in order.orderitem_set.all %}
-            <tr>
-              <td style="padding:8px 0">{{ it.name }} × {{ it.quantity }}</td>
-              <td align="right" style="padding:8px 0">JD{{ it.line_total }}</td>
-            </tr>
-            {% endfor %}
+            {% with item_list=items|default:order.items.all %}
+              {% for it in item_list %}
+              <tr>
+                <td style="padding:8px 0">{{ it.name }} × {{ it.quantity }}</td>
+                <td align="right" style="padding:8px 0">JD{{ it.line_total|floatformat:2 }}</td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="2" style="padding:12px 0;color:#777">No items.</td>
+              </tr>
+              {% endfor %}
+            {% endwith %}
           </table>
         </td>
       </tr>
 
+      <!-- Totals -->
       <tr>
-        <td style="padding:0 24px 16px">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #eee;padding-top:8px">
+        <td style="padding:0 24px 8px">
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:collapse">
             <tr>
-              <td>Subtotal</td>
-              <td align="right">JD{{ order.subtotal }}</td>
+              <td style="padding:6px 0;color:#555">Subtotal</td>
+              <td align="right" style="padding:6px 0;color:#111">JD{{ order.subtotal|floatformat:2 }}</td>
             </tr>
             <tr>
-              <td>Shipping</td>
-              <td align="right">JD{{ order.shipping_cost }}</td>
+              <td style="padding:6px 0;color:#555">Shipping</td>
+              <td align="right" style="padding:6px 0;color:#111">JD{{ order.shipping_cost|floatformat:2 }}</td>
             </tr>
-            {% if order.discount_total %}
+            {% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
             <tr>
-              <td>Discount</td>
-              <td align="right">-JD{{ order.discount_total }}</td>
+              <td style="padding:6px 0;color:#555">Discount</td>
+              <td align="right" style="padding:6px 0;color:#111">-JD{{ order.discount_total|floatformat:2 }}</td>
             </tr>
             {% endif %}
             <tr>
-              <td><strong>Total</strong></td>
-              <td align="right"><strong>JD{{ order.grand_total }}</strong></td>
+              <td style="padding:10px 0;border-top:1px solid #eee;"><strong>Total</strong></td>
+              <td align="right" style="padding:10px 0;border-top:1px solid #eee;"><strong>JD{{ order.grand_total|floatformat:2 }}</strong></td>
             </tr>
           </table>
         </td>
       </tr>
 
+      <!-- Address + note -->
       <tr>
         <td style="padding:0 24px 24px;color:#555">
           <p style="margin:12px 0 0">
             Ship to: {{ order.full_name }}, {{ order.address_line1 }}{% if order.city %}, {{ order.city }}{% endif %}{% if order.province %}, {{ order.province }}{% endif %}{% if order.zip_code %}, {{ order.zip_code }}{% endif %}
           </p>
-
           <p style="margin:12px 0 0;font-size:13px;color:#777">
             If you don’t see this email, please check your <strong>Spam</strong> or <strong>Promotions</strong> tab and mark it as “Not spam”.
           </p>
@@ -65,7 +73,8 @@
     </table>
 
     <p style="max-width:640px;margin:12px auto 0;color:#888;font-size:12px;text-align:center">
-      You can also track your order on the Order Status page.
+      Track your order anytime:
+      <a href="{{ request.scheme }}://{{ request.get_host }}{% url 'order_status' %}" style="color:#111">Order Status</a>
     </p>
   </body>
 </html>

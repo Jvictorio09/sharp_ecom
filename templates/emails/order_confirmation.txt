@@ -3,14 +3,16 @@ Hi {{ order.full_name }},
 Thanks for your order {{ order.order_number }}.
 
 Items:
-{% for it in order.items.all %}
-- {{ it.name }} × {{ it.quantity }} — JD{{ it.line_total }}
+{% for it in items %}
+- {{ it.name }} × {{ it.quantity }} — JD{{ it.line_total|floatformat:2 }}
+{% empty %}
+- (No items)
 {% endfor %}
 
-Subtotal: JD{{ order.subtotal }}
-Shipping: JD{{ order.shipping_cost }}{% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
-Discount: -JD{{ order.discount_total }}{% endif %}
-Total: JD{{ order.grand_total }}
+Subtotal: JD{{ order.subtotal|floatformat:2 }}
+Shipping: JD{{ order.shipping_cost|floatformat:2 }}{% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
+Discount: -JD{{ order.discount_total|floatformat:2 }}{% endif %}
+Total: JD{{ order.grand_total|floatformat:2 }}
 
 Ship to:
 {{ order.full_name }}
@@ -18,5 +20,7 @@ Ship to:
 
 Track your order:
 {{ request.scheme }}://{{ request.get_host }}{% url 'order_status' %}
+
+If you don't see this email in your inbox, please check your Spam or Promotions tab and mark it as “Not spam”.
 
 — SHARP
