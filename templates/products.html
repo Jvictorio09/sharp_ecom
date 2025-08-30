@@ -22,21 +22,15 @@
     <div class="mb-8 grid gap-3 md:grid-cols-12 will-reveal delay-300">
       <!-- Quick filters (chips) -->
       <div class="md:col-span-7 flex flex-wrap gap-2">
-        <button data-chip="all" class="chip-active px-3 py-2 rounded-full border border-line bg-white text-sm">
-          All
-        </button>
-        <button data-chip="new" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">
-          New
-        </button>
-        <button data-chip="bestseller" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">
-          Bestsellers
-        </button>
-        <button data-chip="sale" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">
-          On Sale
-        </button>
-        <button data-chip="under-1500" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">
-          Under JD1,500
-        </button>
+        <button data-chip="all" class="chip-active px-3 py-2 rounded-full border border-line bg-white text-sm">All</button>
+        <button data-chip="bundle" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">Bundles</button>
+        <button data-chip="single" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">Singles</button>
+
+        <!-- keep your existing “marketing” chips -->
+        <button data-chip="new" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">New</button>
+        <button data-chip="bestseller" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">Bestsellers</button>
+        <button data-chip="sale" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">On Sale</button>
+        <button data-chip="under-1500" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">Under JD1,500</button>
       </div>
 
       <!-- Search -->
@@ -70,9 +64,19 @@
       <div class="product-card will-reveal"
            data-name="{{ p.name|lower }}"
            data-price="{{ p.price }}"
+           data-bundle="{% if p.is_bundle %}1{% else %}0{% endif %}"
            data-badge="{{ p.badge|default_if_none:''|lower }}"
            data-sale="{% if p.compare_price and p.compare_price > p.price %}1{% else %}0{% endif %}">
         {% include "partials/_product_card.html" with p=p %}
+
+        {% if p.is_bundle %}
+          <p class="mt-2 text-xs text-ink/70">
+            {% for link in p.component_links.all %}
+              {{ link.quantity }}× {{ link.component.name }}{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+            {% if p.free_delivery %} • 🚚 Free delivery{% endif %}
+          </p>
+        {% endif %}
       </div>
       {% empty %}
       <div class="col-span-full">
@@ -111,6 +115,7 @@
     const search = document.getElementById('searchInput');
     const sort = document.getElementById('sortSelect');
     const chips = document.querySelectorAll('[data-chip]');
+
     // Reveal on view
     const obs = new IntersectionObserver((ents) => {
       ents.forEach(e => { if (e.isIntersecting) e.target.classList.add('revealed'); });
@@ -120,13 +125,20 @@
     });
     cards.forEach(c => obs.observe(c));
 
+    // Preselect chip from URL (?type=bundle|single|all)
+    const params = new URLSearchParams(location.search);
+    const typeParam = (params.get('type') || 'all').toLowerCase();
+    const defaultChip = document.querySelector(`[data-chip="${typeParam}"]`) || document.querySelector('[data-chip="all"]');
+    chips.forEach(c => c.classList.remove('chip-active'));
+    if (defaultChip) defaultChip.classList.add('chip-active');
+
     function updateCount() {
       const visible = cards.filter(c => c.style.display !== 'none').length;
       if (countEl) countEl.textContent = visible;
     }
 
     function applyFilters() {
-      const q = (search.value || '').trim().toLowerCase();
+      const q = (search?.value || '').trim().toLowerCase();
       const activeChip = document.querySelector('[data-chip].chip-active');
       const tag = activeChip ? activeChip.getAttribute('data-chip') : 'all';
 
@@ -135,26 +147,32 @@
         const price = parseFloat(card.dataset.price || '0');
         const badge = card.dataset.badge || '';
         const onSale = card.dataset.sale === '1';
+        const isBundle = card.dataset.bundle === '1';
 
         let ok = true;
+
+        // text search
         if (q && !name.includes(q)) ok = false;
 
-        if (tag && tag !== 'all') {
-          if (tag === 'new' && !/new/.test(badge)) ok = false;
-          if (tag === 'bestseller' && !/best|bestseller/.test(badge)) ok = false;
-          if (tag === 'sale' && !onSale) ok = false;
-          if (tag === 'under-1500' && !(price < 1500)) ok = false;
-        }
+        // bundle filters
+        if (tag === 'bundle' && !isBundle) ok = false;
+        if (tag === 'single' && isBundle) ok = false;
+
+        // existing chips
+        if (tag === 'new' && !/new/.test(badge)) ok = false;
+        if (tag === 'bestseller' && !/best|bestseller/.test(badge)) ok = false;
+        if (tag === 'sale' && !onSale) ok = false;
+        if (tag === 'under-1500' && !(price < 1500)) ok = false;
 
         card.style.display = ok ? '' : 'none';
       });
 
-      applySort(); // re-apply sort to remaining nodes
+      applySort();
       updateCount();
     }
 
     function applySort() {
-      const val = sort.value;
+      const val = sort?.value || 'featured';
       const visible = cards.filter(c => c.style.display !== 'none');
       const hidden = cards.filter(c => c.style.display === 'none');
 
@@ -169,21 +187,30 @@
           case 'price-desc': return pb - pa;
           case 'name-asc': return na.localeCompare(nb);
           case 'name-desc': return nb.localeCompare(na);
-          default: return 0; // featured (leave DOM order)
+          default: return 0;
         }
       });
 
-      // Re-attach in new order
       visible.forEach(node => grid.appendChild(node));
       hidden.forEach(node => grid.appendChild(node));
     }
 
     // Events
-    search.addEventListener('input', applyFilters);
-    sort.addEventListener('change', applySort);
+    search?.addEventListener('input', applyFilters);
+    sort?.addEventListener('change', applySort);
     chips.forEach(chip => chip.addEventListener('click', () => {
       chips.forEach(c => c.classList.remove('chip-active'));
       chip.classList.add('chip-active');
+
+      // update URL param without reload
+      const v = chip.getAttribute('data-chip');
+      if (['all','bundle','single'].includes(v)) {
+        const p = new URLSearchParams(location.search);
+        if (v === 'all') p.delete('type'); else p.set('type', v);
+        const url = `${location.pathname}?${p.toString()}`;
+        history.replaceState(null, '', url.endsWith('?') ? url.slice(0,-1) : url);
+      }
+
       applyFilters();
     }));
 

@@ -90,14 +90,55 @@ def _is_ajax(request):
 # =======================
 # Pages
 # =======================
-def home(request):
-    featured = Product.objects.filter(is_active=True)[:4]
-    return render(request, "home.html", {"featured": featured})
+# myApp/views.py
+from django.db.models import Prefetch
+from .models import Product, Order, OrderItem, ProductComponent  # + ProductComponent
 
+def home(request):
+    featured = (
+        Product.objects
+        .filter(is_active=True, is_bundle=False)
+        .order_by('name')[:4]
+    )
+
+    bundle_links = Prefetch(
+        'component_links',
+        queryset=ProductComponent.objects.select_related('component')
+    )
+    bundles = (
+        Product.objects
+        .filter(is_active=True, is_bundle=True)
+        .prefetch_related(bundle_links)
+        .order_by('name')[:4]
+    )
+
+    return render(request, "home.html", {
+        "featured": featured,
+        "bundles": bundles,   # ← new
+    })
+
+
+
+# myApp/views.py
+from django.db.models import Prefetch
+from .models import Product, ProductComponent  # add ProductComponent
 
 def product_list(request):
-    products = Product.objects.filter(is_active=True)
-    return render(request, "products.html", {"products": products})
+    q_type = (request.GET.get("type") or "all").lower()
+
+    qs = Product.objects.filter(is_active=True).order_by("name")
+    if q_type == "bundle":
+        qs = qs.filter(is_bundle=True)
+    elif q_type == "single":
+        qs = qs.filter(is_bundle=False)
+
+    # Prefetch bundle components only if we’re showing any bundles
+    if qs.filter(is_bundle=True).exists():
+        qs = qs.prefetch_related(
+            Prefetch("component_links", queryset=ProductComponent.objects.select_related("component"))
+        )
+
+    return render(request, "products.html", {"products": qs, "q_type": q_type})
 
 
 def product_detail(request, slug):

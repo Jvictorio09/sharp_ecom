@@ -1,4 +1,4 @@
-# app/models.py
+# myApp/models.py
 from decimal import Decimal
 from django.db import models
 from django.utils import timezone
@@ -6,7 +6,9 @@ from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 from django.core.validators import MinValueValidator
 
-# ============== Product ==============
+# -----------------------------
+# Products (with bundle support)
+# -----------------------------
 class Product(models.Model):
     name = models.CharField(max_length=150, unique=True)
     slug = models.SlugField(max_length=160, unique=True, blank=True, db_index=True)
@@ -20,8 +22,18 @@ class Product(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # Optional: simple gallery support (store a comma-separated list of URLs or switch to JSONField)
+    # Simple gallery via CSV (optional)
     gallery_csv = models.TextField(blank=True, help_text="Comma-separated image URLs", default="")
+
+    # Bundle flags/relations
+    is_bundle = models.BooleanField(
+        default=False,
+        help_text="Mark as True if this product is a package/bundle."
+    )
+    free_delivery = models.BooleanField(
+        default=False,
+        help_text="If True, this product qualifies the order for free delivery."
+    )
 
     class Meta:
         ordering = ["name"]
@@ -35,13 +47,18 @@ class Product(models.Model):
 
     @property
     def gallery(self):
-        # convenience accessor used by the template (product_detail)
         if not self.gallery_csv:
             return []
         return [u.strip() for u in self.gallery_csv.split(",") if u.strip()]
 
+    def component_rows(self):
+        """List of ProductComponent rows for this bundle (empty for singles)."""
+        if not self.is_bundle:
+            return []
+        return list(self.component_links.select_related('component').all())
+
     def save(self, *args, **kwargs):
-        # Auto-generate unique slug if missing or name changed
+        # Auto-generate unique slug if missing
         if not self.slug:
             base = slugify(self.name) or "product"
             slug = base
@@ -53,29 +70,31 @@ class Product(models.Model):
         super().save(*args, **kwargs)
 
 
-# ============== Remove these if staying on session-cart ==============
-# Your current views use the session for cart storage.
-# If you plan to migrate to a DB-backed cart, keep these and I’ll refactor views.
-# Otherwise, delete Cart & CartItem to avoid confusion.
+class ProductComponent(models.Model):
+    parent = models.ForeignKey(
+        Product, related_name='component_links', on_delete=models.CASCADE
+    )
+    component = models.ForeignKey(
+        Product, related_name='as_component_in', on_delete=models.PROTECT
+    )
+    quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
 
-# class Cart(models.Model):
-#     session_key = models.CharField(max_length=40, db_index=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     def __str__(self): return f"Cart {self.id}"
-#     def total(self): return sum(item.subtotal() for item in self.items.all())
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['parent', 'component'], name='uniq_bundle_component')
+        ]
 
-# class CartItem(models.Model):
-#     cart = models.ForeignKey(Cart, related_name="items", on_delete=models.CASCADE)
-#     product = models.ForeignKey(Product, on_delete=models.PROTECT)
-#     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
-#     def __str__(self): return f"{self.quantity} x {self.product.name}"
-#     def subtotal(self): return (self.product.price * self.quantity).quantize(Decimal("0.01"))
+    def __str__(self):
+        return f"{self.parent.name} → {self.quantity}× {self.component.name}"
 
 
-# ============== Orders ==============
+# -------------
+# Orders
+# -------------
 def generate_order_number():
     # e.g. SH-482931
     return f"SH-{get_random_string(6, allowed_chars='0123456789')}"
+
 
 class Order(models.Model):
     STATUS_CHOICES = [
@@ -100,7 +119,7 @@ class Order(models.Model):
     zip_code = models.CharField(max_length=20, blank=True)
 
     # Choices
-    shipping_method = models.CharField(max_length=20, default="standard")  # 'standard' | 'express'
+    shipping_method = models.CharField(max_length=20, default="standard")  # 'standard' | 'express' | 'outboard'
     payment_method = models.CharField(max_length=20, default="cod")        # 'cod' (for now)
 
     # Totals

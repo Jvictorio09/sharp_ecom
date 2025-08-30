@@ -94,6 +94,90 @@
   </div>
 </section>
 
+<!-- Bundles / Sets -->
+<section class="relative py-20 border-t border-line bg-ivory" data-animate-section>
+  <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--sharp-gold)]/40 to-transparent"></div>
+
+  <div class="max-w-7xl mx-auto px-4 md:px-8">
+    <!-- Header -->
+    <div class="flex items-end justify-between gap-6 mb-12">
+      <div>
+        <p class="uppercase tracking-[0.18em] text-xs text-ink/60 will-reveal">Signature Sets</p>
+        <h2 class="text-2xl md:text-4xl font-extrabold will-reveal delay-100">Routines that work better together</h2>
+        <p class="mt-2 text-ink/70 max-w-2xl will-reveal delay-200">
+          Curated pairings of our best-sellers—real results, better value. Complimentary delivery on every set.
+        </p>
+      </div>
+      <a href="{% url 'product_list' %}?type=bundle"
+         class="hidden md:inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] focus-ring will-reveal delay-300">
+        Shop all sets
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+    </div>
+
+    <!-- Cards -->
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      {% for p in bundles %}
+      <div class="group will-reveal delay-[{{ forloop.counter|add:1 }}00ms] rounded-2xl overflow-hidden border border-line bg-white hover:shadow-xl transition" data-animate-card>
+        <!-- Media -->
+        <div class="relative aspect-[4/3] bg-ivory overflow-hidden">
+          <img src="{{ p.image_url }}" alt="{{ p.name }}" class="w-full h-full object-cover transition group-hover:scale-[1.03]">
+          <div class="absolute left-3 top-3 flex flex-wrap gap-2">
+            <span class="px-2 py-1 rounded-full text-[11px] font-medium border border-line bg-white/90">Set</span>
+            {% if p.free_delivery %}
+              <span class="px-2 py-1 rounded-full text-[11px] font-medium border border-line bg-white/90">Complimentary delivery</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Body -->
+        <div class="p-5">
+          <h3 class="text-base font-semibold">
+            <a href="{% url 'product_detail' p.slug %}" class="hover:underline">{{ p.name }}</a>
+          </h3>
+
+          <!-- What’s inside -->
+          <p class="mt-2 text-xs text-ink/70">
+            {% with links=p.component_links.all %}
+              {% if links %}
+                What’s inside:
+                {% for link in links|slice:":3" %}
+                  {{ link.quantity }}× {{ link.component.name }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+                {% with total=links|length %}
+                  {% if total|add:"-3" > 0 %}&nbsp;+{{ total|add:"-3" }} more{% endif %}
+                {% endwith %}
+              {% endif %}
+            {% endwith %}
+          </p>
+
+          <!-- Price / CTA -->
+          <div class="mt-4 flex items-center justify-between">
+            <div class="text-lg font-semibold">JD{{ p.price|floatformat:2 }}</div>
+            <a href="{% url 'product_detail' p.slug %}"
+               class="px-4 py-2 rounded-full border border-line bg-cream hover:border-[var(--sharp-gold)] text-sm">
+              Shop set
+            </a>
+          </div>
+
+          <!-- Trust microcopy -->
+          <p class="mt-2 text-[11px] text-ink/60">Save more vs. buying items separately.</p>
+        </div>
+      </div>
+      {% empty %}
+      <div class="col-span-full">
+        <div class="rounded-2xl border border-line bg-white p-8 text-center will-reveal">
+          <p class="text-ink/80">No sets available yet — new drops coming soon.</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+
 
 
 <!-- Story / Brand Values -->
