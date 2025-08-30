@@ -1,36 +1,62 @@
-<article class="group rounded-2xl bg-white border border-line overflow-hidden elevate">
+<article
+  class="group rounded-2xl bg-white border border-line overflow-hidden elevate"
+>
   <!-- Media -->
   <div class="relative">
-    <a href="{% url 'product_detail' slug=p.slug %}" class="block aspect-[4/5] bg-ivory overflow-hidden">
+    <a
+      href="{% url 'product_detail' slug=p.slug %}"
+      class="block aspect-[4/5] bg-ivory overflow-hidden"
+    >
       <img
         src="{{ p.image_url }}"
         alt="{{ p.name }}"
-        class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+        class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+      />
     </a>
 
     <!-- Top-right actions -->
     <div class="absolute top-3 right-3 flex items-center gap-2">
       {% if p.badge %}
-        <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-white/90 border border-line backdrop-blur">
-          {{ p.badge }}
-        </span>
+      <span
+        class="px-2.5 py-1 rounded-full text-xs font-medium bg-white/90 border border-line backdrop-blur"
+      >
+        {{ p.badge }}
+      </span>
       {% endif %}
       <!-- Wishlist placeholder (no-op for now) -->
       <button
         type="button"
         class="w-9 h-9 rounded-full bg-white/90 border border-line backdrop-blur flex items-center justify-center hover:border-[var(--sharp-gold)] focus-ring"
-        aria-label="Save {{ p.name }} for later">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12.1 20.3S4 15 4 9.9A4.9 4.9 0 0 1 8.9 5c1.6 0 2.6.7 3.2 1.5.6-.8 1.6-1.5 3.2-1.5A4.9 4.9 0 0 1 20 9.9c0 5.1-8.1 10.4-7.9 10.4z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        aria-label="Save {{ p.name }} for later"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M12.1 20.3S4 15 4 9.9A4.9 4.9 0 0 1 8.9 5c1.6 0 2.6.7 3.2 1.5.6-.8 1.6-1.5 3.2-1.5A4.9 4.9 0 0 1 20 9.9c0 5.1-8.1 10.4-7.9 10.4z"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
         </svg>
       </button>
     </div>
 
     <!-- Quick add on hover (desktop) -->
-    <div class="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+    <div
+      class="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+    >
       <button
         class="pointer-events-auto absolute left-1/2 -translate-x-1/2 bottom-3 inline-flex items-center gap-2 px-4 py-2 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] focus-ring shadow-md"
-        data-add-to-cart="{{ p.id }}" data-qty="1" aria-label="Add {{ p.name }} to bag">
+        data-add-to-cart="{{ p.id }}"
+        data-qty="1"
+        aria-label="Add {{ p.name }} to bag"
+      >
         Add to Bag
       </button>
     </div>
@@ -41,41 +67,57 @@
     <div class="flex items-start justify-between gap-4">
       <div class="min-w-0">
         <h3 class="font-semibold truncate">
-          <a href="{% url 'product_detail' slug=p.slug %}" class="hover:underline">{{ p.name }}</a>
+          <a
+            href="{% url 'product_detail' slug=p.slug %}"
+            class="hover:underline"
+            >{{ p.name }}</a
+          >
         </h3>
         {% if p.subtitle %}
-          <p class="text-sm opacity-70 line-clamp-2">{{ p.subtitle }}</p>
+        <p class="text-sm opacity-70 line-clamp-2">{{ p.subtitle }}</p>
         {% endif %}
       </div>
       {% if p.rating %}
-        <!-- Optional rating (0–5). Only renders if you have p.rating -->
-        <div class="shrink-0 flex items-center gap-1 text-[12px]">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="text-gold/80" aria-hidden="true">
-            <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
-          </svg>
-          <span class="opacity-70">{{ p.rating|floatformat:1 }}</span>
-        </div>
+      <!-- Optional rating (0–5). Only renders if you have p.rating -->
+      <div class="shrink-0 flex items-center gap-1 text-[12px]">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          class="text-gold/80"
+          aria-hidden="true"
+        >
+          <path
+            d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+          />
+        </svg>
+        <span class="opacity-70">{{ p.rating|floatformat:1 }}</span>
+      </div>
       {% endif %}
     </div>
 
     <div class="mt-4 flex items-center justify-between">
       <div class="flex items-baseline gap-2">
-        <p class="font-semibold">₱{{ p.price }}</p>
+        <p class="font-semibold">JD{{ p.price }}</p>
         {% if p.compare_price and p.compare_price > p.price %}
-          <p class="text-sm line-through opacity-60">₱{{ p.compare_price }}</p>
+        <p class="text-sm line-through opacity-60">JD{{ p.compare_price }}</p>
         {% endif %}
       </div>
 
       <!-- Primary add to cart (mobile-first) -->
       <button
         class="btn inline-flex items-center gap-2 px-4 py-2 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)] focus-ring md:hidden"
-        data-add-to-cart="{{ p.id }}" data-qty="1" aria-label="Add {{ p.name }} to bag">
+        data-add-to-cart="{{ p.id }}"
+        data-qty="1"
+        aria-label="Add {{ p.name }} to bag"
+      >
         Add to Bag
       </button>
     </div>
 
     {% if p.installment_hint %}
-      <p class="mt-2 text-xs opacity-70">{{ p.installment_hint }}</p>
+    <p class="mt-2 text-xs opacity-70">{{ p.installment_hint }}</p>
     {% endif %}
   </div>
 </article>

@@ -8,46 +8,93 @@
 
     <!-- Tailwind (prototype). Replace with your compiled build in production. -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
 
     <style>
-      :root{
+      :root {
         /* Sharp brand colors (from guidelines) */
-        --sharp-mineral: #263128;   /* Primary */
-        --sharp-charcoal: #1B1B1B;  /* Dark neutral */
-        --sharp-hunter:   #324036;  /* Secondary */
-        --sharp-steel:    #EFEFEF;  /* Light neutral */
-        --sharp-foam:     #AFAFAF;  /* Very light neutral */
+        --sharp-mineral: #263128; /* Primary */
+        --sharp-charcoal: #1b1b1b; /* Dark neutral */
+        --sharp-hunter: #324036; /* Secondary */
+        --sharp-steel: #efefef; /* Light neutral */
+        --sharp-foam: #afafaf; /* Very light neutral */
 
         /* Map the template's old tokens to real brand colors */
-        --sharp-ink:   var(--sharp-charcoal);   /* text */
-        --sharp-cream: var(--sharp-steel);      /* page bg */
-        --sharp-ivory: var(--sharp-foam);       /* alt bg */
-        --sharp-gold:  var(--sharp-mineral);    /* accent (repurposed) */
-        --sharp-line:  #E1E1E1;                 /* subtle borders tuned for Steel/Foam */
+        --sharp-ink: var(--sharp-charcoal); /* text */
+        --sharp-cream: var(--sharp-steel); /* page bg */
+        --sharp-ivory: var(--sharp-foam); /* alt bg */
+        --sharp-gold: var(--sharp-mineral); /* accent (repurposed) */
+        --sharp-line: #e1e1e1; /* subtle borders tuned for Steel/Foam */
       }
-           html { scroll-behavior: smooth; }
-      body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans"; }
-      .bg-ink{ background: var(--sharp-ink); }
-      .bg-cream{ background: var(--sharp-cream); }
-      .bg-ivory{ background: var(--sharp-ivory); }
-      .bg-steel{ background: var(--sharp-steel); }
-      .text-ink{ color: var(--sharp-ink); }
-      .text-cream{ color: var(--sharp-cream); }
-      .text-gold{ color: var(--sharp-gold); }
-      .border-line{ border-color: var(--sharp-line); }
-      .ring-gold{ --tw-ring-color: var(--sharp-gold); }
-      .focus-ring:focus-visible{ outline: none; box-shadow: 0 0 0 3px var(--sharp-gold); border-radius: 9999px; }
-      .btn{ transition: all 200ms ease; }
-      .btn:hover{ transform: translateY(-1px); }
-      .btn:active{ transform: translateY(0); }
-      .elevate{ transition: box-shadow 220ms ease, transform 220ms ease; }
-      .elevate:hover{ box-shadow: 0 10px 30px rgba(0,0,0,.08); transform: translateY(-2px); }
-      .drawer{ transition: transform 280ms cubic-bezier(.2,.8,.2,1); }
-      .drawer-open{ transform: translateX(0%); }
-      .drawer-closed{ transform: translateX(100%); }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
+          "Helvetica Neue", Arial, "Noto Sans";
+      }
+      .bg-ink {
+        background: var(--sharp-ink);
+      }
+      .bg-cream {
+        background: var(--sharp-cream);
+      }
+      .bg-ivory {
+        background: var(--sharp-ivory);
+      }
+      .bg-steel {
+        background: var(--sharp-steel);
+      }
+      .text-ink {
+        color: var(--sharp-ink);
+      }
+      .text-cream {
+        color: var(--sharp-cream);
+      }
+      .text-gold {
+        color: var(--sharp-gold);
+      }
+      .border-line {
+        border-color: var(--sharp-line);
+      }
+      .ring-gold {
+        --tw-ring-color: var(--sharp-gold);
+      }
+      .focus-ring:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--sharp-gold);
+        border-radius: 9999px;
+      }
+      .btn {
+        transition: all 200ms ease;
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+      .btn:active {
+        transform: translateY(0);
+      }
+      .elevate {
+        transition: box-shadow 220ms ease, transform 220ms ease;
+      }
+      .elevate:hover {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        transform: translateY(-2px);
+      }
+      .drawer {
+        transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .drawer-open {
+        transform: translateX(0%);
+      }
+      .drawer-closed {
+        transform: translateX(100%);
+      }
     </style>
     {% block extra_head %}{% endblock %}
   </head>
@@ -55,209 +102,351 @@
   <body class="bg-cream text-ink antialiased">
     <!-- Trust / announcement bar -->
     <div class="w-full bg-ivory text-[13px] tracking-wide border-b border-line">
-      <div class="max-w-7xl mx-auto px-4 md:px-8 py-2 flex items-center justify-between">
-        <p class="opacity-80">Carbon‑neutral shipping • 30‑Day No‑Questions Guarantee • 24/7 Human Support</p>
-        <a href="{% url 'product_list' %}" class="hidden sm:inline text-gold underline-offset-4 hover:underline">Shop Essentials</a>
+      <div
+        class="max-w-7xl mx-auto px-4 md:px-8 py-2 flex items-center justify-between"
+      >
+        <p class="opacity-80">
+          Carbon‑neutral shipping • 30‑Day No‑Questions Guarantee • 24/7 Human
+          Support
+        </p>
+        <a
+          href="{% url 'product_list' %}"
+          class="hidden sm:inline text-gold underline-offset-4 hover:underline"
+          >Shop Essentials</a
+        >
       </div>
     </div>
 
     <!-- Header -->
-<header class="sticky top-0 z-40 bg-cream/90 backdrop-blur supports-[backdrop-filter]:bg-cream/70 border-b border-line">
-  <div class="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-6">
+    <header
+      class="sticky top-0 z-40 bg-cream/90 backdrop-blur supports-[backdrop-filter]:bg-cream/70 border-b border-line"
+    >
+      <div
+        class="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-6"
+      >
+        <!-- Logo -->
+        <a
+          href="{% url 'home' %}"
+          class="text-xl font-extrabold tracking-wide text-ink"
+          >SHARP</a
+        >
 
-    <!-- Logo -->
-    <a href="{% url 'home' %}" class="text-xl font-extrabold tracking-wide text-ink">SHARP</a>
+        <!-- Desktop Nav -->
+        <nav class="hidden md:flex items-center gap-8 text-sm">
+          <a
+            class="hover:text-gold transition focus-ring"
+            href="{% url 'home' %}"
+            >Home</a
+          >
+          <a
+            class="hover:text-gold transition focus-ring"
+            href="{% url 'product_list' %}"
+            >Products</a
+          >
+          <a
+            class="hover:text-gold transition focus-ring"
+            href="{% url 'order_status' %}"
+            >Order Status</a
+          >
+          <a
+            class="hover:text-gold transition focus-ring"
+            href="{% url 'contact' %}"
+            >Contact Us</a
+          >
+        </nav>
 
-    <!-- Desktop Nav -->
-    <nav class="hidden md:flex items-center gap-8 text-sm">
-      <a class="hover:text-gold transition focus-ring" href="{% url 'home' %}">Home</a>
-      <a class="hover:text-gold transition focus-ring" href="{% url 'product_list' %}">Products</a>
-      <a class="hover:text-gold transition focus-ring" href="{% url 'order_status' %}">Order Status</a>
-      <a class="hover:text-gold transition focus-ring" href="{% url 'contact' %}">Contact Us</a>
-    </nav>
+        <!-- Right side (Search + Cart + Mobile Menu) -->
+        <div class="flex items-center gap-3">
+          <!-- Search (hidden on mobile) -->
+          <button
+            id="searchBtn"
+            class="btn focus-ring hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M21 21l-4.2-4.2"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
+              <circle
+                cx="11"
+                cy="11"
+                r="7.25"
+                stroke="currentColor"
+                stroke-width="1.5"
+              />
+            </svg>
+            <span class="text-sm">Search</span>
+          </button>
 
-    <!-- Right side (Search + Cart + Mobile Menu) -->
-    <div class="flex items-center gap-3">
+          <!-- Cart -->
+          <button
+            id="openCart"
+            class="btn focus-ring inline-flex items-center justify-center w-10 h-10 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]"
+            aria-label="Open cart"
+            title="Open cart"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M3 5h2l2 12h10l2-8H6"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
 
-      <!-- Search (hidden on mobile) -->
-      <button id="searchBtn" class="btn focus-ring hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M21 21l-4.2-4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          <circle cx="11" cy="11" r="7.25" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-        <span class="text-sm">Search</span>
-      </button>
+          <!-- Mobile Hamburger -->
+          <button
+            id="mobileMenuBtn"
+            class="md:hidden btn focus-ring inline-flex items-center justify-center w-10 h-10 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]"
+            aria-label="Menu"
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M3 6h18M3 12h18M3 18h18"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
 
-      <!-- Cart -->
-      <button id="openCart" class="btn focus-ring inline-flex items-center justify-center w-10 h-10 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]" aria-label="Open cart" title="Open cart">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M3 5h2l2 12h10l2-8H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
+      <!-- Mobile Nav (hidden by default) -->
+      <div
+        id="mobileMenu"
+        class="hidden md:hidden bg-cream border-t border-line"
+      >
+        <nav class="flex flex-col px-4 py-4 gap-4 text-sm">
+          <a class="hover:text-gold transition" href="{% url 'home' %}">Home</a>
+          <a class="hover:text-gold transition" href="{% url 'product_list' %}"
+            >Products</a
+          >
+          <a class="hover:text-gold transition" href="{% url 'order_status' %}"
+            >Order Status</a
+          >
+          <a class="hover:text-gold transition" href="{% url 'contact' %}"
+            >Contact Us</a
+          >
+        </nav>
+      </div>
+    </header>
 
-      <!-- Mobile Hamburger -->
-      <button id="mobileMenuBtn" class="md:hidden btn focus-ring inline-flex items-center justify-center w-10 h-10 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]" aria-label="Menu">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-      </button>
-    </div>
-  </div>
-
-  <!-- Mobile Nav (hidden by default) -->
-  <div id="mobileMenu" class="hidden md:hidden bg-cream border-t border-line">
-    <nav class="flex flex-col px-4 py-4 gap-4 text-sm">
-      <a class="hover:text-gold transition" href="{% url 'home' %}">Home</a>
-      <a class="hover:text-gold transition" href="{% url 'product_list' %}">Products</a>
-      <a class="hover:text-gold transition" href="{% url 'order_status' %}">Order Status</a>
-      <a class="hover:text-gold transition" href="{% url 'contact' %}">Contact Us</a>
-    </nav>
-  </div>
-</header>
-
-
-<script>
-  // Mobile menu toggle
-  const mobileBtn = document.getElementById('mobileMenuBtn');
-  const mobileMenu = document.getElementById('mobileMenu');
-  mobileBtn.addEventListener('click', () => {
-    mobileMenu.classList.toggle('hidden');
-  });
-</script>
-
-
+    <script>
+      // Mobile menu toggle
+      const mobileBtn = document.getElementById("mobileMenuBtn");
+      const mobileMenu = document.getElementById("mobileMenu");
+      mobileBtn.addEventListener("click", () => {
+        mobileMenu.classList.toggle("hidden");
+      });
+    </script>
 
     <!-- Django messages -->
     {% if messages %}
-      <div class="max-w-3xl mx-auto mt-6 px-4 md:px-0">
-        {% for message in messages %}
-          <div class="mb-3 rounded-xl border border-line bg-white p-4">{{ message }}</div>
-        {% endfor %}
+    <div class="max-w-3xl mx-auto mt-6 px-4 md:px-0">
+      {% for message in messages %}
+      <div class="mb-3 rounded-xl border border-line bg-white p-4">
+        {{ message }}
       </div>
-    {% endif %}
-
-    {% block content %}{% endblock %}
+      {% endfor %}
+    </div>
+    {% endif %} {% block content %}{% endblock %}
 
     <!-- Footer -->
-<footer class="bg-cream border-t border-line">
-  <div class="max-w-7xl mx-auto px-4 md:px-8 py-16">
-    <div class="grid md:grid-cols-3 gap-10">
-      
-      <!-- Brand / Newsletter -->
-      <div>
-  <p class="text-xl font-extrabold tracking-wide">SHARP</p>
-  <p class="mt-3 text-sm opacity-80 max-w-xs">Essential care, perfectly considered.</p>
-  <form class="mt-6 flex gap-2" onsubmit="event.preventDefault(); alert('Welcome to the circle.');">
-    <input type="email" required placeholder="Email address" class="w-full px-4 py-3 rounded-full border border-line bg-white focus:outline-none focus:ring-2 ring-gold"/>
-    <button class="btn px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]">
-      Join
-    </button>
-  </form>
-</div>
+    <footer class="bg-cream border-t border-line">
+      <div class="max-w-7xl mx-auto px-4 md:px-8 py-16">
+        <div class="grid md:grid-cols-3 gap-10">
+          <!-- Brand / Newsletter -->
+          <div>
+            <p class="text-xl font-extrabold tracking-wide">SHARP</p>
+            <p class="mt-3 text-sm opacity-80 max-w-xs">
+              Essential care, perfectly considered.
+            </p>
+            <form
+              class="mt-6 flex gap-2"
+              onsubmit="event.preventDefault(); alert('Welcome to the circle.');"
+            >
+              <input
+                type="email"
+                required
+                placeholder="Email address"
+                class="w-full px-4 py-3 rounded-full border border-line bg-white focus:outline-none focus:ring-2 ring-gold"
+              />
+              <button
+                class="btn px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]"
+              >
+                Join
+              </button>
+            </form>
+          </div>
 
+          <!-- Shop -->
+          <div>
+            <p class="font-semibold mb-3">Shop</p>
+            <ul class="space-y-2 text-sm">
+              <li>
+                <a class="hover:text-gold" href="{% url 'product_list' %}"
+                  >Products</a
+                >
+              </li>
+            </ul>
+          </div>
 
-      <!-- Shop -->
-      <div>
-        <p class="font-semibold mb-3">Shop</p>
-        <ul class="space-y-2 text-sm">
-          <li><a class="hover:text-gold" href="{% url 'product_list' %}">Products</a></li>
-        </ul>
+          <!-- Support -->
+          <div>
+            <p class="font-semibold mb-3">Support</p>
+            <ul class="space-y-2 text-sm">
+              <li>
+                <a class="hover:text-gold" href="{% url 'contact' %}"
+                  >Contact</a
+                >
+              </li>
+              <li>
+                <a class="hover:text-gold" href="{% url 'cart' %}">Your Bag</a>
+              </li>
+              <li>
+                <a class="hover:text-gold" href="{% url 'checkout' %}"
+                  >Checkout</a
+                >
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Bottom bar -->
+        <div
+          class="mt-10 pt-6 border-t border-line text-sm flex flex-col md:flex-row items-center justify-between gap-4"
+        >
+          <p>© <span id="year"></span> SHARP. All rights reserved.</p>
+          <div class="flex items-center gap-4 opacity-80">
+            <a href="#" class="hover:text-gold">Privacy</a>
+            <span>•</span>
+            <a href="#" class="hover:text-gold">Terms</a>
+          </div>
+        </div>
       </div>
-
-      <!-- Support -->
-      <div>
-        <p class="font-semibold mb-3">Support</p>
-        <ul class="space-y-2 text-sm">
-          <li><a class="hover:text-gold" href="{% url 'contact' %}">Contact</a></li>
-          <li><a class="hover:text-gold" href="{% url 'cart' %}">Your Bag</a></li>
-          <li><a class="hover:text-gold" href="{% url 'checkout' %}">Checkout</a></li>
-        </ul>
-      </div>
-
-    </div>
-
-    <!-- Bottom bar -->
-    <div class="mt-10 pt-6 border-t border-line text-sm flex flex-col md:flex-row items-center justify-between gap-4">
-      <p>© <span id="year"></span> SHARP. All rights reserved.</p>
-      <div class="flex items-center gap-4 opacity-80">
-        <a href="#" class="hover:text-gold">Privacy</a>
-        <span>•</span>
-        <a href="#" class="hover:text-gold">Terms</a>
-      </div>
-    </div>
-  </div>
-</footer>
-
+    </footer>
 
     <!-- CART DRAWER -->
-<!-- CART DRAWER -->
-<aside id="cartDrawer" 
-  class="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-white shadow-2xl drawer drawer-closed z-50 border-l border-line flex flex-col"
-  aria-hidden="true">
+    <!-- CART DRAWER -->
+    <aside
+      id="cartDrawer"
+      class="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-white shadow-2xl drawer drawer-closed z-50 border-l border-line flex flex-col"
+      aria-hidden="true"
+    >
+      <!-- Header -->
+      <div
+        class="h-16 px-6 flex items-center justify-between border-b border-line bg-white"
+      >
+        <p class="font-semibold text-lg">Your Bag</p>
+        <button
+          id="closeCart"
+          class="btn flex items-center justify-center w-10 h-10 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]"
+          aria-label="Close cart"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M6 6l12 12M18 6L6 18"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </div>
 
-  <!-- Header -->
-  <div class="h-16 px-6 flex items-center justify-between border-b border-line bg-white">
-    <p class="font-semibold text-lg">Your Bag</p>
-    <button id="closeCart" 
-      class="btn flex items-center justify-center w-10 h-10 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]" 
-      aria-label="Close cart">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-    </button>
-  </div>
+      <!-- Items -->
+      <div class="flex-1 overflow-y-auto p-6 space-y-4 bg-cream" id="cartItems">
+        <!-- JS injects cart rows here -->
+        <div class="py-10 text-center text-sm opacity-70">
+          Your bag is impeccably empty—for now.
+        </div>
+      </div>
 
-  <!-- Items -->
-  <div class="flex-1 overflow-y-auto p-6 space-y-4 bg-cream" id="cartItems">
-    <!-- JS injects cart rows here -->
-    <div class="py-10 text-center text-sm opacity-70">
-      Your bag is impeccably empty—for now.
-    </div>
-  </div>
+      <!-- Sticky Footer -->
+      <div
+        class="border-t border-line bg-white shadow-inner p-6 sticky bottom-0"
+      >
+        <!-- Subtotal row -->
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-medium text-ink">Subtotal</span>
+          <span id="cartSubtotal" class="text-lg font-semibold">JD0.00</span>
+        </div>
 
-  <!-- Sticky Footer -->
-  <div class="border-t border-line bg-white shadow-inner p-6 sticky bottom-0">
-    <!-- Subtotal row -->
-    <div class="flex items-center justify-between mb-2">
-      <span class="text-sm font-medium text-ink">Subtotal</span>
-      <span id="cartSubtotal" class="text-lg font-semibold">₱0.00</span>
-    </div>
+        <!-- Note -->
+        <p class="text-xs text-ink/70 mb-5">
+          Shipping & taxes calculated at checkout.
+        </p>
 
-    <!-- Note -->
-    <p class="text-xs text-ink/70 mb-5">Shipping & taxes calculated at checkout.</p>
+        <!-- Actions -->
+        <div class="space-y-3">
+          <!-- Primary action -->
+          <a
+            href="{% url 'checkout' %}"
+            class="block w-full text-center px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] font-medium"
+          >
+            Secure Checkout
+          </a>
 
-    <!-- Actions -->
-    <div class="space-y-3">
-      <!-- Primary action -->
-      <a href="{% url 'checkout' %}" 
-         class="block w-full text-center px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] font-medium">
-         Secure Checkout
-      </a>
+          <!-- Secondary action -->
+          <a
+            href="{% url 'product_list' %}"
+            class="block text-center text-sm underline underline-offset-4 hover:text-[var(--sharp-gold)]"
+          >
+            Continue Shopping
+          </a>
+        </div>
+      </div>
+    </aside>
 
-      <!-- Secondary action -->
-      <a href="{% url 'product_list' %}" 
-         class="block text-center text-sm underline underline-offset-4 hover:text-[var(--sharp-gold)]">
-         Continue Shopping
-      </a>
-    </div>
-  </div>
-</aside>
-
-<!-- Overlay -->
-<div id="overlay" class="fixed inset-0 bg-black/40 opacity-0 pointer-events-none transition-opacity z-40"></div>
+    <!-- Overlay -->
+    <div
+      id="overlay"
+      class="fixed inset-0 bg-black/40 opacity-0 pointer-events-none transition-opacity z-40"
+    ></div>
 
     <!-- App Scripts: CSRF + Drawer + AJAX cart -->
     <script>
-      document.getElementById('year').textContent = new Date().getFullYear();
+      document.getElementById("year").textContent = new Date().getFullYear();
 
       function getCookie(name) {
         let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-          const cookies = document.cookie.split(';');
+        if (document.cookie && document.cookie !== "") {
+          const cookies = document.cookie.split(";");
           for (let i = 0; i < cookies.length; i++) {
             const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            if (cookie.substring(0, name.length + 1) === name + "=") {
+              cookieValue = decodeURIComponent(
+                cookie.substring(name.length + 1)
+              );
               break;
             }
           }
@@ -265,97 +454,131 @@
         return cookieValue;
       }
 
-      const drawer = document.getElementById('cartDrawer');
-      const overlay = document.getElementById('overlay');
-      const openCartBtn = document.getElementById('openCart');
-      const closeCartBtn = document.getElementById('closeCart');
-      const itemsEl = document.getElementById('cartItems');
-      const subtotalEl = document.getElementById('cartSubtotal');
+      const drawer = document.getElementById("cartDrawer");
+      const overlay = document.getElementById("overlay");
+      const openCartBtn = document.getElementById("openCart");
+      const closeCartBtn = document.getElementById("closeCart");
+      const itemsEl = document.getElementById("cartItems");
+      const subtotalEl = document.getElementById("cartSubtotal");
 
       const openDrawer = () => {
-        drawer.classList.remove('drawer-closed');
-        drawer.classList.add('drawer-open');
-        overlay.classList.remove('pointer-events-none');
-        overlay.classList.add('opacity-100');
+        drawer.classList.remove("drawer-closed");
+        drawer.classList.add("drawer-open");
+        overlay.classList.remove("pointer-events-none");
+        overlay.classList.add("opacity-100");
       };
       const closeDrawer = () => {
-        drawer.classList.remove('drawer-open');
-        drawer.classList.add('drawer-closed');
-        overlay.classList.add('pointer-events-none');
-        overlay.classList.remove('opacity-100');
+        drawer.classList.remove("drawer-open");
+        drawer.classList.add("drawer-closed");
+        overlay.classList.add("pointer-events-none");
+        overlay.classList.remove("opacity-100");
       };
-      if (openCartBtn) openCartBtn.addEventListener('click', () => { refreshCart(); openDrawer(); });
-      if (closeCartBtn) closeCartBtn.addEventListener('click', closeDrawer);
-      overlay.addEventListener('click', closeDrawer);
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+      if (openCartBtn)
+        openCartBtn.addEventListener("click", () => {
+          refreshCart();
+          openDrawer();
+        });
+      if (closeCartBtn) closeCartBtn.addEventListener("click", closeDrawer);
+      overlay.addEventListener("click", closeDrawer);
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeDrawer();
+      });
 
-      async function refreshCart(){
-        try{
-          const res = await fetch('{% url "cart_summary_json" %}', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      async function refreshCart() {
+        try {
+          const res = await fetch('{% url "cart_summary_json" %}', {
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+          });
           const data = await res.json();
           renderCart(data.cart);
-        }catch(err){ console.error(err); }
+        } catch (err) {
+          console.error(err);
+        }
       }
 
-      function renderCart(cart){
-        itemsEl.innerHTML = '';
-        if (!cart || !cart.items || cart.items.length === 0){
-          itemsEl.innerHTML = '<div class="py-10 text-center text-sm opacity-70">Your bag is impeccably empty—for now.</div>';
-          subtotalEl.textContent = '₱0.00';
+      function renderCart(cart) {
+        itemsEl.innerHTML = "";
+        if (!cart || !cart.items || cart.items.length === 0) {
+          itemsEl.innerHTML =
+            '<div class="py-10 text-center text-sm opacity-70">Your bag is impeccably empty—for now.</div>';
+          subtotalEl.textContent = "JD0.00";
           return;
         }
         let subtotal = 0;
         cart.items.forEach((it) => {
           subtotal += parseFloat(it.line_total);
-          const row = document.createElement('div');
-          row.className = 'py-4 flex items-center gap-4';
+          const row = document.createElement("div");
+          row.className = "py-4 flex items-center gap-4";
           row.innerHTML = `
             <div class="w-16 h-16 rounded-lg bg-ivory overflow-hidden">
-              <img src="${it.image_url}" alt="${it.name}" class="w-full h-full object-cover"/>
+              <img src="${it.image_url}" alt="${
+            it.name
+          }" class="w-full h-full object-cover"/>
             </div>
             <div class="flex-1">
-              <a href="/product/${it.slug}/" class="font-medium hover:underline">${it.name}</a>
+              <a href="/product/${
+                it.slug
+              }/" class="font-medium hover:underline">${it.name}</a>
               <p class="text-sm opacity-70">Qty: ${it.qty}</p>
             </div>
             <div class="text-right">
-              <p class="font-medium">₱${Number(it.line_total).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</p>
-              <button class="text-sm underline opacity-70 hover:opacity-100" data-remove="${it.id}">Remove</button>
+              <p class="font-medium">JD${Number(it.line_total).toLocaleString(
+                undefined,
+                { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+              )}</p>
+              <button class="text-sm underline opacity-70 hover:opacity-100" data-remove="${
+                it.id
+              }">Remove</button>
             </div>`;
           itemsEl.appendChild(row);
         });
-        subtotalEl.textContent = `₱${subtotal.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}`;
+        subtotalEl.textContent = `JD${subtotal.toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`;
         // hook removes
-        itemsEl.querySelectorAll('[data-remove]').forEach(btn => {
-          btn.addEventListener('click', async (e) => {
-            const id = e.currentTarget.getAttribute('data-remove');
-            await fetch(`{% url 'cart_remove' 0 %}`.replace('/0/','/'+id+'/'), {
-              method: 'POST',
-              headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') },
-            });
+        itemsEl.querySelectorAll("[data-remove]").forEach((btn) => {
+          btn.addEventListener("click", async (e) => {
+            const id = e.currentTarget.getAttribute("data-remove");
+            await fetch(
+              `{% url 'cart_remove' 0 %}`.replace("/0/", "/" + id + "/"),
+              {
+                method: "POST",
+                headers: {
+                  "X-Requested-With": "XMLHttpRequest",
+                  "X-CSRFToken": getCookie("csrftoken"),
+                },
+              }
+            );
             refreshCart();
           });
         });
       }
 
       // Delegate add-to-cart (works from any template)
-      document.addEventListener('click', async (e) => {
-        const btn = e.target.closest('[data-add-to-cart]');
+      document.addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-add-to-cart]");
         if (!btn) return;
-        const pid = btn.getAttribute('data-add-to-cart');
-        const qty = btn.getAttribute('data-qty') || 1;
-        try{
-          await fetch(`{% url 'cart_add' 0 %}`.replace('/0/','/'+pid+'/'), {
-            method: 'POST',
-            headers: {
-              'X-Requested-With': 'XMLHttpRequest',
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: new URLSearchParams({ qty: String(qty) })
-          });
+        const pid = btn.getAttribute("data-add-to-cart");
+        const qty = btn.getAttribute("data-qty") || 1;
+        try {
+          await fetch(
+            `{% url 'cart_add' 0 %}`.replace("/0/", "/" + pid + "/"),
+            {
+              method: "POST",
+              headers: {
+                "X-Requested-With": "XMLHttpRequest",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-CSRFToken": getCookie("csrftoken"),
+              },
+              body: new URLSearchParams({ qty: String(qty) }),
+            }
+          );
           await refreshCart();
           openDrawer();
-        }catch(err){ console.error(err); }
+        } catch (err) {
+          console.error(err);
+        }
       });
     </script>
     {% block extra_scripts %}{% endblock %}

@@ -8,7 +8,7 @@ Current status: {{ order.get_status_display|default:order.status|title }}
 Tracking number: {{ order.tracking_number }}
 {% endif %}
 
-Order total: ₱{{ order.grand_total }}
+Order total: JD{{ order.grand_total }}
 Placed: {{ order.created_at|date:"M d, Y H:i" }}
 
 You can check the latest status here:

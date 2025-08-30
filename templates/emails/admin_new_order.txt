@@ -7,13 +7,13 @@ Customer:
 
 Items:
 {% for it in order.items.all %}
-- {{ it.name }} × {{ it.quantity }} — ₱{{ it.line_total }}
+- {{ it.name }} × {{ it.quantity }} — JD{{ it.line_total }}
 {% endfor %}
 
-Subtotal: ₱{{ order.subtotal }}
-Shipping: ₱{{ order.shipping_cost }}
-Discount: ₱{{ order.discount_total }}
-Total: ₱{{ order.grand_total }}
+Subtotal: JD{{ order.subtotal }}
+Shipping: JD{{ order.shipping_cost }}
+Discount: JD{{ order.discount_total }}
+Total: JD{{ order.grand_total }}
 
 Ship to:
 {{ order.address_line1 }}{% if order.city %}, {{ order.city }}{% endif %}{% if order.province %}, {{ order.province }}{% endif %}{% if order.zip_code %}, {{ order.zip_code }}{% endif %}

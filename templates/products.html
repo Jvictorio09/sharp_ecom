@@ -1,16 +1,26 @@
-{% extends "base.html" %}
-{% block title %}Shop — SHARP{% endblock %}
-{% block content %}
+{% extends "base.html" %} {% block title %}Shop — SHARP{% endblock %} {% block
+content %}
 
-<section class="py-12 md:py-16 border-t border-line bg-cream" data-animate-section>
+<section
+  class="py-12 md:py-16 border-t border-line bg-cream"
+  data-animate-section
+>
   <div class="max-w-7xl mx-auto px-4 md:px-8">
     <!-- Header -->
     <div class="mb-8 md:mb-12">
-      <p class="uppercase tracking-[0.18em] text-xs text-ink/60 will-reveal">Catalog</p>
-      <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+      <p class="uppercase tracking-[0.18em] text-xs text-ink/60 will-reveal">
+        Catalog
+      </p>
+      <div
+        class="flex flex-col md:flex-row md:items-end md:justify-between gap-4"
+      >
         <div>
-          <h1 class="text-3xl md:text-5xl font-extrabold will-reveal delay-100">The Essentials</h1>
-          <p class="mt-2 text-ink/70 max-w-2xl will-reveal delay-200">Considered materials. Built to last. Designed for real life.</p>
+          <h1 class="text-3xl md:text-5xl font-extrabold will-reveal delay-100">
+            The Essentials
+          </h1>
+          <p class="mt-2 text-ink/70 max-w-2xl will-reveal delay-200">
+            Considered materials. Built to last. Designed for real life.
+          </p>
         </div>
         <div class="text-sm text-ink/60 will-reveal delay-300">
           <span id="countVisible">—</span> products
@@ -22,39 +32,78 @@
     <div class="mb-8 grid gap-3 md:grid-cols-12 will-reveal delay-300">
       <!-- Quick filters (chips) -->
       <div class="md:col-span-7 flex flex-wrap gap-2">
-        <button data-chip="all" class="chip-active px-3 py-2 rounded-full border border-line bg-white text-sm">
+        <button
+          data-chip="all"
+          class="chip-active px-3 py-2 rounded-full border border-line bg-white text-sm"
+        >
           All
         </button>
-        <button data-chip="new" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">
+        <button
+          data-chip="new"
+          class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]"
+        >
           New
         </button>
-        <button data-chip="bestseller" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">
+        <button
+          data-chip="bestseller"
+          class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]"
+        >
           Bestsellers
         </button>
-        <button data-chip="sale" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">
+        <button
+          data-chip="sale"
+          class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]"
+        >
           On Sale
         </button>
-        <button data-chip="under-1500" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">
-          Under ₱1,500
+        <button
+          data-chip="under-1500"
+          class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]"
+        >
+          Under JD1,500
         </button>
       </div>
 
       <!-- Search -->
       <div class="md:col-span-3">
         <div class="relative">
-          <input id="searchInput" type="search" placeholder="Search products"
-                 class="w-full pl-10 pr-4 py-2.5 rounded-full border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]" />
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M21 21l-4.2-4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            <circle cx="11" cy="11" r="7.25" stroke="currentColor" stroke-width="1.5"/>
+          <input
+            id="searchInput"
+            type="search"
+            placeholder="Search products"
+            class="w-full pl-10 pr-4 py-2.5 rounded-full border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
+          />
+          <svg
+            class="absolute left-3 top-1/2 -translate-y-1/2"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M21 21l-4.2-4.2"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+            <circle
+              cx="11"
+              cy="11"
+              r="7.25"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
           </svg>
         </div>
       </div>
 
       <!-- Sort -->
       <div class="md:col-span-2">
-        <select id="sortSelect"
-                class="w-full px-4 py-2.5 rounded-full border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
+        <select
+          id="sortSelect"
+          class="w-full px-4 py-2.5 rounded-full border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
+        >
           <option value="featured">Sort: Featured</option>
           <option value="price-asc">Price: Low to High</option>
           <option value="price-desc">Price: High to Low</option>
@@ -67,19 +116,23 @@
     <!-- Grid -->
     <div id="productGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
       {% for p in products %}
-      <div class="product-card will-reveal"
-           data-name="{{ p.name|lower }}"
-           data-price="{{ p.price }}"
-           data-badge="{{ p.badge|default_if_none:''|lower }}"
-           data-sale="{% if p.compare_price and p.compare_price > p.price %}1{% else %}0{% endif %}">
+      <div
+        class="product-card will-reveal"
+        data-name="{{ p.name|lower }}"
+        data-price="{{ p.price }}"
+        data-badge="{{ p.badge|default_if_none:''|lower }}"
+        data-sale="{% if p.compare_price and p.compare_price > p.price %}1{% else %}0{% endif %}"
+      >
         {% include "partials/_product_card.html" with p=p %}
       </div>
       {% empty %}
       <div class="col-span-full">
         <div class="rounded-2xl border border-line bg-white p-8 text-center">
           <p class="text-ink/80">No products available.</p>
-          <a href="{% url 'home' %}"
-             class="inline-flex mt-4 items-center gap-2 px-5 py-2.5 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] focus-ring">
+          <a
+            href="{% url 'home' %}"
+            class="inline-flex mt-4 items-center gap-2 px-5 py-2.5 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] focus-ring"
+          >
             Back to home
           </a>
         </div>
@@ -89,8 +142,10 @@
 
     <!-- Load more (progressive reveal purely cosmetic) -->
     <div class="mt-10 flex justify-center">
-      <button id="revealMore"
-              class="hidden px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]">
+      <button
+        id="revealMore"
+        class="hidden px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]"
+      >
         Load more
       </button>
     </div>
@@ -99,54 +154,78 @@
 
 <!-- Tiny styles + script -->
 <style>
-  .will-reveal { opacity: 0; transform: translateY(12px); transition: opacity .6s ease, transform .6s ease; }
-  .in-view .will-reveal, .will-reveal.revealed { opacity: 1; transform: translateY(0); }
-  .chip-active { border-color: var(--sharp-gold); box-shadow: inset 0 0 0 1px var(--sharp-gold); }
+  .will-reveal {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .in-view .will-reveal,
+  .will-reveal.revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .chip-active {
+    border-color: var(--sharp-gold);
+    box-shadow: inset 0 0 0 1px var(--sharp-gold);
+  }
 </style>
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const grid = document.getElementById('productGrid');
-    const cards = Array.from(grid.querySelectorAll('.product-card'));
-    const countEl = document.getElementById('countVisible');
-    const search = document.getElementById('searchInput');
-    const sort = document.getElementById('sortSelect');
-    const chips = document.querySelectorAll('[data-chip]');
+  document.addEventListener("DOMContentLoaded", () => {
+    const grid = document.getElementById("productGrid");
+    const cards = Array.from(grid.querySelectorAll(".product-card"));
+    const countEl = document.getElementById("countVisible");
+    const search = document.getElementById("searchInput");
+    const sort = document.getElementById("sortSelect");
+    const chips = document.querySelectorAll("[data-chip]");
     // Reveal on view
-    const obs = new IntersectionObserver((ents) => {
-      ents.forEach(e => { if (e.isIntersecting) e.target.classList.add('revealed'); });
-    }, { threshold: 0.12 });
-    document.querySelectorAll('[data-animate-section]').forEach(s => {
-      new IntersectionObserver((es)=>{es.forEach(en=>{if(en.isIntersecting) en.target.classList.add('in-view');});},{threshold:.2}).observe(s);
+    const obs = new IntersectionObserver(
+      (ents) => {
+        ents.forEach((e) => {
+          if (e.isIntersecting) e.target.classList.add("revealed");
+        });
+      },
+      { threshold: 0.12 }
+    );
+    document.querySelectorAll("[data-animate-section]").forEach((s) => {
+      new IntersectionObserver(
+        (es) => {
+          es.forEach((en) => {
+            if (en.isIntersecting) en.target.classList.add("in-view");
+          });
+        },
+        { threshold: 0.2 }
+      ).observe(s);
     });
-    cards.forEach(c => obs.observe(c));
+    cards.forEach((c) => obs.observe(c));
 
     function updateCount() {
-      const visible = cards.filter(c => c.style.display !== 'none').length;
+      const visible = cards.filter((c) => c.style.display !== "none").length;
       if (countEl) countEl.textContent = visible;
     }
 
     function applyFilters() {
-      const q = (search.value || '').trim().toLowerCase();
-      const activeChip = document.querySelector('[data-chip].chip-active');
-      const tag = activeChip ? activeChip.getAttribute('data-chip') : 'all';
+      const q = (search.value || "").trim().toLowerCase();
+      const activeChip = document.querySelector("[data-chip].chip-active");
+      const tag = activeChip ? activeChip.getAttribute("data-chip") : "all";
 
-      cards.forEach(card => {
-        const name = card.dataset.name || '';
-        const price = parseFloat(card.dataset.price || '0');
-        const badge = card.dataset.badge || '';
-        const onSale = card.dataset.sale === '1';
+      cards.forEach((card) => {
+        const name = card.dataset.name || "";
+        const price = parseFloat(card.dataset.price || "0");
+        const badge = card.dataset.badge || "";
+        const onSale = card.dataset.sale === "1";
 
         let ok = true;
         if (q && !name.includes(q)) ok = false;
 
-        if (tag && tag !== 'all') {
-          if (tag === 'new' && !/new/.test(badge)) ok = false;
-          if (tag === 'bestseller' && !/best|bestseller/.test(badge)) ok = false;
-          if (tag === 'sale' && !onSale) ok = false;
-          if (tag === 'under-1500' && !(price < 1500)) ok = false;
+        if (tag && tag !== "all") {
+          if (tag === "new" && !/new/.test(badge)) ok = false;
+          if (tag === "bestseller" && !/best|bestseller/.test(badge))
+            ok = false;
+          if (tag === "sale" && !onSale) ok = false;
+          if (tag === "under-1500" && !(price < 1500)) ok = false;
         }
 
-        card.style.display = ok ? '' : 'none';
+        card.style.display = ok ? "" : "none";
       });
 
       applySort(); // re-apply sort to remaining nodes
@@ -155,37 +234,44 @@
 
     function applySort() {
       const val = sort.value;
-      const visible = cards.filter(c => c.style.display !== 'none');
-      const hidden = cards.filter(c => c.style.display === 'none');
+      const visible = cards.filter((c) => c.style.display !== "none");
+      const hidden = cards.filter((c) => c.style.display === "none");
 
-      visible.sort((a,b) => {
-        const pa = parseFloat(a.dataset.price || '0');
-        const pb = parseFloat(b.dataset.price || '0');
-        const na = (a.dataset.name || '').toLowerCase();
-        const nb = (b.dataset.name || '').toLowerCase();
+      visible.sort((a, b) => {
+        const pa = parseFloat(a.dataset.price || "0");
+        const pb = parseFloat(b.dataset.price || "0");
+        const na = (a.dataset.name || "").toLowerCase();
+        const nb = (b.dataset.name || "").toLowerCase();
 
         switch (val) {
-          case 'price-asc': return pa - pb;
-          case 'price-desc': return pb - pa;
-          case 'name-asc': return na.localeCompare(nb);
-          case 'name-desc': return nb.localeCompare(na);
-          default: return 0; // featured (leave DOM order)
+          case "price-asc":
+            return pa - pb;
+          case "price-desc":
+            return pb - pa;
+          case "name-asc":
+            return na.localeCompare(nb);
+          case "name-desc":
+            return nb.localeCompare(na);
+          default:
+            return 0; // featured (leave DOM order)
         }
       });
 
       // Re-attach in new order
-      visible.forEach(node => grid.appendChild(node));
-      hidden.forEach(node => grid.appendChild(node));
+      visible.forEach((node) => grid.appendChild(node));
+      hidden.forEach((node) => grid.appendChild(node));
     }
 
     // Events
-    search.addEventListener('input', applyFilters);
-    sort.addEventListener('change', applySort);
-    chips.forEach(chip => chip.addEventListener('click', () => {
-      chips.forEach(c => c.classList.remove('chip-active'));
-      chip.classList.add('chip-active');
-      applyFilters();
-    }));
+    search.addEventListener("input", applyFilters);
+    sort.addEventListener("change", applySort);
+    chips.forEach((chip) =>
+      chip.addEventListener("click", () => {
+        chips.forEach((c) => c.classList.remove("chip-active"));
+        chip.classList.add("chip-active");
+        applyFilters();
+      })
+    );
 
     // Initial
     applyFilters();

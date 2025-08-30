@@ -1,6 +1,5 @@
-{% extends "base.html" %}
-{% block title %}Your Bag — SHARP{% endblock %}
-{% block content %}
+{% extends "base.html" %} {% block title %}Your Bag — SHARP{% endblock %} {%
+block content %}
 
 <section class="py-12 md:py-20 bg-cream">
   <div class="max-w-6xl mx-auto px-4 md:px-6">
@@ -11,7 +10,9 @@
       <!-- Items -->
       <div class="lg:col-span-2">
         <div class="rounded-2xl border border-line bg-white overflow-hidden">
-          <div class="px-6 py-4 border-b border-line flex items-center justify-between">
+          <div
+            class="px-6 py-4 border-b border-line flex items-center justify-between"
+          >
             <p class="font-semibold">Items</p>
             <p class="text-sm opacity-70">Review your selection</p>
           </div>
@@ -19,21 +20,40 @@
           <div class="divide-y divide-[var(--sharp-line)]">
             {% for row in items %}
             <div class="p-4 md:p-5 flex items-center gap-4">
-              <div class="w-20 h-20 md:w-24 md:h-24 rounded-xl bg-ivory overflow-hidden border border-line">
-                <img src="{{ row.product.image_url }}" alt="{{ row.product.name }}" class="w-full h-full object-cover"/>
+              <div
+                class="w-20 h-20 md:w-24 md:h-24 rounded-xl bg-ivory overflow-hidden border border-line"
+              >
+                <img
+                  src="{{ row.product.image_url }}"
+                  alt="{{ row.product.name }}"
+                  class="w-full h-full object-cover"
+                />
               </div>
               <div class="flex-1 min-w-0">
                 <p class="font-medium truncate">{{ row.product.name }}</p>
-                {% if row.product.subtitle %}<p class="text-sm opacity-70 truncate">{{ row.product.subtitle }}</p>{% endif %}
+                {% if row.product.subtitle %}
+                <p class="text-sm opacity-70 truncate">
+                  {{ row.product.subtitle }}
+                </p>
+                {% endif %}
                 <p class="text-xs opacity-60 mt-1">Qty: {{ row.qty }}</p>
                 <div class="mt-2">
-                  <form method="post" action="{% url 'cart_remove' row.product.id %}" class="inline">{% csrf_token %}
-                    <button class="text-sm underline underline-offset-4 opacity-70 hover:opacity-100">Remove</button>
+                  <form
+                    method="post"
+                    action="{% url 'cart_remove' row.product.id %}"
+                    class="inline"
+                  >
+                    {% csrf_token %}
+                    <button
+                      class="text-sm underline underline-offset-4 opacity-70 hover:opacity-100"
+                    >
+                      Remove
+                    </button>
                   </form>
                 </div>
               </div>
               <div class="text-right">
-                <p class="font-medium">₱{{ row.line_total }}</p>
+                <p class="font-medium">JD{{ row.line_total }}</p>
               </div>
             </div>
             {% endfor %}
@@ -42,117 +62,156 @@
 
         <!-- Keep Shopping -->
         <div class="mt-6 flex flex-wrap gap-3">
-          <a href="{% url 'product_list' %}" class="btn px-6 py-3 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]">
+          <a
+            href="{% url 'product_list' %}"
+            class="btn px-6 py-3 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]"
+          >
             Continue Shopping
           </a>
-          <a href="{% url 'checkout' %}" class="btn px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]">
+          <a
+            href="{% url 'checkout' %}"
+            class="btn px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]"
+          >
             Proceed to Checkout
           </a>
         </div>
       </div>
 
       <!-- Summary -->
-<aside class="lg:sticky lg:top-24 h-max">
-  <div class="rounded-2xl border border-line bg-white overflow-hidden">
-    <!-- Header -->
-    <div class="px-6 py-4 border-b border-line">
-      <p class="font-semibold">Order Summary</p>
-    </div>
+      <aside class="lg:sticky lg:top-24 h-max">
+        <div class="rounded-2xl border border-line bg-white overflow-hidden">
+          <!-- Header -->
+          <div class="px-6 py-4 border-b border-line">
+            <p class="font-semibold">Order Summary</p>
+          </div>
 
-    <!-- Body -->
-    <div class="p-6 space-y-4 flex flex-col">
-      <!-- Promo -->
-      <div class="flex gap-2">
-        <input id="promo" type="text" placeholder="Promo code"
-               class="w-full px-4 py-2.5 rounded-full border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
-        <button id="applyPromo" class="px-4 py-2.5 rounded-full text-white bg-ink hover:bg-[var(--sharp-hunter)]">Apply</button>
-      </div>
+          <!-- Body -->
+          <div class="p-6 space-y-4 flex flex-col">
+            <!-- Promo -->
+            <div class="flex gap-2">
+              <input
+                id="promo"
+                type="text"
+                placeholder="Promo code"
+                class="w-full px-4 py-2.5 rounded-full border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
+              />
+              <button
+                id="applyPromo"
+                class="px-4 py-2.5 rounded-full text-white bg-ink hover:bg-[var(--sharp-hunter)]"
+              >
+                Apply
+              </button>
+            </div>
 
-      <!-- Totals -->
-      <div class="text-sm space-y-2">
-        <div class="flex items-center justify-between">
-          <span>Subtotal</span>
-          <span id="sumSubtotal" class="font-medium">₱{{ subtotal }}</span>
+            <!-- Totals -->
+            <div class="text-sm space-y-2">
+              <div class="flex items-center justify-between">
+                <span>Subtotal</span>
+                <span id="sumSubtotal" class="font-medium"
+                  >JD{{ subtotal }}</span
+                >
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Promo</span>
+                <span id="sumPromo" class="font-medium">JD0.00</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Estimated Shipping</span>
+                <span id="sumShipping" class="font-medium">JD0.00</span>
+              </div>
+              <div
+                class="pt-2 border-t border-line flex items-center justify-between text-base"
+              >
+                <span class="font-semibold">Total</span>
+                <span id="sumTotal" class="font-semibold"
+                  >JD{{ subtotal }}</span
+                >
+              </div>
+              <p class="text-xs opacity-70">
+                Shipping and taxes are finalized at checkout.
+              </p>
+            </div>
+
+            <!-- Trust -->
+            <div class="flex items-center gap-3 text-xs opacity-80">
+              <span class="inline-flex items-center gap-2">
+                <span
+                  class="w-2 h-2 rounded-full bg-[var(--sharp-gold)]"
+                ></span>
+                Encrypted checkout
+              </span>
+              <span>30-day guarantee</span>
+            </div>
+          </div>
+
+          <!-- Footer (anchors the CTA, no more floating) -->
+          <div
+            class="px-6 py-4 border-t border-line bg-white/85 backdrop-blur supports-[backdrop-filter]:bg-white/60"
+          >
+            <a
+              href="{% url 'checkout' %}"
+              class="btn w-full px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] text-center font-medium"
+            >
+              Checkout
+            </a>
+          </div>
         </div>
-        <div class="flex items-center justify-between">
-          <span>Promo</span>
-          <span id="sumPromo" class="font-medium">₱0.00</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <span>Estimated Shipping</span>
-          <span id="sumShipping" class="font-medium">₱0.00</span>
-        </div>
-        <div class="pt-2 border-t border-line flex items-center justify-between text-base">
-          <span class="font-semibold">Total</span>
-          <span id="sumTotal" class="font-semibold">₱{{ subtotal }}</span>
-        </div>
-        <p class="text-xs opacity-70">Shipping and taxes are finalized at checkout.</p>
-      </div>
-
-      <!-- Trust -->
-      <div class="flex items-center gap-3 text-xs opacity-80">
-        <span class="inline-flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-[var(--sharp-gold)]"></span> Encrypted checkout
-        </span>
-        <span>30-day guarantee</span>
-      </div>
-    </div>
-
-    <!-- Footer (anchors the CTA, no more floating) -->
-    <div class="px-6 py-4 border-t border-line bg-white/85 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-      <a href="{% url 'checkout' %}"
-         class="btn w-full px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] text-center font-medium">
-        Checkout
-      </a>
-    </div>
-  </div>
-</aside>
-
+      </aside>
     </div>
 
     {% else %}
-      <!-- Empty state -->
-      <div class="rounded-2xl border border-line bg-white p-10 text-center">
-        <p class="text-ink/80">Your bag is impeccably empty—for now.</p>
-        <a href="{% url 'product_list' %}" class="inline-flex mt-4 items-center gap-2 px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]">
-          Start shopping
-        </a>
-      </div>
+    <!-- Empty state -->
+    <div class="rounded-2xl border border-line bg-white p-10 text-center">
+      <p class="text-ink/80">Your bag is impeccably empty—for now.</p>
+      <a
+        href="{% url 'product_list' %}"
+        class="inline-flex mt-4 items-center gap-2 px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]"
+      >
+        Start shopping
+      </a>
+    </div>
     {% endif %}
   </div>
 </section>
 
 <!-- Optional: tiny frontend math for promo preview (no backend change) -->
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const parsePeso = (s) => parseFloat(String(s).replace(/[^\d.]/g, '')) || 0;
-    const formatPeso = (n) => '₱' + n.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.addEventListener("DOMContentLoaded", () => {
+    const parsePeso = (s) => parseFloat(String(s).replace(/[^\d.]/g, "")) || 0;
+    const formatPeso = (n) =>
+      "JD" +
+      n.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
 
-    let base = parsePeso('{{ subtotal }}');
+    let base = parsePeso("{{ subtotal }}");
     let promo = 0;
     let shipping = 0; // Keep at 0 for cart page; final in checkout
 
-    const elSub = document.getElementById('sumSubtotal');
-    const elPro = document.getElementById('sumPromo');
-    const elShip = document.getElementById('sumShipping');
-    const elTot = document.getElementById('sumTotal');
+    const elSub = document.getElementById("sumSubtotal");
+    const elPro = document.getElementById("sumPromo");
+    const elShip = document.getElementById("sumShipping");
+    const elTot = document.getElementById("sumTotal");
 
     function render() {
       elSub.textContent = formatPeso(base);
-      elPro.textContent = '-' + formatPeso(promo);
+      elPro.textContent = "-" + formatPeso(promo);
       elShip.textContent = formatPeso(shipping);
       elTot.textContent = formatPeso(Math.max(0, base - promo + shipping));
     }
     render();
 
-    document.getElementById('applyPromo')?.addEventListener('click', () => {
-      const code = (document.getElementById('promo').value || '').trim().toUpperCase();
+    document.getElementById("applyPromo")?.addEventListener("click", () => {
+      const code = (document.getElementById("promo").value || "")
+        .trim()
+        .toUpperCase();
       // Cosmetic demo: SHARP10 = 10% off
-      if (code === 'SHARP10') {
-        promo = Math.round(base * 0.10);
+      if (code === "SHARP10") {
+        promo = Math.round(base * 0.1);
       } else {
         promo = 0;
-        if (code) alert('Promo code not recognized.');
+        if (code) alert("Promo code not recognized.");
       }
       render();
     });

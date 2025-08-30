@@ -26,8 +26,8 @@
             <tr class="border-t border-[#E1E1E1]">
               <td class="px-4 py-3">{{ it.name }}</td>
               <td class="px-4 py-3">{{ it.quantity }}</td>
-              <td class="px-4 py-3">₱{{ it.unit_price }}</td>
-              <td class="px-4 py-3">₱{{ it.line_total }}</td>
+              <td class="px-4 py-3">JD{{ it.unit_price }}</td>
+              <td class="px-4 py-3">JD{{ it.line_total }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -53,11 +53,11 @@
     <div class="rounded-2xl border border-[#E1E1E1] bg-white p-6">
       <p class="font-semibold mb-3">Totals</p>
       <div class="text-sm space-y-2">
-        <div class="flex items-center justify-between"><span>Subtotal</span><span>₱{{ order.subtotal }}</span></div>
-        <div class="flex items-center justify-between"><span>Shipping</span><span>₱{{ order.shipping_cost }}</span></div>
-        <div class="flex items-center justify-between"><span>Discount</span><span>₱{{ order.discount_total }}</span></div>
+        <div class="flex items-center justify-between"><span>Subtotal</span><span>JD{{ order.subtotal }}</span></div>
+        <div class="flex items-center justify-between"><span>Shipping</span><span>JD{{ order.shipping_cost }}</span></div>
+        <div class="flex items-center justify-between"><span>Discount</span><span>JD{{ order.discount_total }}</span></div>
         <div class="pt-2 border-t border-[#E1E1E1] flex items-center justify-between text-base">
-          <span class="font-semibold">Grand Total</span><span class="font-semibold">₱{{ order.grand_total }}</span>
+          <span class="font-semibold">Grand Total</span><span class="font-semibold">JD{{ order.grand_total }}</span>
         </div>
       </div>
     </div>
