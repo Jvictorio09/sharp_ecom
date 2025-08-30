@@ -40,8 +40,6 @@ CSRF_TRUSTED_ORIGINS = [
     "https://sharpecom-production.up.railway.app",
 ]
 
-
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -84,7 +82,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'myProject.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
@@ -94,7 +91,6 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -114,18 +110,13 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
@@ -137,51 +128,36 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
 TEMPLATES[0]["OPTIONS"]["context_processors"] += [
     "myApp.context_processors.cart",
 ]
 
 # ---------------------------
-# EMAIL CONFIG (UPDATED)
+# EMAIL CONFIG — Gmail SMTP (App Password)
 # ---------------------------
-from django.core.exceptions import ImproperlyConfigured
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 
-def require_env(key: str) -> str:
-    """Fail fast if a required env var is missing/blank."""
-    val = os.environ.get(key, "").strip()
-    if not val:
-        raise ImproperlyConfigured(f"Missing required email setting: {key}. Put it in your .env/.env.local.")
-    return val
-
-EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
-EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
-
-# Default: TLS on 587 (works for Gmail). Flip to SSL/465 by setting EMAIL_USE_SSL=True.
-if env_bool("EMAIL_USE_SSL", False):
-    EMAIL_PORT = env_int("EMAIL_PORT", 465)
+# Default to TLS on 587. If your network blocks 587 but allows 465, set EMAIL_USE_SSL=true.
+if env_bool('EMAIL_USE_SSL', False):
+    EMAIL_PORT = env_int('EMAIL_PORT', 465)
     EMAIL_USE_SSL = True
     EMAIL_USE_TLS = False
 else:
-    EMAIL_PORT = env_int("EMAIL_PORT", 587)
-    EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+    EMAIL_PORT = env_int('EMAIL_PORT', 587)
+    EMAIL_USE_TLS = env_bool('EMAIL_USE_TLS', True)
     EMAIL_USE_SSL = False
 
-# Require real credentials from environment (no insecure defaults)
-EMAIL_HOST_USER = require_env("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = require_env("EMAIL_HOST_PASSWORD")  # Gmail App Password
+# Put your Gmail and 16-char App Password in environment/.env
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'juliavictorio16@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')  # REQUIRED for real SMTP sends
 
-# Sender defaults (keep simple to avoid Gmail mismatch; can be overridden via env)
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
-SERVER_EMAIL = os.environ.get("SERVER_EMAIL", DEFAULT_FROM_EMAIL)  # used by Django for error mails
-
-EMAIL_TIMEOUT = env_int("EMAIL_TIMEOUT", 20)
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+SERVER_EMAIL = os.environ.get('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
+EMAIL_TIMEOUT = env_int('EMAIL_TIMEOUT', 20)
 
 # Keep your existing CONTACT_TO lines as-is
-CONTACT_TO = os.environ.get("CONTACT_TO", "juliavictorio16@gmail.com")
-
-# (This second assignment remains unchanged per your request)
-CONTACT_TO = "juliavictorio16@gmail.com"
-
+CONTACT_TO = os.environ.get('CONTACT_TO', 'juliavictorio16@gmail.com')
+CONTACT_TO = 'juliavictorio16@gmail.com'
 
 LOGIN_URL = "dashboard_login"
