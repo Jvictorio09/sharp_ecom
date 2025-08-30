@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'myApp',
+    'anymail',  # for SendGrid HTTPS API
 ]
 
 MIDDLEWARE = [
@@ -132,35 +133,57 @@ TEMPLATES[0]["OPTIONS"]["context_processors"] += [
     "myApp.context_processors.cart",
 ]
 
-
 # ---------------------------
-# EMAIL CONFIG — Gmail SMTP (App Password)
+# EMAIL CONFIG — Prefer SendGrid (HTTPS). Fallback to Gmail SMTP locally. Else console.
 # ---------------------------
-EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
-EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+import warnings
 
-# Default: TLS on 587. If your network blocks 587 but allows 465, set EMAIL_USE_SSL=True in env.
-if env_bool("EMAIL_USE_SSL", False):
-    EMAIL_PORT = env_int("EMAIL_PORT", 465)
-    EMAIL_USE_SSL = True
-    EMAIL_USE_TLS = False
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "").strip()
+EMAIL_ALLOW_SMTP = env_bool("EMAIL_ALLOW_SMTP", False)  # set to 1 locally if you want Gmail SMTP
+
+if SENDGRID_API_KEY:
+    # Railway-safe: HTTPS API (no blocked ports)
+    EMAIL_BACKEND = "anymail.backends.sendgrid.EmailBackend"
+    ANYMAIL = {"SENDGRID_API_KEY": SENDGRID_API_KEY}
+
+    # Silence Anymail's SendGrid support warning noise
+    try:
+        from anymail.exceptions import AnymailNotSupportedWarning
+        warnings.filterwarnings("ignore", category=AnymailNotSupportedWarning)
+    except Exception:
+        pass
+
+elif EMAIL_ALLOW_SMTP:
+    # Local/dev: Gmail SMTP with App Password (only works where 587/465 is open)
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+
+    if env_bool("EMAIL_USE_SSL", False):
+        EMAIL_PORT = env_int("EMAIL_PORT", 465)
+        EMAIL_USE_SSL = True
+        EMAIL_USE_TLS = False
+    else:
+        EMAIL_PORT = env_int("EMAIL_PORT", 587)
+        EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+        EMAIL_USE_SSL = False
+
+    EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "juliavictorio16@gmail.com")
+    EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")  # 16-char Gmail App Password
+
 else:
-    EMAIL_PORT = env_int("EMAIL_PORT", 587)
-    EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
-    EMAIL_USE_SSL = False
+    # Safe default: print emails to console (never crash checkout)
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "juliavictorio16@gmail.com")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")  # 16-char Gmail App Password (required for real sends)
-
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+# Common email settings
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "juliavictorio16@gmail.com")
 SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 EMAIL_TIMEOUT = env_int("EMAIL_TIMEOUT", 20)
 
-# Use the same name your views expect
+# Addresses your views expect
 CONTACT_RECEIVER_EMAIL = os.getenv("CONTACT_RECEIVER_EMAIL", "juliavictorio16@gmail.com")
+ADMIN_ORDER_EMAIL = os.getenv("ADMIN_ORDER_EMAIL", "juliavictorio16@gmail.com")
 
-# Keep your existing CONTACT_TO lines as-is
+# Legacy variable kept if some code still references it
 CONTACT_TO = os.environ.get('CONTACT_TO', 'juliavictorio16@gmail.com')
-CONTACT_TO = 'juliavictorio16@gmail.com'
 
 LOGIN_URL = "dashboard_login"
