@@ -1,16 +1,11 @@
-{% extends "base.html" %} {% block title %}Order {{ order.order_number }} —
-SHARP{% endblock %} {% block content %}
+{% extends "base.html" %}
+{% block title %}Order {{ order.order_number }} — SHARP{% endblock %}
+{% block content %}
 <section class="py-12 md:py-20">
   <div class="max-w-4xl mx-auto px-4 md:px-0">
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl md:text-4xl font-extrabold">
-        Order {{ order.order_number }}
-      </h1>
-      <a
-        href="{% url 'order_status' %}"
-        class="text-sm underline hover:text-gold"
-        >Back to status</a
-      >
+      <h1 class="text-2xl md:text-4xl font-extrabold">Order {{ order.order_number }}</h1>
+      <a href="{% url 'order_status' %}" class="text-sm underline hover:text-gold">Back to status</a>
     </div>
 
     <div class="grid lg:grid-cols-3 gap-6">
@@ -19,13 +14,13 @@ SHARP{% endblock %} {% block content %}
           <p class="font-semibold mb-4">Items</p>
           <div class="divide-y divide-[var(--sharp-line)]">
             {% for it in order.items.all %}
-            <div class="py-3 flex items-center justify-between">
-              <div>
-                <p class="font-medium">{{ it.name }}</p>
-                <p class="text-sm opacity-70">Qty: {{ it.quantity }}</p>
+              <div class="py-3 flex items-center justify-between">
+                <div>
+                  <p class="font-medium">{{ it.name }}</p>
+                  <p class="text-sm opacity-70">Qty: {{ it.quantity }}</p>
+                </div>
+                <p class="font-medium">JD{{ it.line_total }}</p>
               </div>
-              <p class="font-medium">JD{{ it.line_total }}</p>
-            </div>
             {% endfor %}
           </div>
         </div>
@@ -40,36 +35,21 @@ SHARP{% endblock %} {% block content %}
         <div class="rounded-2xl border border-line bg-ivory p-6">
           <div class="flex items-center justify-between">
             <span class="opacity-70">Placed</span>
-            <span class="font-medium"
-              >{{ order.created_at|date:"M j, Y g:i a" }}</span
-            >
+            <span class="font-medium">{{ order.created_at|date:"M j, Y g:i a" }}</span>
           </div>
           <div class="flex items-center justify-between mt-2">
             <span class="opacity-70">Status</span>
             <span class="font-medium capitalize">{{ order.status }}</span>
           </div>
-          <hr class="my-4 border-line" />
+          <hr class="my-4 border-line">
           <div class="text-sm space-y-2">
-            <div class="flex items-center justify-between">
-              <span>Subtotal</span
-              ><span class="font-medium">JD{{ order.subtotal }}</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span>Shipping</span
-              ><span class="font-medium">JD{{ order.shipping_cost }}</span>
-            </div>
-            {% if order.discount_total and order.discount_total|stringformat:"f"
-            != "0.00" %}
-            <div class="flex items-center justify-between">
-              <span>Discount</span
-              ><span class="font-medium">-JD{{ order.discount_total }}</span>
-            </div>
+            <div class="flex items-center justify-between"><span>Subtotal</span><span class="font-medium">JD{{ order.subtotal }}</span></div>
+            <div class="flex items-center justify-between"><span>Shipping</span><span class="font-medium">JD{{ order.shipping_cost }}</span></div>
+            {% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
+              <div class="flex items-center justify-between"><span>Discount</span><span class="font-medium">-JD{{ order.discount_total }}</span></div>
             {% endif %}
-            <div
-              class="pt-2 border-t border-line flex items-center justify-between text-base"
-            >
-              <span class="font-semibold">Total</span
-              ><span class="font-semibold">JD{{ order.grand_total }}</span>
+            <div class="pt-2 border-t border-line flex items-center justify-between text-base">
+              <span class="font-semibold">Total</span><span class="font-semibold">JD{{ order.grand_total }}</span>
             </div>
           </div>
         </div>
@@ -77,10 +57,8 @@ SHARP{% endblock %} {% block content %}
         <div class="rounded-2xl border border-line bg-white p-6">
           <p class="font-semibold mb-2">Shipping Address</p>
           <p class="text-sm">
-            {{ order.full_name }}<br />
-            {{ order.address_line1 }}{% if order.city %}, {{ order.city }}{%
-            endif %}{% if order.province %}, {{ order.province }}{% endif %}{%
-            if order.zip_code %}, {{ order.zip_code }}{% endif %}
+            {{ order.full_name }}<br>
+            {{ order.address_line1 }}{% if order.city %}, {{ order.city }}{% endif %}{% if order.province %}, {{ order.province }}{% endif %}{% if order.zip_code %}, {{ order.zip_code }}{% endif %}
           </p>
         </div>
       </aside>

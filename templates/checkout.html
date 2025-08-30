@@ -1,35 +1,24 @@
-{% extends "base.html" %} {% block title %}Checkout — SHARP{% endblock %} {%
-block content %}
+{% extends "base.html" %}
+{% block title %}Checkout — SHARP{% endblock %}
+{% block content %}
 
 <section class="py-12 md:py-20 bg-cream">
   <div class="max-w-6xl mx-auto px-4 md:px-6">
     <!-- Progress / trust header -->
-    <div
-      class="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
-    >
+    <div class="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <div class="flex items-center gap-3 text-sm">
-        <span
-          class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[var(--sharp-gold)] text-white font-semibold"
-          >1</span
-        >
+        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[var(--sharp-gold)] text-white font-semibold">1</span>
         <span class="font-medium">Details</span>
         <span class="opacity-50">—</span>
-        <span
-          class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-ink text-white font-semibold"
-          >2</span
-        >
+        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-ink text-white font-semibold">2</span>
         <span class="font-medium">Delivery</span>
         <span class="opacity-50">—</span>
-        <span
-          class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-ink text-white font-semibold"
-          >3</span
-        >
+        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-ink text-white font-semibold">3</span>
         <span class="font-medium">Review</span>
       </div>
       <div class="flex items-center gap-4 text-xs opacity-80">
         <div class="inline-flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-[var(--sharp-gold)]"></span>
-          Encrypted checkout
+          <span class="w-2 h-2 rounded-full bg-[var(--sharp-gold)]"></span> Encrypted checkout
         </div>
         <div>30-day guarantee</div>
         <div>Carbon-neutral shipping</div>
@@ -40,47 +29,33 @@ block content %}
       <!-- LEFT: Form -->
       <div class="space-y-8">
         <!-- Contact -->
-        <form method="post" class="space-y-8" id="checkoutForm">
-          {% csrf_token %}
+        <form method="post" class="space-y-8" id="checkoutForm">{% csrf_token %}
           <div class="bg-white border border-line rounded-2xl p-6">
             <div class="flex items-center justify-between mb-4">
               <h2 class="text-lg font-semibold">Contact</h2>
               <label class="text-sm flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  class="rounded border-line text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]"
-                />
+                <input type="checkbox" class="rounded border-line text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]">
                 <span>Email me order updates</span>
               </label>
             </div>
             <div class="grid md:grid-cols-2 gap-4">
               <div>
                 <label class="text-sm">Full Name</label>
-                <input
-                  name="full_name"
-                  required
+                <input name="full_name" required
                   class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
-                  placeholder="Juan Dela Cruz"
-                />
+                  placeholder="Juan Dela Cruz">
               </div>
               <div>
                 <label class="text-sm">Phone</label>
-                <input
-                  name="phone"
-                  required
-                  inputmode="tel"
+                <input name="phone" required inputmode="tel"
                   class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
-                  placeholder="+63 9XX XXX XXXX"
-                />
+                  placeholder="+63 9XX XXX XXXX">
               </div>
               <div class="md:col-span-2">
                 <label class="text-sm">Email (optional)</label>
-                <input
-                  name="email"
-                  type="email"
+                <input name="email" type="email"
                   class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
-                  placeholder="you@example.com"
-                />
+                  placeholder="you@example.com">
               </div>
             </div>
           </div>
@@ -91,48 +66,32 @@ block content %}
             <div class="space-y-4">
               <div>
                 <label class="text-sm">Street / Building</label>
-                <input
-                  name="address_line1"
-                  required
+                <input name="address_line1" required
                   class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
-                  placeholder="Unit / House no., Street, Building"
-                />
+                  placeholder="Unit / House no., Street, Building">
               </div>
               <div class="grid md:grid-cols-3 gap-4">
                 <div>
                   <label class="text-sm">City</label>
-                  <input
-                    name="city"
-                    required
-                    class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
-                  />
+                  <input name="city" required
+                    class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
                 </div>
                 <div>
                   <label class="text-sm">Province</label>
-                  <input
-                    name="province"
-                    required
-                    class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
-                  />
+                  <input name="province" required
+                    class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
                 </div>
                 <div>
                   <label class="text-sm">ZIP</label>
-                  <input
-                    name="zip"
-                    required
-                    inputmode="numeric"
-                    class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
-                  />
+                  <input name="zip" required inputmode="numeric"
+                    class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
                 </div>
               </div>
               <div>
                 <label class="text-sm">Notes (optional)</label>
-                <textarea
-                  name="notes"
-                  rows="2"
+                <textarea name="notes" rows="2"
                   class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
-                  placeholder="Gate instructions, landmark, preferred delivery times…"
-                ></textarea>
+                  placeholder="Gate instructions, landmark, preferred delivery times…"></textarea>
               </div>
             </div>
           </div>
@@ -141,17 +100,9 @@ block content %}
           <div class="bg-white border border-line rounded-2xl p-6">
             <h2 class="text-lg font-semibold mb-4">Delivery Method</h2>
             <div class="grid gap-3">
-              <label
-                class="flex items-center justify-between gap-4 p-4 rounded-xl border border-line hover:border-[var(--sharp-gold)] cursor-pointer"
-              >
+              <label class="flex items-center justify-between gap-4 p-4 rounded-xl border border-line hover:border-[var(--sharp-gold)] cursor-pointer">
                 <span class="flex items-center gap-3">
-                  <input
-                    type="radio"
-                    name="shipping"
-                    value="standard"
-                    class="text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]"
-                    checked
-                  />
+                  <input type="radio" name="shipping" value="standard" class="text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]" checked>
                   <span class="text-sm">
                     <span class="font-medium">Standard</span>
                     <span class="block opacity-70">3–5 business days</span>
@@ -160,16 +111,9 @@ block content %}
                 <span class="text-sm font-medium">JD0</span>
               </label>
 
-              <label
-                class="flex items-center justify-between gap-4 p-4 rounded-xl border border-line hover:border-[var(--sharp-gold)] cursor-pointer"
-              >
+              <label class="flex items-center justify-between gap-4 p-4 rounded-xl border border-line hover:border-[var(--sharp-gold)] cursor-pointer">
                 <span class="flex items-center gap-3">
-                  <input
-                    type="radio"
-                    name="shipping"
-                    value="express"
-                    class="text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]"
-                  />
+                  <input type="radio" name="shipping" value="express" class="text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]">
                   <span class="text-sm">
                     <span class="font-medium">Express</span>
                     <span class="block opacity-70">1–2 business days</span>
@@ -183,39 +127,22 @@ block content %}
           <!-- Payment (Cash on Delivery stub) -->
           <div class="bg-white border border-line rounded-2xl p-6">
             <h2 class="text-lg font-semibold mb-4">Payment</h2>
-            <label
-              class="flex items-center gap-3 p-4 rounded-xl border border-line"
-            >
-              <input
-                type="radio"
-                name="payment"
-                value="cod"
-                class="text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]"
-                checked
-              />
+            <label class="flex items-center gap-3 p-4 rounded-xl border border-line">
+              <input type="radio" name="payment" value="cod" class="text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]" checked>
               <span class="text-sm">
                 <span class="font-medium">Cash on Delivery</span>
-                <span class="block opacity-70"
-                  >Pay with cash upon delivery</span
-                >
+                <span class="block opacity-70">Pay with cash upon delivery</span>
               </span>
             </label>
-            <p class="mt-3 text-xs opacity-70">
-              We’ll confirm your order via SMS and email (if provided).
-            </p>
+            <p class="mt-3 text-xs opacity-70">We’ll confirm your order via SMS and email (if provided).</p>
           </div>
 
           <!-- Actions -->
           <div class="flex flex-col sm:flex-row gap-3">
-            <a
-              href="{% url 'product_list' %}"
-              class="btn px-6 py-3 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)] text-center"
-            >
+            <a href="{% url 'product_list' %}" class="btn px-6 py-3 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)] text-center">
               Continue Shopping
             </a>
-            <button
-              class="btn flex-1 px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]"
-            >
+            <button class="btn flex-1 px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]">
               Place Order
             </button>
           </div>
@@ -225,57 +152,34 @@ block content %}
       <!-- RIGHT: Sticky Summary -->
       <aside class="lg:sticky lg:top-24 h-max">
         <div class="bg-white rounded-2xl border border-line overflow-hidden">
-          <div
-            class="px-6 py-4 border-b border-line flex items-center justify-between"
-          >
+          <div class="px-6 py-4 border-b border-line flex items-center justify-between">
             <p class="font-semibold">Order Summary</p>
-            <a
-              href="{% url 'cart' %}"
-              class="text-sm underline hover:text-[var(--sharp-gold)]"
-              >Edit</a
-            >
+            <a href="{% url 'cart' %}" class="text-sm underline hover:text-[var(--sharp-gold)]">Edit</a>
           </div>
 
           <div class="p-6 space-y-4 max-h-[50vh] overflow-auto bg-ivory/50">
             {% for row in items %}
-            <div class="flex items-center gap-4">
-              <div
-                class="w-14 h-14 rounded-lg overflow-hidden bg-ivory border border-line"
-              >
-                <img
-                  src="{{ row.product.image_url }}"
-                  alt="{{ row.product.name }}"
-                  class="w-full h-full object-cover"
-                />
+              <div class="flex items-center gap-4">
+                <div class="w-14 h-14 rounded-lg overflow-hidden bg-ivory border border-line">
+                  <img src="{{ row.product.image_url }}" alt="{{ row.product.name }}" class="w-full h-full object-cover">
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium truncate">{{ row.product.name }}</p>
+                  <p class="text-xs opacity-70">Qty: {{ row.qty }}</p>
+                </div>
+                <p class="text-sm font-medium">JD{{ row.line_total }}</p>
               </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium truncate">
-                  {{ row.product.name }}
-                </p>
-                <p class="text-xs opacity-70">Qty: {{ row.qty }}</p>
-              </div>
-              <p class="text-sm font-medium">JD{{ row.line_total }}</p>
-            </div>
             {% empty %}
-            <p class="opacity-70">Your bag is empty.</p>
+              <p class="opacity-70">Your bag is empty.</p>
             {% endfor %}
           </div>
 
           <div class="px-6 pb-6 pt-4 space-y-4">
             <!-- Promo -->
             <div class="flex gap-2">
-              <input
-                id="promo"
-                type="text"
-                placeholder="Promo code"
-                class="w-full px-4 py-2.5 rounded-full border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
-              />
-              <button
-                id="applyPromo"
-                class="px-4 py-2.5 rounded-full text-white bg-ink hover:bg-[var(--sharp-hunter)]"
-              >
-                Apply
-              </button>
+              <input id="promo" type="text" placeholder="Promo code"
+                     class="w-full px-4 py-2.5 rounded-full border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
+              <button id="applyPromo" class="px-4 py-2.5 rounded-full text-white bg-ink hover:bg-[var(--sharp-hunter)]">Apply</button>
             </div>
 
             <div class="text-sm space-y-2">
@@ -287,29 +191,16 @@ block content %}
                 <span>Shipping</span>
                 <span id="shippingCost" class="font-medium">JD0</span>
               </div>
-              <div
-                class="pt-2 border-t border-line flex items-center justify-between text-base"
-              >
+              <div class="pt-2 border-t border-line flex items-center justify-between text-base">
                 <span class="font-semibold">Total</span>
-                <span id="grandTotal" class="font-semibold"
-                  >JD{{ subtotal }}</span
-                >
+                <span id="grandTotal" class="font-semibold">JD{{ subtotal }}</span>
               </div>
-              <p class="text-xs opacity-70">
-                Shipping and taxes calculated at delivery.
-              </p>
+              <p class="text-xs opacity-70">Shipping and taxes calculated at delivery.</p>
             </div>
 
             <div class="flex items-center gap-2 text-xs opacity-80">
-              <input
-                id="tos"
-                type="checkbox"
-                class="rounded border-line text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]"
-              />
-              <label for="tos"
-                >I agree to the <a href="#" class="underline">Terms</a> &
-                <a href="#" class="underline">Privacy</a>.</label
-              >
+              <input id="tos" type="checkbox" class="rounded border-line text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]">
+              <label for="tos">I agree to the <a href="#" class="underline">Terms</a> & <a href="#" class="underline">Privacy</a>.</label>
             </div>
           </div>
         </div>
@@ -320,23 +211,18 @@ block content %}
 
 <!-- Micro-interactions (optional, lightweight) -->
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener('DOMContentLoaded', () => {
     const shippingRadios = document.querySelectorAll('input[name="shipping"]');
-    const shipEl = document.getElementById("shippingCost");
-    const grandEl = document.getElementById("grandTotal");
-    const promoBtn = document.getElementById("applyPromo");
-    const promoInput = document.getElementById("promo");
+    const shipEl = document.getElementById('shippingCost');
+    const grandEl = document.getElementById('grandTotal');
+    const promoBtn = document.getElementById('applyPromo');
+    const promoInput = document.getElementById('promo');
 
     // Parse subtotal (JD1,234.56 -> 1234.56)
-    const parsePeso = (s) => parseFloat(String(s).replace(/[^\d.]/g, "")) || 0;
-    const formatPeso = (n) =>
-      "JD" +
-      n.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
+    const parsePeso = (s) => parseFloat(String(s).replace(/[^\d.]/g, '')) || 0;
+    const formatPeso = (n) => 'JD' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    let base = parsePeso("{{ subtotal }}");
+    let base = parsePeso('{{ subtotal }}');
     let shipping = 0;
     let promo = 0;
 
@@ -346,21 +232,21 @@ block content %}
       grandEl.textContent = formatPeso(total);
     }
 
-    shippingRadios.forEach((r) => {
-      r.addEventListener("change", () => {
-        shipping = r.value === "express" ? 299 : 0;
+    shippingRadios.forEach(r => {
+      r.addEventListener('change', () => {
+        shipping = r.value === 'express' ? 299 : 0;
         updateTotals();
       });
     });
 
-    promoBtn?.addEventListener("click", () => {
-      const code = (promoInput.value || "").trim().toUpperCase();
+    promoBtn?.addEventListener('click', () => {
+      const code = (promoInput.value || '').trim().toUpperCase();
       // Simple front-end mock: SHARP10 = 10% off
-      if (code === "SHARP10") {
-        promo = Math.round(base * 0.1);
+      if (code === 'SHARP10') {
+        promo = Math.round(base * 0.10);
       } else {
         promo = 0;
-        if (code) alert("Promo code not recognized.");
+        if (code) alert('Promo code not recognized.');
       }
       updateTotals();
     });
