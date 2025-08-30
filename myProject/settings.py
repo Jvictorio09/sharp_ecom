@@ -142,6 +142,18 @@ TEMPLATES[0]["OPTIONS"]["context_processors"] += [
     "myApp.context_processors.cart",
 ]
 
+# ---------------------------
+# EMAIL CONFIG (UPDATED)
+# ---------------------------
+from django.core.exceptions import ImproperlyConfigured
+
+def require_env(key: str) -> str:
+    """Fail fast if a required env var is missing/blank."""
+    val = os.environ.get(key, "").strip()
+    if not val:
+        raise ImproperlyConfigured(f"Missing required email setting: {key}. Put it in your .env/.env.local.")
+    return val
+
 EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
 
@@ -155,14 +167,20 @@ else:
     EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
     EMAIL_USE_SSL = False
 
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "juliavictorio16@gmail.com")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")  # Gmail App Password
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", f"Julia Victorio <{EMAIL_HOST_USER}>")
+# Require real credentials from environment (no insecure defaults)
+EMAIL_HOST_USER = require_env("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = require_env("EMAIL_HOST_PASSWORD")  # Gmail App Password
+
+# Sender defaults (keep simple to avoid Gmail mismatch; can be overridden via env)
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 SERVER_EMAIL = os.environ.get("SERVER_EMAIL", DEFAULT_FROM_EMAIL)  # used by Django for error mails
-CONTACT_TO = os.environ.get("CONTACT_TO", "juliavictorio16@gmail.com")
+
 EMAIL_TIMEOUT = env_int("EMAIL_TIMEOUT", 20)
 
+# Keep your existing CONTACT_TO lines as-is
+CONTACT_TO = os.environ.get("CONTACT_TO", "juliavictorio16@gmail.com")
 
+# (This second assignment remains unchanged per your request)
 CONTACT_TO = "juliavictorio16@gmail.com"
 
 
