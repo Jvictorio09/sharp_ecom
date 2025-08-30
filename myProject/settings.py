@@ -132,29 +132,32 @@ TEMPLATES[0]["OPTIONS"]["context_processors"] += [
     "myApp.context_processors.cart",
 ]
 
+
 # ---------------------------
 # EMAIL CONFIG — Gmail SMTP (App Password)
 # ---------------------------
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 
-# Default to TLS on 587. If your network blocks 587 but allows 465, set EMAIL_USE_SSL=true.
-if env_bool('EMAIL_USE_SSL', False):
-    EMAIL_PORT = env_int('EMAIL_PORT', 465)
+# Default: TLS on 587. If your network blocks 587 but allows 465, set EMAIL_USE_SSL=True in env.
+if env_bool("EMAIL_USE_SSL", False):
+    EMAIL_PORT = env_int("EMAIL_PORT", 465)
     EMAIL_USE_SSL = True
     EMAIL_USE_TLS = False
 else:
-    EMAIL_PORT = env_int('EMAIL_PORT', 587)
-    EMAIL_USE_TLS = env_bool('EMAIL_USE_TLS', True)
+    EMAIL_PORT = env_int("EMAIL_PORT", 587)
+    EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
     EMAIL_USE_SSL = False
 
-# Put your Gmail and 16-char App Password in environment/.env
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'juliavictorio16@gmail.com')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')  # REQUIRED for real SMTP sends
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "juliavictorio16@gmail.com")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")  # 16-char Gmail App Password (required for real sends)
 
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
-SERVER_EMAIL = os.environ.get('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
-EMAIL_TIMEOUT = env_int('EMAIL_TIMEOUT', 20)
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
+EMAIL_TIMEOUT = env_int("EMAIL_TIMEOUT", 20)
+
+# Use the same name your views expect
+CONTACT_RECEIVER_EMAIL = os.getenv("CONTACT_RECEIVER_EMAIL", "juliavictorio16@gmail.com")
 
 # Keep your existing CONTACT_TO lines as-is
 CONTACT_TO = os.environ.get('CONTACT_TO', 'juliavictorio16@gmail.com')
