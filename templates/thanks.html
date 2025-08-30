@@ -18,6 +18,21 @@
     <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight">Order placed!</h1>
     <p class="mt-3 text-ink/80">We’ve sent a confirmation email with your details. We’ll notify you as soon as it ships.</p>
 
+    <!-- Inbox tip -->
+    <div class="mt-4 inline-flex text-left items-start gap-3 px-4 py-3 rounded-xl border border-amber-300/60 bg-amber-50 text-amber-900">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="mt-0.5">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" opacity=".4"/>
+        <path d="M12 8v6m0 3h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <p class="text-sm">
+        Can’t find the email? Check your <strong>Spam</strong> or <strong>Promotions</strong> tab and mark it as <em>Not spam</em>
+        so future updates land in your inbox.
+        <a href="https://mail.google.com/mail/u/0/#search/in%3Aspam" target="_blank" rel="noopener" class="underline decoration-amber-600 hover:opacity-80">
+          Open Gmail Spam
+        </a>
+      </p>
+    </div>
+
     {% if order_number %}
       <!-- Order number card -->
       <div class="mt-8 inline-flex items-center gap-3 px-4 py-3 rounded-full border border-line bg-white">
