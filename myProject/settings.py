@@ -33,11 +33,15 @@ DEBUG = True
 ALLOWED_HOSTS = [
     'sharpecom-production.up.railway.app',  # Railway production
     '127.0.0.1',                            # Localhost loopback
-    'localhost',                            # Localhost name
+    'localhost',         
+     'https://www.sharphair.shop/', 
+     'www.sharphair.shop',
+     'sharphair.shop',                              
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://sharpecom-production.up.railway.app",
+    "https://www.sharphair.shop/",
 ]
 
 # Application definition
