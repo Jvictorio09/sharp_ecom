@@ -142,17 +142,25 @@ TEMPLATES[0]["OPTIONS"]["context_processors"] += [
 # ---------------------------
 # EMAIL CONFIG — Prefer SendGrid (HTTPS). Fallback to Gmail SMTP locally. Else console.
 # ---------------------------
+# ---------------------------
+# EMAIL CONFIG — Primary: Resend (HTTPS API). Fallbacks: SMTP (optional) → console.
+# ---------------------------
 import warnings
 
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "").strip()
-EMAIL_ALLOW_SMTP = env_bool("EMAIL_ALLOW_SMTP", False)  # set to 1 locally if you want Gmail SMTP
+# Env flags / secrets
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
+EMAIL_ALLOW_SMTP = env_bool("EMAIL_ALLOW_SMTP", False)  # set to 1 only if you want SMTP fallback
 
-if SENDGRID_API_KEY:
-    # Railway-safe: HTTPS API (no blocked ports)
-    EMAIL_BACKEND = "anymail.backends.sendgrid.EmailBackend"
-    ANYMAIL = {"SENDGRID_API_KEY": SENDGRID_API_KEY}
+if RESEND_API_KEY:
+    # Primary: Resend via Anymail (Railway-friendly, no open ports needed)
+    EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+    ANYMAIL = {
+        "RESEND_API_KEY": RESEND_API_KEY,
+        # Avoid hard errors for features not supported by provider (e.g., tags/metadata)
+        "IGNORE_UNSUPPORTED_FEATURES": True,
+    }
 
-    # Silence Anymail's SendGrid support warning noise
+    # Quiet any provider capability warnings
     try:
         from anymail.exceptions import AnymailNotSupportedWarning
         warnings.filterwarnings("ignore", category=AnymailNotSupportedWarning)
@@ -160,7 +168,7 @@ if SENDGRID_API_KEY:
         pass
 
 elif EMAIL_ALLOW_SMTP:
-    # Local/dev: Gmail SMTP with App Password (only works where 587/465 is open)
+    # Optional fallback: SMTP (e.g., Gmail App Password) — not recommended for production scale
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
     EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 
@@ -177,19 +185,20 @@ elif EMAIL_ALLOW_SMTP:
     EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")  # 16-char Gmail App Password
 
 else:
-    # Safe default: print emails to console (never crash checkout)
+    # Safe default: write emails to console/logs (prevents checkout crashes)
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 # Common email settings
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "juliavictorio16@gmail.com")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "SHARP <noreply@sharphair.shop>")
 SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 EMAIL_TIMEOUT = env_int("EMAIL_TIMEOUT", 20)
 
-# Addresses your views expect
-CONTACT_RECEIVER_EMAIL = os.getenv("CONTACT_RECEIVER_EMAIL", "juliavictorio16@gmail.com")
-ADMIN_ORDER_EMAIL = os.getenv("ADMIN_ORDER_EMAIL", "juliavictorio16@gmail.com")
+# App-specific addresses
+CONTACT_RECEIVER_EMAIL = os.getenv("CONTACT_RECEIVER_EMAIL", "support@sharphair.shop")
+ADMIN_ORDER_EMAIL = os.getenv("ADMIN_ORDER_EMAIL", "orders@sharphair.shop")
 
 # Legacy variable kept if some code still references it
-CONTACT_TO = os.environ.get('CONTACT_TO', 'juliavictorio16@gmail.com')
+CONTACT_TO = os.environ.get("CONTACT_TO", CONTACT_RECEIVER_EMAIL)
+
 
 LOGIN_URL = "dashboard_login"

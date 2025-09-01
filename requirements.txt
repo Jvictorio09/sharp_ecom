@@ -15,3 +15,13 @@ typing_extensions==4.15.0
 urllib3==2.5.0
 whitenoise==6.7.0
 django-anymail==13.0.1
+
+
+Deprecated==1.2.18 
+pydantic==2.11.7 
+pydantic-core==2.33.2 
+svix==1.75.0 
+types-Deprecated==1.2.15.20250304 
+types-python-dateutil==2.9.0.20250822 
+typing-inspection==0.4.1 
+wrapt==1.17.3

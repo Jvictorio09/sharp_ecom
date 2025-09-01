@@ -11,6 +11,38 @@ from django.views.decorators.http import require_POST
 
 from .models import Product, Order, OrderItem
 
+# --- Email safety helper (never crash the request) ---
+# --- Email safety helper (never crash the request) ---
+import logging
+from django.core.mail import get_connection, EmailMultiAlternatives
+
+logger = logging.getLogger(__name__)
+
+def _safe_send_mail(subject, text_body, from_email, to_list, html_body=None, extra_headers=None):
+    """
+    Sends email using the configured EMAIL_BACKEND (Gmail SMTP, Resend via Anymail, etc.).
+    Returns True on success, False on failure. Supports custom headers (e.g., Reply-To).
+    """
+    try:
+        conn = get_connection()  # respects settings.EMAIL_BACKEND
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_body or "",
+            from_email=from_email,
+            to=to_list,
+            connection=conn,
+            headers=extra_headers or {},
+        )
+        if html_body:
+            msg.attach_alternative(html_body, "text/html")
+        msg.send()
+        return True
+    except Exception as e:
+        logger.exception("Email send failed: %s", e)
+        return False
+
+
+
 # =======================
 # Session Cart Helpers
 # =======================
@@ -457,17 +489,28 @@ def _email_order_confirmation(request, order):
         return
     context = {
         "order": order,
-        "items": list(order.items.all()),  # <-- add this
+        "items": list(order.items.all()),
         "request": request,
     }
     subject = f"Your SHARP Order {order.order_number}"
     text_body = render_to_string("emails/order_confirmation.txt", context)
     html_body = render_to_string("emails/order_confirmation.html", context)
-    send_mail(subject, text_body, settings.DEFAULT_FROM_EMAIL, [order.email], html_message=html_body)
+
+    ok = _safe_send_mail(
+        subject=subject,
+        text_body=text_body,
+        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+        to_list=[order.email],
+        html_body=html_body,
+        extra_headers={"Reply-To": getattr(settings, "CONTACT_RECEIVER_EMAIL", "") or getattr(settings, "DEFAULT_FROM_EMAIL", "")},
+    )
+    if not ok:
+        # Don’t block UX—just let the user know softly.
+        messages.warning(request, "Order placed, but we couldn’t send your confirmation email. We’ll resend shortly.")
 
 
 def _email_admin_new_order(request, order: Order):
-    """Notify admin of a new order."""
+    """Notify admin of a new order (non-blocking)."""
     admin_email = getattr(settings, "ADMIN_ORDER_EMAIL", None)
     if not admin_email:
         return
@@ -481,11 +524,11 @@ def _email_admin_new_order(request, order: Order):
 
     subject = f"New Order: {order.order_number}"
     text_body = render_to_string("emails/admin_new_order.txt", context)
-    # If you later add HTML: html_body = render_to_string("emails/admin_new_order.html", context)
 
-    send_mail(
+    _safe_send_mail(
         subject=subject,
-        message=text_body,
+        text_body=text_body,
         from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-        recipient_list=[admin_email],
+        to_list=[admin_email],
+        # If you add an HTML template later, pass html_body=...
     )
