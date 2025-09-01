@@ -31,18 +31,20 @@ SECRET_KEY = 'django-insecure-#2^w$lur2d&t90sltvbcsjfl+bi=l3(=zea+_9@ste85h21ioo
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    'sharpecom-production.up.railway.app',  # Railway production
-    '127.0.0.1',                            # Localhost loopback
-    'localhost',         
-     'https://www.sharphair.shop/', 
-     'www.sharphair.shop',
-     'sharphair.shop',                              
+    "sharpecom-production.up.railway.app",
+    "www.sharphair.shop",
+    "sharphair.shop",
+    "127.0.0.1",
+    "localhost",
 ]
+
 
 CSRF_TRUSTED_ORIGINS = [
     "https://sharpecom-production.up.railway.app",
-    "https://www.sharphair.shop/",
+    "https://www.sharphair.shop",
+    "https://sharphair.shop",
 ]
+
 
 # Application definition
 
