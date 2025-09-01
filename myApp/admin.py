@@ -23,8 +23,12 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug", "short_description")
     prepopulated_fields = {"slug": ("name",)}
     ordering = ("name",)
-    readonly_fields = ("created_at",)
-    inlines = [ProductComponentInline]
+    fields = (
+        "name", "slug", "price", "is_active",
+        "image_url", "gallery_csv",   # 👈 add gallery_csv here
+        "short_description", "description",
+    )
+
 
 
 class OrderItemInline(admin.TabularInline):
