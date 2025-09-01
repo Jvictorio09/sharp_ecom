@@ -1,1 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Django
+db.sqlite3
+*.log
+/media/
+/staticfiles/
+
+# Envs & config
 .env
+venv/
+myenv/
