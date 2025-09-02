@@ -20,81 +20,47 @@
         /* Sharp brand colors (from guidelines) */
         --sharp-mineral: #263128; /* Primary */
         --sharp-charcoal: #1b1b1b; /* Dark neutral */
-        --sharp-hunter: #324036; /* Secondary */
-        --sharp-steel: #efefef; /* Light neutral */
-        --sharp-foam: #afafaf; /* Very light neutral */
+        --sharp-hunter: #324036;  /* Secondary */
+        --sharp-steel: #efefef;   /* Light neutral */
+        --sharp-foam: #afafaf;    /* Very light neutral */
 
-        /* Map the template's old tokens to real brand colors */
+        /* Mapping old tokens -> brand colors */
         --sharp-ink: var(--sharp-charcoal); /* text */
-        --sharp-cream: var(--sharp-steel); /* page bg */
-        --sharp-ivory: var(--sharp-foam); /* alt bg */
+        --sharp-cream: var(--sharp-steel);  /* page bg */
+        --sharp-ivory: var(--sharp-foam);   /* alt bg */
         --sharp-gold: var(--sharp-mineral); /* accent (repurposed) */
-        --sharp-line: #e1e1e1; /* subtle borders tuned for Steel/Foam */
+        --sharp-line: #e1e1e1;              /* subtle borders */
       }
-      html {
-        scroll-behavior: smooth;
-      }
+      html { scroll-behavior: smooth; }
       body {
         font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
           "Helvetica Neue", Arial, "Noto Sans";
       }
-      .bg-ink {
-        background: var(--sharp-ink);
-      }
-      .bg-cream {
-        background: var(--sharp-cream);
-      }
-      .bg-ivory {
-        background: var(--sharp-ivory);
-      }
-      .bg-steel {
-        background: var(--sharp-steel);
-      }
-      .text-ink {
-        color: var(--sharp-ink);
-      }
-      .text-cream {
-        color: var(--sharp-cream);
-      }
-      .text-gold {
-        color: var(--sharp-gold);
-      }
-      .border-line {
-        border-color: var(--sharp-line);
-      }
-      .ring-gold {
-        --tw-ring-color: var(--sharp-gold);
-      }
+      .bg-ink   { background: var(--sharp-ink); }
+      .bg-cream { background: var(--sharp-cream); }
+      .bg-ivory { background: var(--sharp-ivory); }
+      .bg-steel { background: var(--sharp-steel); }
+      .text-ink { color: var(--sharp-ink); }
+      .text-cream { color: var(--sharp-cream); }
+      .text-gold { color: var(--sharp-gold); }
+      .border-line { border-color: var(--sharp-line); }
+      .ring-gold { --tw-ring-color: var(--sharp-gold); }
       .focus-ring:focus-visible {
         outline: none;
         box-shadow: 0 0 0 3px var(--sharp-gold);
         border-radius: 9999px;
       }
-      .btn {
-        transition: all 200ms ease;
-      }
-      .btn:hover {
-        transform: translateY(-1px);
-      }
-      .btn:active {
-        transform: translateY(0);
-      }
-      .elevate {
-        transition: box-shadow 220ms ease, transform 220ms ease;
-      }
+      .btn { transition: all 200ms ease; }
+      .btn:hover { transform: translateY(-1px); }
+      .btn:active { transform: translateY(0); }
+      .elevate { transition: box-shadow 220ms ease, transform 220ms ease; }
       .elevate:hover {
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 10px 30px rgba(0,0,0,.08);
         transform: translateY(-2px);
       }
-      .drawer {
-        transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
-      }
-      .drawer-open {
-        transform: translateX(0%);
-      }
-      .drawer-closed {
-        transform: translateX(100%);
-      }
+      .drawer { transition: transform 280ms cubic-bezier(.2,.8,.2,1); }
+      .drawer-open { transform: translateX(0%); }
+      .drawer-closed { transform: translateX(100%); }
     </style>
     {% block extra_head %}{% endblock %}
   </head>
@@ -102,57 +68,47 @@
   <body class="bg-cream text-ink antialiased">
     <!-- Trust / announcement bar -->
     <div class="w-full bg-ivory text-[13px] tracking-wide border-b border-line">
-      <div
-        class="max-w-7xl mx-auto px-4 md:px-8 py-2 flex items-center justify-between"
-      >
+      <div class="max-w-7xl mx-auto px-4 md:px-8 py-2 flex items-center justify-between">
         <p class="opacity-80">
-          Carbon‑neutral shipping • 30‑Day No‑Questions Guarantee • 24/7 Human
-          Support
+          Carbon-neutral shipping • 30-Day No-Questions Guarantee • 24/7 Human Support
         </p>
-        <a
-          href="{% url 'product_list' %}"
-          class="hidden sm:inline text-gold underline-offset-4 hover:underline"
-          >Shop Essentials</a
-        >
+        <a href="{% url 'product_list' %}" class="hidden sm:inline text-gold underline-offset-4 hover:underline">
+          Shop Essentials
+        </a>
       </div>
     </div>
 
     <!-- Header -->
-    <header
-      class="sticky top-0 z-40 bg-cream/90 backdrop-blur supports-[backdrop-filter]:bg-cream/70 border-b border-line"
-    >
-      <div
-        class="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-6"
-      >
-        <!-- Logo -->
-        <a
-          href="{% url 'home' %}"
-          class="text-xl font-extrabold tracking-wide text-ink"
-          >SHARP</a
-        >
+    <header class="sticky top-0 z-40 bg-cream/90 backdrop-blur supports-[backdrop-filter]:bg-cream/70 border-b border-line">
+      <div class="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-6">
+        <!-- Logo (auto-switch capable) -->
+        <a href="{% url 'home' %}" class="flex items-center">
+          <!-- Black logo (default) -->
+          <img
+            id="logoBlack"
+            src="https://app.milanote.com/media/p/images/1UPNB91an1sNbD/fla/sharp-logo-black.png?w=display"
+            alt="SHARP Logo"
+            class="h-8 md:h-10 w-auto block"
+            loading="eager"
+            fetchpriority="high"
+          />
+          <!-- White logo (used over dark hero when present) -->
+          <img
+            id="logoWhite"
+            src="https://app.milanote.com/media/p/images/1UPNB81an1sNbC/PJ8/sharp-logo-white.png?w=display"
+            alt="SHARP Logo (White)"
+            class="h-8 md:h-10 w-auto hidden"
+            loading="eager"
+            fetchpriority="high"
+          />
+        </a>
 
         <!-- Desktop Nav -->
         <nav class="hidden md:flex items-center gap-8 text-sm">
-          <a
-            class="hover:text-gold transition focus-ring"
-            href="{% url 'home' %}"
-            >Home</a
-          >
-          <a
-            class="hover:text-gold transition focus-ring"
-            href="{% url 'product_list' %}"
-            >Products</a
-          >
-          <a
-            class="hover:text-gold transition focus-ring"
-            href="{% url 'order_status' %}"
-            >Order Status</a
-          >
-          <a
-            class="hover:text-gold transition focus-ring"
-            href="{% url 'contact' %}"
-            >Contact Us</a
-          >
+          <a class="hover:text-gold transition focus-ring" href="{% url 'home' %}">Home</a>
+          <a class="hover:text-gold transition focus-ring" href="{% url 'product_list' %}">Products</a>
+          <a class="hover:text-gold transition focus-ring" href="{% url 'order_status' %}">Order Status</a>
+          <a class="hover:text-gold transition focus-ring" href="{% url 'contact' %}">Contact Us</a>
         </nav>
 
         <!-- Right side (Search + Cart + Mobile Menu) -->
@@ -162,26 +118,9 @@
             id="searchBtn"
             class="btn focus-ring hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-            >
-              <path
-                d="M21 21l-4.2-4.2"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-              />
-              <circle
-                cx="11"
-                cy="11"
-                r="7.25"
-                stroke="currentColor"
-                stroke-width="1.5"
-              />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M21 21l-4.2-4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <circle cx="11" cy="11" r="7.25" stroke="currentColor" stroke-width="1.5" />
             </svg>
             <span class="text-sm">Search</span>
           </button>
@@ -193,19 +132,10 @@
             aria-label="Open cart"
             title="Open cart"
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-            >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path
                 d="M3 5h2l2 12h10l2-8H6"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
               />
             </svg>
           </button>
@@ -216,40 +146,20 @@
             class="md:hidden btn focus-ring inline-flex items-center justify-center w-10 h-10 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]"
             aria-label="Menu"
           >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-            >
-              <path
-                d="M3 6h18M3 12h18M3 18h18"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-              />
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
             </svg>
           </button>
         </div>
       </div>
 
       <!-- Mobile Nav (hidden by default) -->
-      <div
-        id="mobileMenu"
-        class="hidden md:hidden bg-cream border-t border-line"
-      >
+      <div id="mobileMenu" class="hidden md:hidden bg-cream border-t border-line">
         <nav class="flex flex-col px-4 py-4 gap-4 text-sm">
           <a class="hover:text-gold transition" href="{% url 'home' %}">Home</a>
-          <a class="hover:text-gold transition" href="{% url 'product_list' %}"
-            >Products</a
-          >
-          <a class="hover:text-gold transition" href="{% url 'order_status' %}"
-            >Order Status</a
-          >
-          <a class="hover:text-gold transition" href="{% url 'contact' %}"
-            >Contact Us</a
-          >
+          <a class="hover:text-gold transition" href="{% url 'product_list' %}">Products</a>
+          <a class="hover:text-gold transition" href="{% url 'order_status' %}">Order Status</a>
+          <a class="hover:text-gold transition" href="{% url 'contact' %}">Contact Us</a>
         </nav>
       </div>
     </header>
@@ -258,21 +168,68 @@
       // Mobile menu toggle
       const mobileBtn = document.getElementById("mobileMenuBtn");
       const mobileMenu = document.getElementById("mobileMenu");
-      mobileBtn.addEventListener("click", () => {
-        mobileMenu.classList.toggle("hidden");
-      });
+      if (mobileBtn) {
+        mobileBtn.addEventListener("click", () => {
+          mobileMenu.classList.toggle("hidden");
+        });
+      }
+
+      // Optional: Auto-switch logo if a dark hero is present (id="heroDark")
+      // Shows white logo while scrolled over the hero; black elsewhere.
+      const logoBlack = document.getElementById("logoBlack");
+      const logoWhite = document.getElementById("logoWhite");
+      const heroDark = document.getElementById("heroDark");
+
+      function setLogo(mode) {
+        if (!logoBlack || !logoWhite) return;
+        if (mode === "white") {
+          logoBlack.classList.add("hidden");
+          logoWhite.classList.remove("hidden");
+        } else {
+          logoWhite.classList.add("hidden");
+          logoBlack.classList.remove("hidden");
+        }
+      }
+
+      function updateLogoOnScroll() {
+        if (!heroDark) return setLogo("black");
+        const heroRect = heroDark.getBoundingClientRect();
+        const headerHeight = 64; // ~h-16
+        // If the top of the document is still within the hero area, use white logo
+        if (window.scrollY < (heroDark.offsetTop + heroRect.height - headerHeight)) {
+          setLogo("white");
+        } else {
+          setLogo("black");
+        }
+      }
+
+      // Init + scroll listener
+      updateLogoOnScroll();
+      window.addEventListener("scroll", updateLogoOnScroll, { passive: true });
+      window.addEventListener("resize", updateLogoOnScroll);
+
+      // Simple "Search" click placeholder
+      const searchBtn = document.getElementById("searchBtn");
+      if (searchBtn) {
+        searchBtn.addEventListener("click", () => {
+          // Hook this to your real search modal later
+          alert("Search coming soon.");
+        });
+      }
     </script>
 
     <!-- Django messages -->
     {% if messages %}
-    <div class="max-w-3xl mx-auto mt-6 px-4 md:px-0">
-      {% for message in messages %}
-      <div class="mb-3 rounded-xl border border-line bg-white p-4">
-        {{ message }}
+      <div class="max-w-3xl mx-auto mt-6 px-4 md:px-0">
+        {% for message in messages %}
+          <div class="mb-3 rounded-xl border border-line bg-white p-4">
+            {{ message }}
+          </div>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
-    {% endif %} {% block content %}{% endblock %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
 
     <!-- Footer -->
     <footer class="bg-cream border-t border-line">
@@ -280,14 +237,19 @@
         <div class="grid md:grid-cols-3 gap-10">
           <!-- Brand / Newsletter -->
           <div>
-            <p class="text-xl font-extrabold tracking-wide">SHARP</p>
+            <div class="flex items-center">
+              <!-- Use black logo in footer by default -->
+              <img
+                src="https://app.milanote.com/media/p/images/1UPNB91an1sNbD/fla/sharp-logo-black.png?w=display"
+                alt="SHARP Logo"
+                class="h-8 w-auto"
+                loading="lazy"
+              />
+            </div>
             <p class="mt-3 text-sm opacity-80 max-w-xs">
               Essential care, perfectly considered.
             </p>
-            <form
-              class="mt-6 flex gap-2"
-              onsubmit="event.preventDefault(); alert('Welcome to the circle.');"
-            >
+            <form class="mt-6 flex gap-2" onsubmit="event.preventDefault(); alert('Welcome to the circle.');">
               <input
                 type="email"
                 required
@@ -306,11 +268,7 @@
           <div>
             <p class="font-semibold mb-3">Shop</p>
             <ul class="space-y-2 text-sm">
-              <li>
-                <a class="hover:text-gold" href="{% url 'product_list' %}"
-                  >Products</a
-                >
-              </li>
+              <li><a class="hover:text-gold" href="{% url 'product_list' %}">Products</a></li>
             </ul>
           </div>
 
@@ -318,27 +276,15 @@
           <div>
             <p class="font-semibold mb-3">Support</p>
             <ul class="space-y-2 text-sm">
-              <li>
-                <a class="hover:text-gold" href="{% url 'contact' %}"
-                  >Contact</a
-                >
-              </li>
-              <li>
-                <a class="hover:text-gold" href="{% url 'cart' %}">Your Bag</a>
-              </li>
-              <li>
-                <a class="hover:text-gold" href="{% url 'checkout' %}"
-                  >Checkout</a
-                >
-              </li>
+              <li><a class="hover:text-gold" href="{% url 'contact' %}">Contact</a></li>
+              <li><a class="hover:text-gold" href="{% url 'cart' %}">Your Bag</a></li>
+              <li><a class="hover:text-gold" href="{% url 'checkout' %}">Checkout</a></li>
             </ul>
           </div>
         </div>
 
         <!-- Bottom bar -->
-        <div
-          class="mt-10 pt-6 border-t border-line text-sm flex flex-col md:flex-row items-center justify-between gap-4"
-        >
+        <div class="mt-10 pt-6 border-t border-line text-sm flex flex-col md:flex-row items-center justify-between gap-4">
           <p>© <span id="year"></span> SHARP. All rights reserved.</p>
           <div class="flex items-center gap-4 opacity-80">
             <a href="#" class="hover:text-gold">Privacy</a>
@@ -350,35 +296,21 @@
     </footer>
 
     <!-- CART DRAWER -->
-    <!-- CART DRAWER -->
     <aside
       id="cartDrawer"
       class="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-white shadow-2xl drawer drawer-closed z-50 border-l border-line flex flex-col"
       aria-hidden="true"
     >
       <!-- Header -->
-      <div
-        class="h-16 px-6 flex items-center justify-between border-b border-line bg-white"
-      >
+      <div class="h-16 px-6 flex items-center justify-between border-b border-line bg-white">
         <p class="font-semibold text-lg">Your Bag</p>
         <button
           id="closeCart"
           class="btn flex items-center justify-center w-10 h-10 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]"
           aria-label="Close cart"
         >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M6 6l12 12M18 6L6 18"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-            />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
           </svg>
         </button>
       </div>
@@ -392,9 +324,7 @@
       </div>
 
       <!-- Sticky Footer -->
-      <div
-        class="border-t border-line bg-white shadow-inner p-6 sticky bottom-0"
-      >
+      <div class="border-t border-line bg-white shadow-inner p-6 sticky bottom-0">
         <!-- Subtotal row -->
         <div class="flex items-center justify-between mb-2">
           <span class="text-sm font-medium text-ink">Subtotal</span>
@@ -444,9 +374,7 @@
           for (let i = 0; i < cookies.length; i++) {
             const cookie = cookies[i].trim();
             if (cookie.substring(0, name.length + 1) === name + "=") {
-              cookieValue = decodeURIComponent(
-                cookie.substring(name.length + 1)
-              );
+              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
               break;
             }
           }
@@ -473,16 +401,10 @@
         overlay.classList.add("pointer-events-none");
         overlay.classList.remove("opacity-100");
       };
-      if (openCartBtn)
-        openCartBtn.addEventListener("click", () => {
-          refreshCart();
-          openDrawer();
-        });
+      if (openCartBtn) openCartBtn.addEventListener("click", () => { refreshCart(); openDrawer(); });
       if (closeCartBtn) closeCartBtn.addEventListener("click", closeDrawer);
       overlay.addEventListener("click", closeDrawer);
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") closeDrawer();
-      });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
 
       async function refreshCart() {
         try {
@@ -499,8 +421,7 @@
       function renderCart(cart) {
         itemsEl.innerHTML = "";
         if (!cart || !cart.items || cart.items.length === 0) {
-          itemsEl.innerHTML =
-            '<div class="py-10 text-center text-sm opacity-70">Your bag is impeccably empty—for now.</div>';
+          itemsEl.innerHTML = '<div class="py-10 text-center text-sm opacity-70">Your bag is impeccably empty—for now.</div>';
           subtotalEl.textContent = "JD0.00";
           return;
         }
@@ -511,24 +432,15 @@
           row.className = "py-4 flex items-center gap-4";
           row.innerHTML = `
             <div class="w-16 h-16 rounded-lg bg-ivory overflow-hidden">
-              <img src="${it.image_url}" alt="${
-            it.name
-          }" class="w-full h-full object-cover"/>
+              <img src="${it.image_url}" alt="${it.name}" class="w-full h-full object-cover"/>
             </div>
             <div class="flex-1">
-              <a href="/product/${
-                it.slug
-              }/" class="font-medium hover:underline">${it.name}</a>
+              <a href="/product/${it.slug}/" class="font-medium hover:underline">${it.name}</a>
               <p class="text-sm opacity-70">Qty: ${it.qty}</p>
             </div>
             <div class="text-right">
-              <p class="font-medium">JD${Number(it.line_total).toLocaleString(
-                undefined,
-                { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-              )}</p>
-              <button class="text-sm underline opacity-70 hover:opacity-100" data-remove="${
-                it.id
-              }">Remove</button>
+              <p class="font-medium">JD${Number(it.line_total).toLocaleString(undefined,{ minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <button class="text-sm underline opacity-70 hover:opacity-100" data-remove="${it.id}">Remove</button>
             </div>`;
           itemsEl.appendChild(row);
         });
@@ -540,16 +452,13 @@
         itemsEl.querySelectorAll("[data-remove]").forEach((btn) => {
           btn.addEventListener("click", async (e) => {
             const id = e.currentTarget.getAttribute("data-remove");
-            await fetch(
-              `{% url 'cart_remove' 0 %}`.replace("/0/", "/" + id + "/"),
-              {
-                method: "POST",
-                headers: {
-                  "X-Requested-With": "XMLHttpRequest",
-                  "X-CSRFToken": getCookie("csrftoken"),
-                },
-              }
-            );
+            await fetch(`{% url 'cart_remove' 0 %}`.replace("/0/", "/" + id + "/"), {
+              method: "POST",
+              headers: {
+                "X-Requested-With": "XMLHttpRequest",
+                "X-CSRFToken": getCookie("csrftoken"),
+              },
+            });
             refreshCart();
           });
         });
@@ -562,18 +471,15 @@
         const pid = btn.getAttribute("data-add-to-cart");
         const qty = btn.getAttribute("data-qty") || 1;
         try {
-          await fetch(
-            `{% url 'cart_add' 0 %}`.replace("/0/", "/" + pid + "/"),
-            {
-              method: "POST",
-              headers: {
-                "X-Requested-With": "XMLHttpRequest",
-                "Content-Type": "application/x-www-form-urlencoded",
-                "X-CSRFToken": getCookie("csrftoken"),
-              },
-              body: new URLSearchParams({ qty: String(qty) }),
-            }
-          );
+          await fetch(`{% url 'cart_add' 0 %}`.replace("/0/", "/" + pid + "/"), {
+            method: "POST",
+            headers: {
+              "X-Requested-With": "XMLHttpRequest",
+              "Content-Type": "application/x-www-form-urlencoded",
+              "X-CSRFToken": getCookie("csrftoken"),
+            },
+            body: new URLSearchParams({ qty: String(qty) }),
+          });
           await refreshCart();
           openDrawer();
         } catch (err) {

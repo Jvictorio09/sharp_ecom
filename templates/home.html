@@ -3,40 +3,121 @@
 {% block content %}
 
 <!-- Hero Section -->
-<section class="relative h-[95vh] flex items-center justify-center overflow-hidden">
-  <!-- Background image with slow zoom -->
-  <img src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80" 
-       alt="Luxury workspace" 
-       class="absolute inset-0 w-full h-full object-cover scale-105 animate-[slowZoom_20s_ease-in-out_infinite_alternate]"/>
-  <!-- Overlay -->
-  <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60"></div>
 
-  <!-- Content -->
-  <div class="relative z-10 text-center px-6 max-w-4xl">
-    <p class="uppercase tracking-[0.25em] text-sm text-white/80 mb-4 opacity-0 animate-fadeInUp delay-200">Studio Edition</p>
-    <h1 class="text-4xl md:text-6xl font-extrabold leading-tight text-white mb-6 opacity-0 animate-fadeInUp delay-300">
-      Quiet Luxury, <span class="text-[var(--sharp-gold)]">Every Day</span>.
-    </h1>
-    <p class="text-base md:text-lg leading-relaxed text-white/90 max-w-2xl mx-auto mb-10 opacity-0 animate-fadeInUp delay-500">
-      Essential care, perfectly considered. Precision formulas and refined tools designed to outlast trends and elevate the everyday.
-    </p>
-    <div class="flex flex-wrap justify-center items-center gap-4 opacity-0 animate-fadeInUp delay-700">
-      <a href="{% url 'product_list' %}" 
-         class="btn inline-flex items-center gap-2 px-8 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] focus-ring shadow-lg hover:shadow-xl transition">
-         Shop the Essentials
-      </a>
-      <a href="#story" 
-         class="btn inline-flex items-center gap-2 px-8 py-3 rounded-full border border-white/40 bg-white/10 text-white hover:bg-white/20 focus-ring transition">
-         Discover the Story
-      </a>
+<section id="heroDark" class="relative h-[95vh] flex items-center justify-center overflow-hidden">
+  <!-- Background (keeps your 3s rotator) -->
+  <img
+    id="heroBg"
+    src="https://res.cloudinary.com/dkjtfjnlf/image/upload/v1756698753/302b99a5-5723-4846-b55b-aee584f54c50_jsty69.jpg"
+    alt="SHARP product"
+    class="absolute inset-0 w-full h-full object-cover scale-105 transition-opacity duration-700 ease-in-out
+           animate-[slowZoom_20s_ease-in-out_infinite_alternate]"
+  />
+
+  <!-- Elegant vignette: darker edges, softer center (way more adult) -->
+  <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.35)_0%,rgba(0,0,0,0.55)_55%,rgba(0,0,0,0.75)_100%)]"></div>
+
+  <!-- Content on subtle glass panel -->
+  <div class="relative z-10 px-6 w-full">
+    <div class="mx-auto max-w-3xl rounded-2xl bg-black/30 backdrop-blur-sm ring-1 ring-white/10 p-6 md:p-8 text-center">
+      <p class="uppercase tracking-[0.25em] text-xs md:text-sm text-white/80 mb-3">
+        Scientific Haircare
+      </p>
+
+      <h1 class="text-4xl md:text-6xl font-extrabold leading-tight text-white mb-4 md:mb-6 drop-shadow-[0_1px_0_rgba(0,0,0,0.4)]">
+        Backed by Nature,
+        <span class="text-[var(--sharp-gold)] [text-shadow:0_1px_0_rgba(255,255,255,0.35)]">
+          Enhanced by Science
+        </span>.
+      </h1>
+
+      <p class="text-base md:text-lg leading-relaxed text-white/90 max-w-2xl mx-auto mb-6 md:mb-8">
+        Where botanical purity meets advanced formulation. SHARP delivers sulfate-free, silicone-free solutions
+        that restore, strengthen, and protect—luxury haircare designed for results that last.
+      </p>
+
+      <div class="flex flex-wrap justify-center items-center gap-3 md:gap-4">
+        <a href="{% url 'product_list' %}"
+           class="btn inline-flex items-center gap-2 px-6 md:px-8 py-3 rounded-full text-white bg-[var(--sharp-gold)]
+                  hover:bg-[var(--sharp-hunter)] focus-ring shadow-md hover:shadow-lg transition">
+          Shop the Collection
+        </a>
+        <a href="#story"
+           class="btn inline-flex items-center gap-2 px-6 md:px-8 py-3 rounded-full border border-white/30 text-white
+                  hover:bg-white/10 focus-ring transition">
+          Discover Our Science
+        </a>
+      </div>
     </div>
   </div>
-
-  <!-- Scroll indicator -->
-  <div class="absolute bottom-8 w-full flex justify-center">
-    <div class="animate-bounce text-white/70 text-xs tracking-wide">▼ Scroll</div>
-  </div>
 </section>
+
+<script>
+  (function () {
+    const hero = document.getElementById('heroBg');
+    if (!hero) return;
+
+    // All product images (deduped, you can reorder if you like)
+    const urls = [
+      // Conditioner
+      "https://res.cloudinary.com/dkjtfjnlf/image/upload/v1756698753/302b99a5-5723-4846-b55b-aee584f54c50_jsty69.jpg",
+      "https://res.cloudinary.com/dkjtfjnlf/image/upload/v1756698753/39fbf9e4-e3e0-488a-90cd-762f60351da7_elsobt.jpg",
+      "https://res.cloudinary.com/dkjtfjnlf/image/upload/v1756698752/150ddba4-fcf1-4bd2-9443-b797e385de64_vr3tix.jpg",
+
+      // Sea Salt Spray
+      "https://res.cloudinary.com/dkjtfjnlf/image/upload/v1756698755/05505087-3572-48c8-9338-dafbed984b41-2_dzqwkx.jpg",
+      "https://res.cloudinary.com/dkjtfjnlf/image/upload/v1756698755/05505087-3572-48c8-9338-dafbed984b41-3_ljrau1.jpg",
+      "https://res.cloudinary.com/dkjtfjnlf/image/upload/v1756698756/05505087-3572-48c8-9338-dafbed984b41_zbwehv.jpg",
+
+      // Shampoo
+      "https://res.cloudinary.com/dkjtfjnlf/image/upload/v1756698759/3_phbtxn.jpg",
+      "https://res.cloudinary.com/dkjtfjnlf/image/upload/v1756698760/5_dlyniy.jpg",
+      "https://res.cloudinary.com/dkjtfjnlf/image/upload/v1756698758/2_ibkeof.jpg",
+      "https://res.cloudinary.com/dkjtfjnlf/image/upload/v1756698757/1_qb65tt.jpg",
+
+      // Treatment Oil
+      "https://res.cloudinary.com/dkjtfjnlf/image/upload/v1756698762/2_maw4et.jpg",
+      "https://res.cloudinary.com/dkjtfjnlf/image/upload/v1756698763/3_km7fmm.jpg",
+      "https://res.cloudinary.com/dkjtfjnlf/image/upload/v1756698761/1_wax9fy.jpg",
+    ];
+
+    // Optional: randomize order for freshness
+    for (let j = urls.length - 1; j > 0; j--) {
+      const k = Math.floor(Math.random() * (j + 1));
+      [urls[j], urls[k]] = [urls[k], urls[j]];
+    }
+
+    // Ensure we start with the first one
+    hero.src = urls[0];
+
+    // Preload the rest
+    urls.slice(1).forEach(u => { const i = new Image(); i.src = u; });
+
+    let i = 0;
+    setInterval(() => {
+      if (urls.length < 2) return;
+      i = (i + 1) % urls.length;
+
+      // fade out current
+      hero.classList.add('opacity-0');
+
+      // after fade-out, swap src and fade back in
+      const onEnd = () => {
+        hero.removeEventListener('transitionend', onEnd);
+        hero.src = urls[i];
+        requestAnimationFrame(() => hero.classList.remove('opacity-0'));
+      };
+      hero.addEventListener('transitionend', onEnd, { once: true });
+    }, 3000); // 3 seconds
+  })();
+</script>
+
+<style>
+  @keyframes slowZoom {
+    from { transform: scale(1.05); }
+    to   { transform: scale(1.12); }
+  }
+</style>
 
 
 <!-- Essentials Section -->
@@ -178,23 +259,30 @@
 </section>
 
 
-
-
 <!-- Story / Brand Values -->
 <section id="story" class="py-20 border-y border-line bg-ivory" data-animate-section>
   <div class="max-w-7xl mx-auto px-4 md:px-8 grid lg:grid-cols-2 gap-12 items-center">
+    <!-- Image -->
     <div class="rounded-2xl overflow-hidden aspect-[4/3] bg-ivory shadow-lg opacity-0 translate-y-6 transition-all duration-700" data-animate-card>
-      <img src="https://images.unsplash.com/photo-1542744173-05336fcc7ad4?auto=format&fit=crop&w=1200&q=80" 
-           alt="Studio bench with lab glassware" 
+      <img src="https://res.cloudinary.com/dkjtfjnlf/image/upload/v1756698753/302b99a5-5723-4846-b55b-aee584f54c50_jsty69.jpg" 
+           alt="Laboratory glassware representing science and purity" 
            class="w-full h-full object-cover scale-105 hover:scale-110 transition-transform duration-700"/>
     </div>
+
+    <!-- Text Content -->
     <div class="opacity-0 translate-y-6 transition-all duration-700 delay-200" data-animate-card>
-      <h2 class="text-2xl md:text-4xl font-extrabold">We design tools, not trends.</h2>
-      <p class="mt-4 text-ink/80 leading-relaxed">Fewer, better products—engineered for daily use. Traceable supply chain, fair-wage partners, and zero-waste packaging. Luxury that whispers, not shouts.</p>
+      <h2 class="text-2xl md:text-4xl font-extrabold">Backed by Nature, Enhanced by Science.</h2>
+      <p class="mt-4 text-ink/80 leading-relaxed">
+        SHARP Haircare is built on the synergy of natural active ingredients and advanced formulation science.  
+        Every product is free from sulfates, silicones, and harmful additives—crafted to be safe, effective, and suitable for all hair types.  
+        By blending botanical extracts, essential oils, and clinically recognized nutrients, SHARP restores, strengthens, and protects your hair with care that’s as scientific as it is natural.
+      </p>
+
+      <!-- Brand Values -->
       <div class="mt-8 grid sm:grid-cols-3 gap-6 text-sm">
         <div class="border-l-2 pl-4 border-[var(--sharp-gold)]">
           <p class="font-semibold">Traceable</p>
-          <p class="opacity-70">Supply chain</p>
+          <p class="opacity-70">Supply Chain</p>
         </div>
         <div class="border-l-2 pl-4 border-[var(--sharp-gold)]">
           <p class="font-semibold">Zero-Waste</p>
