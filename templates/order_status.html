@@ -3,27 +3,52 @@
 {% block content %}
 <section class="py-12 md:py-20">
   <div class="max-w-3xl mx-auto px-4 md:px-0">
-    <h1 class="text-2xl md:text-4xl font-extrabold mb-6">Track your order</h1>
+    <h1 class="text-2xl md:text-4xl font-extrabold mb-2">Track your order</h1>
     <p class="text-ink/70 mb-8">Enter your order number and (optionally) the email you used at checkout.</p>
 
-    <form method="post" class="bg-white border border-line rounded-2xl p-6 space-y-4">{% csrf_token %}
+    <form method="post" class="bg-white border border-line rounded-2xl p-6 space-y-4" novalidate>
+      {% csrf_token %}
+      <!-- Honey-pot to deter bots -->
+      <input type="text" name="website" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
+
       <div>
-        <label class="text-sm font-medium">Order number</label>
-        <input name="order_number" required placeholder="e.g. SH-482931"
-               class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
+        <label for="order_number" class="text-sm font-medium">Order number</label>
+        <input id="order_number"
+               name="order_number"
+               required
+               placeholder="e.g. SH-482931"
+               inputmode="latin"
+               autocomplete="off"
+               pattern="[A-Za-z]{2}-[0-9]{5,}"
+               title="Format like SH-482931"
+               class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
+               autofocus>
+        <p class="mt-1 text-xs text-ink/60">Tip: You’ll find this in your order confirmation email/SMS.</p>
       </div>
+
       <div>
-        <label class="text-sm font-medium">Email (optional)</label>
-        <input name="email" type="email" placeholder="you@example.com"
+        <label for="email" class="text-sm font-medium">Email (optional)</label>
+        <input id="email"
+               name="email"
+               type="email"
+               placeholder="you@example.com"
+               autocomplete="email"
                class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
+        <p class="mt-1 text-xs text-ink/60">Add your email for faster verification and detailed status.</p>
       </div>
-      <button class="btn w-full px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]">
-        Check status
+
+      <button id="checkBtn"
+              class="btn w-full px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] flex items-center justify-center gap-2">
+        <span class="inline-block" id="btnText">Check status</span>
+        <svg id="btnSpinner" class="hidden animate-spin h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 008 12H4z"/>
+        </svg>
       </button>
     </form>
 
     {% if messages %}
-      <div class="mt-6 space-y-3">
+      <div class="mt-6 space-y-3" role="status" aria-live="polite">
         {% for message in messages %}
           <div class="rounded-xl border border-line bg-white p-4">{{ message }}</div>
         {% endfor %}
@@ -33,13 +58,37 @@
     {% if order %}
       <div class="mt-8 rounded-2xl border border-line bg-ivory p-6">
         <div class="flex items-center justify-between gap-4">
-          <div>
+          <div class="space-y-1">
             <p class="text-xs uppercase tracking-widest text-ink/60">Order</p>
-            <p class="text-lg font-semibold">{{ order.order_number }}</p>
+            <div class="flex items-center gap-2">
+              <p class="text-lg font-semibold">{{ order.order_number }}</p>
+              <button type="button"
+                      class="text-xs px-2 py-1 rounded-lg border border-line bg-white hover:border-[var(--sharp-gold)]"
+                      onclick="navigator.clipboard?.writeText('{{ order.order_number }}')">
+                Copy
+              </button>
+            </div>
           </div>
-          <a href="{% url 'order_detail' order.order_number %}" class="btn px-5 py-2.5 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]">
-            View details
-          </a>
+
+          <div class="flex items-center gap-2">
+            {% with s=order.status|default_if_none:"processing" %}
+              {% if s == "delivered" or s == "completed" %}
+                <span class="px-3 py-1.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Delivered</span>
+              {% elif s == "shipped" %}
+                <span class="px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">Shipped</span>
+              {% elif s == "cancelled" or s == "canceled" %}
+                <span class="px-3 py-1.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">Cancelled</span>
+              {% elif s == "refunded" %}
+                <span class="px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Refunded</span>
+              {% else %}
+                <span class="px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800">{{ s|capfirst }}</span>
+              {% endif %}
+            {% endwith %}
+            <a href="{% url 'order_detail' order.order_number %}"
+               class="btn px-5 py-2.5 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)]">
+              View details
+            </a>
+          </div>
         </div>
 
         <div class="grid sm:grid-cols-2 gap-6 mt-6 text-sm">
@@ -47,11 +96,26 @@
             <p><span class="opacity-70">Placed:</span> {{ order.created_at|date:"M j, Y g:i a" }}</p>
             <p><span class="opacity-70">Status:</span> <span class="font-medium capitalize">{{ order.status }}</span></p>
             <p><span class="opacity-70">Total:</span> <span class="font-medium">JD{{ order.grand_total }}</span></p>
+            {% if order.tracking_number %}
+              <p><span class="opacity-70">Tracking #:</span> <span class="font-medium">{{ order.tracking_number }}</span></p>
+            {% endif %}
+            {% if order.carrier %}
+              <p><span class="opacity-70">Carrier:</span> <span class="font-medium">{{ order.carrier }}</span></p>
+            {% endif %}
           </div>
+
           <div class="space-y-1">
             <p class="opacity-70">Shipping to</p>
+            {# If you require email verification in the view, this will only render when verified #}
             <p class="font-medium">{{ order.full_name }}</p>
-            <p>{{ order.address_line1 }}{% if order.city %}, {{ order.city }}{% endif %}{% if order.province %}, {{ order.province }}{% endif %}{% if order.zip_code %}, {{ order.zip_code }}{% endif %}</p>
+            <p>
+              {{ order.address_line1 }}
+              {% if order.address_line2 %}<br>{{ order.address_line2 }}{% endif %}
+              {% if order.city %}, {{ order.city }}{% endif %}
+              {% if order.province %}, {{ order.province }}{% endif %}
+              {% if order.zip_code %}, {{ order.zip_code }}{% endif %}
+              {% if order.country %}, {{ order.country }}{% endif %}
+            </p>
           </div>
         </div>
 
@@ -60,14 +124,57 @@
           <div class="divide-y divide-[var(--sharp-line)] bg-white border border-line rounded-xl">
             {% for it in order.items.all %}
               <div class="p-4 flex items-center justify-between">
-                <span class="opacity-80">{{ it.name }} × {{ it.quantity }}</span>
+                <div class="opacity-80">
+                  {{ it.name }} × {{ it.quantity }}
+                  {% if it.variant %}<span class="text-ink/60">({{ it.variant }})</span>{% endif %}
+                </div>
                 <span class="font-medium">JD{{ it.line_total }}</span>
               </div>
+            {% empty %}
+              <div class="p-4 text-ink/60">No items found for this order.</div>
             {% endfor %}
           </div>
         </div>
+
+        {% if order.tracking_events %}
+          <div class="mt-6">
+            <p class="font-semibold mb-2">Tracking timeline</p>
+            <ol class="space-y-3">
+              {% for ev in order.tracking_events %}
+                <li class="bg-white border border-line rounded-xl p-3 text-sm">
+                  <div class="flex items-center justify-between">
+                    <span class="font-medium">{{ ev.description }}</span>
+                    <span class="text-ink/60">{{ ev.timestamp|date:"M j, Y g:i a" }}</span>
+                  </div>
+                  {% if ev.location %}
+                    <p class="text-ink/70 mt-1">Location: {{ ev.location }}</p>
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ol>
+          </div>
+        {% endif %}
       </div>
     {% endif %}
+
+    <p class="mt-6 text-xs text-ink/60">
+      Need help? <a class="underline hover:text-[var(--sharp-hunter)]" href="/contact/">Contact Support</a>.
+    </p>
   </div>
 </section>
+
+<script>
+  // Simple loading state
+  const form = document.querySelector('form');
+  const btn = document.getElementById('checkBtn');
+  const btnText = document.getElementById('btnText');
+  const btnSpinner = document.getElementById('btnSpinner');
+
+  form?.addEventListener('submit', () => {
+    btn?.setAttribute('disabled', 'true');
+    btn?.classList.add('opacity-80', 'cursor-wait');
+    if (btnText) btnText.textContent = 'Checking…';
+    if (btnSpinner) btnSpinner.classList.remove('hidden');
+  });
+</script>
 {% endblock %}

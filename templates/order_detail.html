@@ -1,15 +1,28 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}Order {{ order.order_number }} — SHARP{% endblock %}
+
 {% block content %}
 <section class="py-12 md:py-20">
   <div class="max-w-4xl mx-auto px-4 md:px-0">
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl md:text-4xl font-extrabold">Order {{ order.order_number }}</h1>
-      <a href="{% url 'order_status' %}" class="text-sm underline hover:text-gold">Back to status</a>
+      <div class="flex items-center gap-4">
+        {% if order.can_cancel %}
+          <form method="post" action="{% url 'cancel_order' order.id %}" onsubmit="return confirm('Cancel this order? If it has already been dispatched to the courier, cancellation is not allowed.');">
+            {% csrf_token %}
+            <button class="text-sm px-3 py-1.5 rounded-full border border-line hover:border-red-500 hover:text-red-600 transition">
+              Cancel Order
+            </button>
+          </form>
+        {% endif %}
+        <a href="{% url 'order_status' %}" class="text-sm underline hover:text-gold">Back to status</a>
+      </div>
     </div>
 
     <div class="grid lg:grid-cols-3 gap-6">
       <div class="lg:col-span-2 space-y-6">
+        <!-- Items -->
         <div class="rounded-2xl border border-line bg-white p-6">
           <p class="font-semibold mb-4">Items</p>
           <div class="divide-y divide-[var(--sharp-line)]">
@@ -19,12 +32,13 @@
                   <p class="font-medium">{{ it.name }}</p>
                   <p class="text-sm opacity-70">Qty: {{ it.quantity }}</p>
                 </div>
-                <p class="font-medium">JD{{ it.line_total }}</p>
+                <p class="font-medium tabular-nums">{{ it.line_total|money:request }}</p>
               </div>
             {% endfor %}
           </div>
         </div>
 
+        <!-- Notes -->
         <div class="rounded-2xl border border-line bg-white p-6">
           <p class="font-semibold mb-2">Notes</p>
           <p class="text-ink/80">{{ order.notes|default:"—" }}</p>
@@ -32,6 +46,7 @@
       </div>
 
       <aside class="space-y-6">
+        <!-- Summary -->
         <div class="rounded-2xl border border-line bg-ivory p-6">
           <div class="flex items-center justify-between">
             <span class="opacity-70">Placed</span>
@@ -41,19 +56,39 @@
             <span class="opacity-70">Status</span>
             <span class="font-medium capitalize">{{ order.status }}</span>
           </div>
+
           <hr class="my-4 border-line">
+
           <div class="text-sm space-y-2">
-            <div class="flex items-center justify-between"><span>Subtotal</span><span class="font-medium">JD{{ order.subtotal }}</span></div>
-            <div class="flex items-center justify-between"><span>Shipping</span><span class="font-medium">JD{{ order.shipping_cost }}</span></div>
-            {% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
-              <div class="flex items-center justify-between"><span>Discount</span><span class="font-medium">-JD{{ order.discount_total }}</span></div>
+            <div class="flex items-center justify-between">
+              <span>Subtotal</span>
+              <span class="font-medium tabular-nums">{{ order.subtotal|money:request }}</span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <span>Shipping</span>
+              {% if order.shipping_cost %}
+                <span class="font-medium tabular-nums">{{ order.shipping_cost|money:request }}</span>
+              {% else %}
+                <span class="font-medium">Free</span>
+              {% endif %}
+            </div>
+
+            {% if order.discount_total %}
+              <div class="flex items-center justify-between">
+                <span>Discount</span>
+                <span class="font-medium tabular-nums">-{{ order.discount_total|money:request }}</span>
+              </div>
             {% endif %}
+
             <div class="pt-2 border-t border-line flex items-center justify-between text-base">
-              <span class="font-semibold">Total</span><span class="font-semibold">JD{{ order.grand_total }}</span>
+              <span class="font-semibold">Total</span>
+              <span class="font-semibold tabular-nums">{{ order.grand_total|money:request }}</span>
             </div>
           </div>
         </div>
 
+        <!-- Shipping Address -->
         <div class="rounded-2xl border border-line bg-white p-6">
           <p class="font-semibold mb-2">Shipping Address</p>
           <p class="text-sm">

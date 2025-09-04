@@ -70,13 +70,13 @@
           <a
             href="{% url 'product_detail' slug=p.slug %}"
             class="hover:underline"
-            >{{ p.name }}</a
-          >
+          >{{ p.name }}</a>
         </h3>
         {% if p.subtitle %}
         <p class="text-sm opacity-70 line-clamp-2">{{ p.subtitle }}</p>
         {% endif %}
       </div>
+
       {% if p.rating %}
       <!-- Optional rating (0–5). Only renders if you have p.rating -->
       <div class="shrink-0 flex items-center gap-1 text-[12px]">
@@ -99,9 +99,14 @@
 
     <div class="mt-4 flex items-center justify-between">
       <div class="flex items-baseline gap-2">
-        <p class="font-semibold">JD{{ p.price }}</p>
+        <!-- ✨ currency-aware price -->
+        <p class="font-semibold tabular-nums">{{ p.price|money:request }}</p>
+
         {% if p.compare_price and p.compare_price > p.price %}
-        <p class="text-sm line-through opacity-60">JD{{ p.compare_price }}</p>
+        <!-- ✨ currency-aware compare-at price -->
+        <p class="text-sm line-through opacity-60 tabular-nums">
+          {{ p.compare_price|money:request }}
+        </p>
         {% endif %}
       </div>
 

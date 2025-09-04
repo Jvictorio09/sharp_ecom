@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}SHARP — Quiet Luxury, Every Day{% endblock %}
 {% block content %}
+{% load money %}
 
 <!-- Hero Section -->
 
@@ -236,7 +237,8 @@
 
           <!-- Price / CTA -->
           <div class="mt-4 flex items-center justify-between">
-            <div class="text-lg font-semibold">JD{{ p.price|floatformat:2 }}</div>
+            <div class="text-lg font-semibold tabular-nums">{{ p.price|money:request }}</div>
+
             <a href="{% url 'product_detail' p.slug %}"
                class="px-4 py-2 rounded-full border border-line bg-cream hover:border-[var(--sharp-gold)] text-sm">
               Shop set

@@ -18,6 +18,45 @@ from django.core.mail import get_connection, EmailMultiAlternatives
 
 logger = logging.getLogger(__name__)
 
+# myApp/views.py
+# === currency formatter bridge ==========================================
+from importlib import import_module
+from functools import lru_cache
+from decimal import Decimal as _D
+
+@lru_cache(maxsize=1)
+def _get_money_callable():
+    """
+    Use the same callable your template filter uses.
+    Tries 'money' then 'money_filter'. Cached after first lookup.
+    """
+    try:
+        mod = import_module("myApp.templatetags.money")
+        fn = getattr(mod, "money", None) or getattr(mod, "money_filter", None)
+        return fn
+    except Exception:
+        return None
+
+def money_filter(amount, request=None) -> str:
+    """
+    View-side formatter that mirrors {{ value|money:request }}.
+    Falls back to plain number formatting if the tag isn’t importable.
+    """
+    fn = _get_money_callable()
+    if fn:
+        return fn(amount, request)
+    try:
+        return f"{_D(str(amount or '0')):,.2f}"
+    except Exception:
+        return "0.00"
+# ========================================================================
+
+# --- Email safety helper (never crash the request) ---
+import logging
+from django.core.mail import get_connection, EmailMultiAlternatives
+
+logger = logging.getLogger(__name__)
+
 def _safe_send_mail(subject, text_body, from_email, to_list, html_body=None, extra_headers=None):
     """
     Sends email using the configured EMAIL_BACKEND (Gmail SMTP, Resend via Anymail, etc.).
@@ -86,33 +125,6 @@ def _items_and_subtotal(cart_dict):
         items.append({"product": product, "qty": qty, "line_total": line_total})
     return items, subtotal
 
-
-def _cart_json(session):
-    """Serialize the cart to JSON for AJAX drawer."""
-    cart = session.get(CART_KEY, {}) or {}
-    items = []
-    subtotal = Decimal("0.00")
-    for pid, qty in cart.items():
-        p = Product.objects.filter(id=int(pid), is_active=True).first()
-        if not p:
-            continue
-        qty = max(1, int(qty))
-        line_total = (p.price * qty).quantize(Decimal("0.01"))
-        subtotal += line_total
-        items.append({
-            "id": p.id,
-            "name": p.name,
-            "image_url": p.image_url,
-            "qty": qty,
-            "line_total": f"{line_total:.2f}",
-            "price": f"{p.price:.2f}",
-            "slug": p.slug,
-        })
-    return {
-        "count": sum(i["qty"] for i in items),
-        "subtotal": f"{subtotal:.2f}",
-        "items": items,
-    }
 
 
 def _is_ajax(request):
@@ -342,44 +354,706 @@ def thanks(request):
 # =======================
 # Order Status / Detail
 # =======================
+# views.py
+import re
+from django.contrib import messages
+from django.core.cache import cache
+from django.shortcuts import render
+from django.db.models import Prefetch
+
+from .models import Order
+
+
+ORDER_TTL_SECONDS = 600        # rate-limit window (10 minutes)
+ORDER_MAX_TRIES   = 25         # max attempts per IP per window
+
+
+def _normalize_order_number(raw: str) -> str:
+    """
+    Normalize common inputs:
+    - trims, uppercases
+    - allows 'SH482931', 'sh-482931', 'SH - 482931'
+    - returns 'SH-482931' if pattern matches; otherwise returns cleaned string
+    """
+    s = (raw or "").strip().upper()
+    # Remove surrounding spaces and collapse internal spaces around hyphen
+    s = re.sub(r"\s+", "", s)
+    # If starts with SH and then digits (with or without hyphen)
+    m = re.fullmatch(r"SH-?(\d{6,})", s)
+    if m:
+        return f"SH-{m.group(1)}"
+    # Fallback: strip non-alnum and retry
+    alt = re.sub(r"[^A-Z0-9]", "", s)
+    m2 = re.fullmatch(r"SH(\d{6,})", alt)
+    return f"SH-{m2.group(1)}" if m2 else s
+
+
+def _emails_match(a: str | None, b: str | None) -> bool:
+    return (a or "").strip().lower() == (b or "").strip().lower()
+
+
 def order_status(request):
     """
     Public lookup: order number + optional email.
     - If email is provided: must match (case-insensitive).
-    - If email is blank: allow lookup by order number only.
+    - If email is blank: allow lookup by order number only (set limited_view=True).
     - Order number normalization: handles spaces, lowercase, and missing hyphen.
+    - Adds honeypot + basic per-IP rate limiting to deter enumeration.
     """
     context = {}
+    template = "orders/order_status.html"  # change if your template path differs
+
+    if request.method != "POST":
+        return render(request, template, context)
+
+    # --- Honeypot (bot trap) ---
+    if (request.POST.get("website") or "").strip():
+        # Pretend it's just not found
+        messages.error(request, "We couldn’t find an order with those details.")
+        return render(request, template, context)
+
+    # --- Simple per-IP rate limit ---
+    ip = (request.META.get("HTTP_X_FORWARDED_FOR", "") or "").split(",")[0].strip() or request.META.get("REMOTE_ADDR", "")
+    if ip:
+        key = f"order_status:tries:{ip}"
+        try_count = (cache.get(key) or 0) + 1
+        cache.set(key, try_count, ORDER_TTL_SECONDS)
+        if try_count > ORDER_MAX_TRIES:
+            messages.error(request, "Too many attempts. Please try again later.")
+            return render(request, template, context)
+
+    raw_order_number = request.POST.get("order_number") or ""
+    input_email = (request.POST.get("email") or "").strip().lower()
+
+    order_number = _normalize_order_number(raw_order_number)
+
+    # Quick format sanity—optional but nice UX
+    if not re.fullmatch(r"SH-\d{6,}", order_number):
+        messages.error(request, "We couldn’t find an order with those details.")
+        return render(request, template, context)
+
+    # Fetch order (case-insensitive), with items prefetched
+    order = (
+        Order.objects
+        .prefetch_related(Prefetch("items"))
+        .filter(order_number__iexact=order_number)
+        .first()
+    )
+
+    if not order:
+        # No hint whether order number or email is wrong
+        messages.error(request, "We couldn’t find an order with those details.")
+        return render(request, template, context)
+
+    # If email provided, it must match
+    if input_email:
+        candidates = [
+            (order.email or ""),
+            getattr(getattr(order, "user", None), "email", "") or "",
+        ]
+        if any(_emails_match(e, input_email) for e in candidates):
+            context["order"] = order
+            context["limited_view"] = False
+            return render(request, template, context)
+        # Mismatch → generic error
+        messages.error(request, "We couldn’t find an order with those details.")
+        return render(request, template, context)
+
+    # No email → allow limited view; template can hide sensitive fields if desired
+    context["order"] = order
+    context["limited_view"] = True
+    messages.info(request, "For full details, add the email used at checkout.")
+    return render(request, template, context)
+
+
+def order_detail(request, order_number):
+    """Auth-less, read-only order detail by order number."""
+    order = get_object_or_404(Order, order_number=order_number)
+    return render(request, "order_detail.html", {"order": order})
+
+
+# =======================
+# Contact
+# =======================
+# myApp/views.py
+# myApp/views_contact.py  (or keep inside views.py if you prefer)
+
+from django.conf import settings
+from django.contrib import messages
+from django.core.mail import send_mail
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
+from django.shortcuts import render, redirect
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+
+def contact(request):
+    """
+    Contact page:
+    - Sends an admin notification email.
+    - Sends a branded HTML auto-reply to the user (if they provided a valid email).
+    - Redirects to a dedicated 'contact_thanks' page on success.
+    """
     if request.method == "POST":
-        raw_order_number = request.POST.get("order_number") or ""
-        input_email = (request.POST.get("email") or "").strip().lower()
+        name = (request.POST.get("name") or "").strip()
+        email = (request.POST.get("email") or "").strip()
+        message = (request.POST.get("message") or "").strip()
 
-        order_number = _normalize_order_number(raw_order_number)
+        # Basic validation
+        if not name or not message:
+            messages.error(request, "Please provide your name and message.")
+            return render(request, "contact.html", {"name": name, "email": email, "message_text": message})
 
-        # Try exact first
-        order = Order.objects.filter(order_number=order_number).first()
+        # Validate email if provided (optional field)
+        user_email_ok = False
+        if email:
+            try:
+                validate_email(email)
+                user_email_ok = True
+            except ValidationError:
+                # We won't block the submit—just skip the auto-reply
+                user_email_ok = False
 
-        # If not found and user pasted something odd like 'SH - 123456', remove non-alnum and retry
-        if not order:
-            alt = re.sub(r"[^A-Z0-9]", "", order_number)   # keep only A-Z0-9
-            # Rebuild as SH-xxxxxx if it matches
-            if re.fullmatch(r"SH\d{6}", alt):
-                order = Order.objects.filter(order_number=f"SH-{alt[2:]}").first()
+        # --- Admin notification ---
+        admin_to = getattr(settings, "CONTACT_TO", None) or getattr(settings, "DEFAULT_FROM_EMAIL", None)
+        from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None)
 
-        if not order:
-            messages.error(request, "We couldn’t find an order with those details.")
+        if admin_to and from_email:
+            subject = f"New contact from {name}"
+            body = f"Name: {name}\nEmail: {email or 'N/A'}\n\nMessage:\n{message}"
+            try:
+                send_mail(subject, body, from_email, [admin_to], fail_silently=False)
+            except Exception:
+                # Don't crash UX on mail issues—log in real apps
+                messages.warning(request, "Your message was received, but we couldn’t notify our team by email. We’ll still follow up.")
+
+        # --- Auto-reply to sender (HTML + plain text fallback) ---
+        if user_email_ok and from_email:
+            try:
+                context = {
+                    "name": name,
+                    "user_message": message,
+                    "products_url": request.build_absolute_uri("/products/"),
+                    "order_status_url": request.build_absolute_uri("/order-status/"),
+                    "support_email": admin_to or from_email,
+                }
+                html = render_to_string("emails/contact_autoreply.html", context)
+                text = strip_tags(html)  # simple plaintext fallback
+
+                send_mail(
+                    subject="Thanks for contacting SHARP — We’re on it",
+                    message=text,
+                    from_email=from_email,
+                    recipient_list=[email],
+                    html_message=html,
+                    fail_silently=True,  # don't break UX if the auto-reply fails
+                )
+            except Exception:
+                pass  # swallow auto-reply errors; optional: log
+
+        messages.success(request, "Thanks for reaching out — your message has been received.")
+        return redirect("contact_thanks")
+
+    # GET
+    return render(request, "contact.html")
+
+
+def contact_thanks(request):
+    """
+    Simple thank-you page after contact submission.
+    """
+    return render(request, "contact_thanks.html")
+
+
+# =======================
+# Email helpers
+# =======================
+def _email_order_confirmation(request, order):
+    if not order.email:
+        return
+    context = {
+        "order": order,
+        "items": list(order.items.all()),
+        "request": request,
+    }
+    subject = f"Your SHARP Order {order.order_number}"
+    text_body = render_to_string("emails/order_confirmation.txt", context)
+    html_body = render_to_string("emails/order_confirmation.html", context)
+
+    ok = _safe_send_mail(
+        subject=subject,
+        text_body=text_body,
+        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+        to_list=[order.email],
+        html_body=html_body,
+        extra_headers={"Reply-To": getattr(settings, "CONTACT_RECEIVER_EMAIL", "") or getattr(settings, "DEFAULT_FROM_EMAIL", "")},
+    )
+    if not ok:
+        # Don’t block UX—just let the user know softly.
+        messages.warning(request, "Order placed, but we couldn’t send your confirmation email. We’ll resend shortly.")
+
+
+def _email_admin_new_order(request, order: Order):
+    """Notify admin of a new order (non-blocking)."""
+    admin_email = getattr(settings, "ADMIN_ORDER_EMAIL", None)
+    if not admin_email:
+        return
+
+    try:
+        items_qs = order.items.all()
+    except Exception:
+        items_qs = order.orderitem_set.all()
+
+    context = {"order": order, "items": items_qs, "request": request}
+
+    subject = f"New Order: {order.order_number}"
+    text_body = render_to_string("emails/admin_new_order.txt", context)
+
+    _safe_send_mail(
+        subject=subject,
+        text_body=text_body,
+        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+        to_list=[admin_email],
+        # If you add an HTML template later, pass html_body=...
+    )
+
+
+def _safe_send_mail(subject, text_body, from_email, to_list, html_body=None, extra_headers=None):
+    """
+    Sends email using the configured EMAIL_BACKEND (Gmail SMTP, Resend via Anymail, etc.).
+    Returns True on success, False on failure. Supports custom headers (e.g., Reply-To).
+    """
+    try:
+        conn = get_connection()  # respects settings.EMAIL_BACKEND
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_body or "",
+            from_email=from_email,
+            to=to_list,
+            connection=conn,
+            headers=extra_headers or {},
+        )
+        if html_body:
+            msg.attach_alternative(html_body, "text/html")
+        msg.send()
+        return True
+    except Exception as e:
+        logger.exception("Email send failed: %s", e)
+        return False
+
+
+
+# =======================
+# Session Cart Helpers
+# =======================
+CART_KEY = "cart"  # session key
+
+import re
+
+def _normalize_order_number(raw: str) -> str:
+    """
+    Normalize inputs like ' sh 123456 ' or 'sh-123456' to 'SH-123456'.
+    If it already looks like SH-xxxxxx, it returns the uppercase version.
+    """
+    s = (raw or "").strip().upper()
+    s = re.sub(r"\s+", "", s)        # remove all spaces
+    # If missing hyphen and matches SH\d{6}, insert hyphen after SH
+    if re.fullmatch(r"SH\d{6}", s):
+        return f"SH-{s[2:]}"
+    return s
+
+
+def _get_cart(session):
+    """Get or init cart dict from session: {product_id: qty}."""
+    cart = session.get(CART_KEY)
+    if cart is None:
+        cart = {}
+        session[CART_KEY] = cart
+    return cart
+
+
+def _items_and_subtotal(cart_dict):
+    """Build item rows + subtotal for templates."""
+    items = []
+    subtotal = Decimal("0.00")
+    for pid_str, qty in cart_dict.items():
+        product = Product.objects.filter(id=int(pid_str), is_active=True).first()
+        if not product:
+            continue
+        qty = max(1, int(qty))
+        line_total = (product.price * qty).quantize(Decimal("0.01"))
+        subtotal += line_total
+        items.append({"product": product, "qty": qty, "line_total": line_total})
+    return items, subtotal
+
+def _cart_json(session, request):
+    """Serialize the cart to JSON for AJAX drawer (now with server-formatted strings)."""
+    cart = session.get(CART_KEY, {}) or {}
+    items = []
+    subtotal = Decimal("0.00")
+
+    for pid, qty in cart.items():
+        p = Product.objects.filter(id=int(pid), is_active=True).first()
+        if not p:
+            continue
+        qty = max(1, int(qty))
+        line_total = (p.price * qty).quantize(Decimal("0.01"))
+        subtotal += line_total
+        items.append({
+            "id": p.id,
+            "name": p.name,
+            "image_url": p.image_url,
+            "qty": qty,
+            "price": f"{p.price:.2f}",                     # numeric (string)
+            "line_total": f"{line_total:.2f}",             # numeric (string)
+            "line_total_display": money_filter(line_total, request),  # ✅ formatted
+            "slug": p.slug,
+        })
+
+    return {
+        "count": sum(i["qty"] for i in items),
+        "subtotal": f"{subtotal:.2f}",                         # numeric (string)
+        "subtotal_display": money_filter(subtotal, request),   # ✅ formatted
+        "items": items,
+    }
+
+
+def _is_ajax(request):
+    return request.headers.get("x-requested-with") == "XMLHttpRequest"
+
+
+# =======================
+# Pages
+# =======================
+# myApp/views.py
+from django.db.models import Prefetch
+from .models import Product, Order, OrderItem, ProductComponent  # + ProductComponent
+
+def home(request):
+    featured = (
+        Product.objects
+        .filter(is_active=True, is_bundle=False)
+        .order_by('name')[:4]
+    )
+
+    bundle_links = Prefetch(
+        'component_links',
+        queryset=ProductComponent.objects.select_related('component')
+    )
+    bundles = (
+        Product.objects
+        .filter(is_active=True, is_bundle=True)
+        .prefetch_related(bundle_links)
+        .order_by('name')[:4]
+    )
+
+    return render(request, "home.html", {
+        "featured": featured,
+        "bundles": bundles,   # ← new
+    })
+
+
+
+# myApp/views.py
+from django.db.models import Prefetch
+from .models import Product, ProductComponent  # add ProductComponent
+
+def product_list(request):
+    q_type = (request.GET.get("type") or "all").lower()
+
+    qs = Product.objects.filter(is_active=True).order_by("name")
+    if q_type == "bundle":
+        qs = qs.filter(is_bundle=True)
+    elif q_type == "single":
+        qs = qs.filter(is_bundle=False)
+
+    # Prefetch bundle components only if we’re showing any bundles
+    if qs.filter(is_bundle=True).exists():
+        qs = qs.prefetch_related(
+            Prefetch("component_links", queryset=ProductComponent.objects.select_related("component"))
+        )
+
+    return render(request, "products.html", {"products": qs, "q_type": q_type})
+
+
+def product_detail(request, slug):
+    product = get_object_or_404(Product, slug=slug, is_active=True)
+    related = Product.objects.filter(is_active=True).exclude(id=product.id)[:4]
+    return render(request, "product_detail.html", {"product": product, "related": related})
+
+
+def cart_view(request):
+    """Full-page cart view."""
+    cart = request.session.get(CART_KEY, {})
+    items, subtotal = _items_and_subtotal(cart)
+    return render(request, "cart.html", {"items": items, "subtotal": subtotal})
+
+@require_POST
+def cart_add(request, product_id):
+    """Add item to cart (supports AJAX)."""
+    product = get_object_or_404(Product, id=product_id, is_active=True)
+    qty = max(1, int(request.POST.get("qty", 1)))
+
+    cart = _get_cart(request.session)
+    cart[str(product.id)] = cart.get(str(product.id), 0) + qty
+    request.session.modified = True
+
+    if _is_ajax(request):
+        data = _cart_json(request.session, request)  # ← pass request
+        return JsonResponse({"ok": True, "cart": data, "message": f"Added {escape(product.name)} x{qty}"})
+
+    messages.success(request, f"Added {product.name} (x{qty}) to cart.")
+    return redirect("cart")
+
+
+@require_POST
+def cart_update(request, product_id):
+    """
+    Update quantity for a cart line (supports AJAX).
+    POST: qty (>=1); if qty <= 0, removes the item.
+    """
+    qty = int(request.POST.get("qty", 1))
+    cart = _get_cart(request.session)
+    key = str(product_id)
+
+    if qty <= 0:
+        cart.pop(key, None)
+    else:
+        if Product.objects.filter(id=product_id, is_active=True).exists():
+            cart[key] = qty
         else:
-            # Only enforce email check if the user actually entered one.
-            if input_email:
-                if order.email and order.email.strip().lower() != input_email:
-                    messages.error(request, "We couldn’t find an order with those details.")
-                else:
-                    context["order"] = order
-            else:
-                # No email provided; allow lookup by order number alone.
-                context["order"] = order
+            cart.pop(key, None)
 
-    return render(request, "order_status.html", context)
+    request.session.modified = True
+
+    if _is_ajax(request):
+        return JsonResponse({"ok": True, "cart": _cart_json(request.session, request)})  # ← pass request
+
+    return redirect("cart")
+
+
+@require_POST
+def cart_remove(request, product_id):
+    """Remove item from cart (supports AJAX)."""
+    cart = _get_cart(request.session)
+    cart.pop(str(product_id), None)
+    request.session.modified = True
+
+    if _is_ajax(request):
+        data = _cart_json(request.session, request)  # ← pass request
+        return JsonResponse({"ok": True, "cart": data})
+
+    messages.info(request, "Item removed from cart.")
+    return redirect("cart")
+
+
+def cart_summary_json(request):
+    """Return JSON summary for drawer refresh."""
+    return JsonResponse({"ok": True, "cart": _cart_json(request.session, request)})  # ← pass request
+
+
+def checkout(request):
+    """
+    Checkout — creates Order + OrderItems, sends emails, clears cart.
+    Supports both the old address field name `address` and new `address_line1`.
+    """
+    cart = _get_cart(request.session)
+    items, subtotal = _items_and_subtotal(cart)
+
+    if request.method == "POST":
+        # Contact
+        full_name = request.POST.get("full_name", "").strip()
+        phone = request.POST.get("phone", "").strip()
+        email = request.POST.get("email", "").strip()
+
+        # Address (new preferred; fallback to `address`)
+        address_line1 = request.POST.get("address_line1", "").strip() or request.POST.get("address", "").strip()
+        city = request.POST.get("city", "").strip()
+        province = request.POST.get("province", "").strip()
+        zip_code = request.POST.get("zip", "").strip()
+        notes = request.POST.get("notes", "").strip()
+
+        # Choices
+        shipping_method = request.POST.get("shipping", "standard")
+        payment_method = request.POST.get("payment", "cod")
+
+        if not items:
+            messages.error(request, "Your cart is empty.")
+            return redirect("cart")
+        if not (full_name and phone and address_line1):
+            messages.error(request, "Please fill in Full Name, Phone, and Address.")
+            return render(request, "checkout.html", {"items": items, "subtotal": subtotal})
+
+        # Shipping cost
+        shipping_cost = Decimal("0.00") if shipping_method == "standard" else Decimal("299.00")
+        discount_total = Decimal("0.00")  # Add server-side promo calc later
+        grand_total = (subtotal + shipping_cost - discount_total).quantize(Decimal("0.01"))
+
+        # Create Order
+        order = Order.objects.create(
+            full_name=full_name,
+            phone=phone,
+            email=email,
+            address_line1=address_line1,
+            city=city,
+            province=province,
+            zip_code=zip_code,
+            notes=notes,
+            shipping_method=shipping_method,
+            payment_method=payment_method,
+            subtotal=subtotal,
+            shipping_cost=shipping_cost,
+            discount_total=discount_total,
+            grand_total=grand_total,
+            status="pending",
+        )
+
+        # Items
+        for row in items:
+            p = row["product"]
+            qty = row["qty"]
+            line_total = (p.price * qty).quantize(Decimal("0.01"))
+            OrderItem.objects.create(
+                order=order,
+                product=p,
+                name=p.name,
+                unit_price=p.price,
+                quantity=qty,
+                line_total=line_total,
+            )
+
+        # Clear cart
+        request.session[CART_KEY] = {}
+        request.session.modified = True
+
+        # Emails
+        _email_order_confirmation(request, order)
+        _email_admin_new_order(request, order)
+
+        messages.success(request, "Order placed! We’ve emailed your confirmation.")
+        return redirect(f"/thanks/?o={order.order_number}")
+
+    return render(request, "checkout.html", {"items": items, "subtotal": subtotal})
+
+
+def thanks(request):
+    order_number = request.GET.get("o", "")
+    return render(request, "thanks.html", {"order_number": order_number})
+
+
+# =======================
+# Order Status / Detail
+# =======================
+# views.py
+import re
+from django.contrib import messages
+from django.core.cache import cache
+from django.shortcuts import render
+from django.db.models import Prefetch
+
+from .models import Order
+
+
+ORDER_TTL_SECONDS = 600        # rate-limit window (10 minutes)
+ORDER_MAX_TRIES   = 25         # max attempts per IP per window
+
+
+def _normalize_order_number(raw: str) -> str:
+    """
+    Normalize common inputs:
+    - trims, uppercases
+    - allows 'SH482931', 'sh-482931', 'SH - 482931'
+    - returns 'SH-482931' if pattern matches; otherwise returns cleaned string
+    """
+    s = (raw or "").strip().upper()
+    # Remove surrounding spaces and collapse internal spaces around hyphen
+    s = re.sub(r"\s+", "", s)
+    # If starts with SH and then digits (with or without hyphen)
+    m = re.fullmatch(r"SH-?(\d{6,})", s)
+    if m:
+        return f"SH-{m.group(1)}"
+    # Fallback: strip non-alnum and retry
+    alt = re.sub(r"[^A-Z0-9]", "", s)
+    m2 = re.fullmatch(r"SH(\d{6,})", alt)
+    return f"SH-{m2.group(1)}" if m2 else s
+
+
+def _emails_match(a: str | None, b: str | None) -> bool:
+    return (a or "").strip().lower() == (b or "").strip().lower()
+
+
+def order_status(request):
+    """
+    Public lookup: order number + optional email.
+    - If email is provided: must match (case-insensitive).
+    - If email is blank: allow lookup by order number only (set limited_view=True).
+    - Order number normalization: handles spaces, lowercase, and missing hyphen.
+    - Adds honeypot + basic per-IP rate limiting to deter enumeration.
+    """
+    context = {}
+    template = "orders/order_status.html"  # change if your template path differs
+
+    if request.method != "POST":
+        return render(request, template, context)
+
+    # --- Honeypot (bot trap) ---
+    if (request.POST.get("website") or "").strip():
+        # Pretend it's just not found
+        messages.error(request, "We couldn’t find an order with those details.")
+        return render(request, template, context)
+
+    # --- Simple per-IP rate limit ---
+    ip = (request.META.get("HTTP_X_FORWARDED_FOR", "") or "").split(",")[0].strip() or request.META.get("REMOTE_ADDR", "")
+    if ip:
+        key = f"order_status:tries:{ip}"
+        try_count = (cache.get(key) or 0) + 1
+        cache.set(key, try_count, ORDER_TTL_SECONDS)
+        if try_count > ORDER_MAX_TRIES:
+            messages.error(request, "Too many attempts. Please try again later.")
+            return render(request, template, context)
+
+    raw_order_number = request.POST.get("order_number") or ""
+    input_email = (request.POST.get("email") or "").strip().lower()
+
+    order_number = _normalize_order_number(raw_order_number)
+
+    # Quick format sanity—optional but nice UX
+    if not re.fullmatch(r"SH-\d{6,}", order_number):
+        messages.error(request, "We couldn’t find an order with those details.")
+        return render(request, template, context)
+
+    # Fetch order (case-insensitive), with items prefetched
+    order = (
+        Order.objects
+        .prefetch_related(Prefetch("items"))
+        .filter(order_number__iexact=order_number)
+        .first()
+    )
+
+    if not order:
+        # No hint whether order number or email is wrong
+        messages.error(request, "We couldn’t find an order with those details.")
+        return render(request, template, context)
+
+    # If email provided, it must match
+    if input_email:
+        candidates = [
+            (order.email or ""),
+            getattr(getattr(order, "user", None), "email", "") or "",
+        ]
+        if any(_emails_match(e, input_email) for e in candidates):
+            context["order"] = order
+            context["limited_view"] = False
+            return render(request, template, context)
+        # Mismatch → generic error
+        messages.error(request, "We couldn’t find an order with those details.")
+        return render(request, template, context)
+
+    # No email → allow limited view; template can hide sensitive fields if desired
+    context["order"] = order
+    context["limited_view"] = True
+    messages.info(request, "For full details, add the email used at checkout.")
+    return render(request, template, context)
 
 
 def order_detail(request, order_number):

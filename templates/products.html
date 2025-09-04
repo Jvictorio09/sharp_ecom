@@ -26,11 +26,15 @@
         <button data-chip="bundle" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">Bundles</button>
         <button data-chip="single" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">Singles</button>
 
-        <!-- keep your existing “marketing” chips -->
+        <!-- marketing chips -->
         <button data-chip="new" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">New</button>
         <button data-chip="bestseller" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">Bestsellers</button>
         <button data-chip="sale" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">On Sale</button>
-        <button data-chip="under-1500" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">Under JD1,500</button>
+
+        <!-- 🔥 currency-aware label; JS still filters at base 1500 -->
+        <button data-chip="under-1500" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">
+          Under {{ 1500|money:request }}
+        </button>
       </div>
 
       <!-- Search -->
@@ -63,7 +67,7 @@
       {% for p in products %}
       <div class="product-card will-reveal"
            data-name="{{ p.name|lower }}"
-           data-price="{{ p.price }}"
+           data-price="{{ p.price }}"  {# base currency number for sorting/filtering #}
            data-bundle="{% if p.is_bundle %}1{% else %}0{% endif %}"
            data-badge="{{ p.badge|default_if_none:''|lower }}"
            data-sale="{% if p.compare_price and p.compare_price > p.price %}1{% else %}0{% endif %}">
@@ -144,7 +148,7 @@
 
       cards.forEach(card => {
         const name = card.dataset.name || '';
-        const price = parseFloat(card.dataset.price || '0');
+        const price = parseFloat(card.dataset.price || '0'); // base currency
         const badge = card.dataset.badge || '';
         const onSale = card.dataset.sale === '1';
         const isBundle = card.dataset.bundle === '1';
@@ -158,10 +162,12 @@
         if (tag === 'bundle' && !isBundle) ok = false;
         if (tag === 'single' && isBundle) ok = false;
 
-        // existing chips
+        // marketing chips
         if (tag === 'new' && !/new/.test(badge)) ok = false;
         if (tag === 'bestseller' && !/best|bestseller/.test(badge)) ok = false;
         if (tag === 'sale' && !onSale) ok = false;
+
+        // price chip — threshold in base currency (label is converted server-side)
         if (tag === 'under-1500' && !(price < 1500)) ok = false;
 
         card.style.display = ok ? '' : 'none';
@@ -177,7 +183,7 @@
       const hidden = cards.filter(c => c.style.display === 'none');
 
       visible.sort((a,b) => {
-        const pa = parseFloat(a.dataset.price || '0');
+        const pa = parseFloat(a.dataset.price || '0'); // base currency
         const pb = parseFloat(b.dataset.price || '0');
         const na = (a.dataset.name || '').toLowerCase();
         const nb = (b.dataset.name || '').toLowerCase();

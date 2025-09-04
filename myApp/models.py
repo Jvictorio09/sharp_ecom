@@ -170,3 +170,14 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.name} × {self.quantity} ({self.order.order_number})"
+
+
+# myApp/models.py
+class FxRate(models.Model):
+    base = models.CharField(max_length=3, default="USD")
+    quote = models.CharField(max_length=3)  # e.g., "PHP", "JOD", "AED"
+    rate = models.DecimalField(max_digits=20, decimal_places=8)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("base","quote")

@@ -5,15 +5,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 try:
     from dotenv import load_dotenv
-    load_dotenv(BASE_DIR / ".env")
-    load_dotenv(BASE_DIR / ".env.local", override=True)
+    load_dotenv(BASE_DIR / '.env')
+    load_dotenv(BASE_DIR / '.env.local', override=True)
 except Exception:
     # If python-dotenv isn't installed, we just rely on OS env vars.
     pass
 
 # Helpers for clean env parsing
 def env_bool(key: str, default: bool = False) -> bool:
-    return str(os.environ.get(key, default)).lower() in ("1", "true", "t", "yes", "y", "on")
+    return str(os.environ.get(key, default)).lower() in ('1', 'true', 't', 'yes', 'y', 'on')
 
 def env_int(key: str, default: int) -> int:
     try:
@@ -31,18 +31,18 @@ SECRET_KEY = 'django-insecure-#2^w$lur2d&t90sltvbcsjfl+bi=l3(=zea+_9@ste85h21ioo
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    "sharpecom-production.up.railway.app",
-    "www.sharphair.shop",
-    "sharphair.shop",
-    "127.0.0.1",
-    "localhost",
+    'sharpecom-production.up.railway.app',
+    'www.sharphair.shop',
+    'sharphair.shop',
+    '127.0.0.1',
+    'localhost',
 ]
 
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://sharpecom-production.up.railway.app",
-    "https://www.sharphair.shop",
-    "https://sharphair.shop",
+    'https://sharpecom-production.up.railway.app',
+    'https://www.sharphair.shop',
+    'https://sharphair.shop',
 ]
 
 
@@ -61,7 +61,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',   # keep this first for sessions
+    'myApp.middleware.CurrencyMiddleware',                 # ← ADD THIS
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -69,12 +70,13 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+
 ROOT_URLCONF = 'myProject.urls'
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / "templates"],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -135,8 +137,8 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-TEMPLATES[0]["OPTIONS"]["context_processors"] += [
-    "myApp.context_processors.cart",
+TEMPLATES[0]['OPTIONS']['context_processors'] += [
+    'myApp.context_processors.cart',
 ]
 
 # ---------------------------
@@ -148,57 +150,61 @@ TEMPLATES[0]["OPTIONS"]["context_processors"] += [
 import warnings
 
 # Env flags / secrets
-RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
-EMAIL_ALLOW_SMTP = env_bool("EMAIL_ALLOW_SMTP", False)  # set to 1 only if you want SMTP fallback
+RESEND_API_KEY = os.getenv('RESEND_API_KEY', '').strip()
+EMAIL_ALLOW_SMTP = env_bool('EMAIL_ALLOW_SMTP', False)  # set to 1 only if you want SMTP fallback
 
 if RESEND_API_KEY:
     # Primary: Resend via Anymail (Railway-friendly, no open ports needed)
-    EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+    EMAIL_BACKEND = 'anymail.backends.resend.EmailBackend'
     ANYMAIL = {
-        "RESEND_API_KEY": RESEND_API_KEY,
+        'RESEND_API_KEY': RESEND_API_KEY,
         # Avoid hard errors for features not supported by provider (e.g., tags/metadata)
-        "IGNORE_UNSUPPORTED_FEATURES": True,
+        'IGNORE_UNSUPPORTED_FEATURES': True,
     }
 
     # Quiet any provider capability warnings
     try:
         from anymail.exceptions import AnymailNotSupportedWarning
-        warnings.filterwarnings("ignore", category=AnymailNotSupportedWarning)
+        warnings.filterwarnings('ignore', category=AnymailNotSupportedWarning)
     except Exception:
         pass
 
 elif EMAIL_ALLOW_SMTP:
     # Optional fallback: SMTP (e.g., Gmail App Password) — not recommended for production scale
-    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-    EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 
-    if env_bool("EMAIL_USE_SSL", False):
-        EMAIL_PORT = env_int("EMAIL_PORT", 465)
+    if env_bool('EMAIL_USE_SSL', False):
+        EMAIL_PORT = env_int('EMAIL_PORT', 465)
         EMAIL_USE_SSL = True
         EMAIL_USE_TLS = False
     else:
-        EMAIL_PORT = env_int("EMAIL_PORT", 587)
-        EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+        EMAIL_PORT = env_int('EMAIL_PORT', 587)
+        EMAIL_USE_TLS = env_bool('EMAIL_USE_TLS', True)
         EMAIL_USE_SSL = False
 
-    EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "juliavictorio16@gmail.com")
-    EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")  # 16-char Gmail App Password
+    EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'juliavictorio16@gmail.com')
+    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')  # 16-char Gmail App Password
 
 else:
     # Safe default: write emails to console/logs (prevents checkout crashes)
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Common email settings
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "SHARP <noreply@sharphair.shop>")
-SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
-EMAIL_TIMEOUT = env_int("EMAIL_TIMEOUT", 20)
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'SHARP <noreply@sharphair.shop>')
+SERVER_EMAIL = os.getenv('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
+EMAIL_TIMEOUT = env_int('EMAIL_TIMEOUT', 20)
 
 # App-specific addresses
-CONTACT_RECEIVER_EMAIL = os.getenv("CONTACT_RECEIVER_EMAIL", "support@sharphair.shop")
-ADMIN_ORDER_EMAIL = os.getenv("ADMIN_ORDER_EMAIL", "orders@sharphair.shop")
+CONTACT_RECEIVER_EMAIL = os.getenv('CONTACT_RECEIVER_EMAIL', 'support@sharphair.shop')
+ADMIN_ORDER_EMAIL = os.getenv('ADMIN_ORDER_EMAIL', 'orders@sharphair.shop')
 
 # Legacy variable kept if some code still references it
-CONTACT_TO = os.environ.get("CONTACT_TO", CONTACT_RECEIVER_EMAIL)
+CONTACT_TO = os.environ.get('CONTACT_TO', CONTACT_RECEIVER_EMAIL)
 
 
-LOGIN_URL = "dashboard_login"
+LOGIN_URL = 'dashboard_login'
+
+
+TEMPLATES[0]['OPTIONS']['builtins'] = ['myApp.templatetags.money']
+

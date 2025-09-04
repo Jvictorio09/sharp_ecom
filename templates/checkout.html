@@ -102,24 +102,24 @@
             <div class="grid gap-3">
               <label class="flex items-center justify-between gap-4 p-4 rounded-xl border border-line hover:border-[var(--sharp-gold)] cursor-pointer">
                 <span class="flex items-center gap-3">
-                  <input type="radio" name="shipping" value="standard" class="text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]" checked>
+                  <input type="radio" name="shipping" value="standard" data-price="0" class="text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]" checked>
                   <span class="text-sm">
                     <span class="font-medium">Standard</span>
                     <span class="block opacity-70">3–5 business days</span>
                   </span>
                 </span>
-                <span class="text-sm font-medium">₱0</span>
+                <span class="text-sm font-medium">{{ 0|money:request }}</span>
               </label>
 
               <label class="flex items-center justify-between gap-4 p-4 rounded-xl border border-line hover:border-[var(--sharp-gold)] cursor-pointer">
                 <span class="flex items-center gap-3">
-                  <input type="radio" name="shipping" value="express" class="text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]">
+                  <input type="radio" name="shipping" value="express" data-price="299" class="text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]">
                   <span class="text-sm">
                     <span class="font-medium">Express</span>
                     <span class="block opacity-70">1–2 business days</span>
                   </span>
                 </span>
-                <span class="text-sm font-medium">₱299</span>
+                <span class="text-sm font-medium">{{ 299|money:request }}</span>
               </label>
             </div>
           </div>
@@ -167,7 +167,7 @@
                   <p class="text-sm font-medium truncate">{{ row.product.name }}</p>
                   <p class="text-xs opacity-70">Qty: {{ row.qty }}</p>
                 </div>
-                <p class="text-sm font-medium">₱{{ row.line_total }}</p>
+                <p class="text-sm font-medium">{{ row.line_total|money:request }}</p>
               </div>
             {% empty %}
               <p class="opacity-70">Your bag is empty.</p>
@@ -185,15 +185,17 @@
             <div class="text-sm space-y-2">
               <div class="flex items-center justify-between">
                 <span>Subtotal</span>
-                <span class="font-medium">₱{{ subtotal }}</span>
+                <span id="sumSubtotal"
+                      class="font-medium"
+                      data-subtotal="{{ subtotal }}">{{ subtotal|money:request }}</span>
               </div>
               <div class="flex items-center justify-between">
                 <span>Shipping</span>
-                <span id="shippingCost" class="font-medium">₱0</span>
+                <span id="shippingCost" class="font-medium">{{ 0|money:request }}</span>
               </div>
               <div class="pt-2 border-t border-line flex items-center justify-between text-base">
                 <span class="font-semibold">Total</span>
-                <span id="grandTotal" class="font-semibold">₱{{ subtotal }}</span>
+                <span id="grandTotal" class="font-semibold">{{ subtotal|money:request }}</span>
               </div>
               <p class="text-xs opacity-70">Shipping and taxes calculated at delivery.</p>
             </div>
@@ -209,41 +211,52 @@
   </div>
 </section>
 
-<!-- Micro-interactions (optional, lightweight) -->
+<!-- Micro-interactions (currency-aware, no hardcoded symbols) -->
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const shippingRadios = document.querySelectorAll('input[name="shipping"]');
+    const elSub = document.getElementById('sumSubtotal');
     const shipEl = document.getElementById('shippingCost');
     const grandEl = document.getElementById('grandTotal');
     const promoBtn = document.getElementById('applyPromo');
     const promoInput = document.getElementById('promo');
 
-    // Parse subtotal (₱1,234.56 -> 1234.56)
-    const parsePeso = (s) => parseFloat(String(s).replace(/[^\d.]/g, '')) || 0;
-    const formatPeso = (n) => '₱' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-    let base = parsePeso('{{ subtotal }}');
+    // numeric subtotal from data attribute
+    let base = parseFloat(elSub?.dataset.subtotal || '0') || 0;
     let shipping = 0;
     let promo = 0;
 
+    // Learn prefix / suffix from server-rendered subtotal (e.g., "₱1,234.56", "JD1,234.56", "1,234.56 €")
+    const sample = (elSub?.textContent || '').trim();
+    const m = sample.match(/[0-9][0-9,.\s]*[0-9]|[0-9]/);
+    const prefix = m ? sample.slice(0, m.index) : '';
+    const suffix = m ? sample.slice(m.index + m[0].length) : '';
+
+    function fmt(n) {
+      const num = Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return `${prefix}${num}${suffix}`.trim();
+    }
+
     function updateTotals() {
       const total = Math.max(0, base + shipping - promo);
-      shipEl.textContent = formatPeso(shipping);
-      grandEl.textContent = formatPeso(total);
+      if (shipEl) shipEl.textContent = fmt(shipping);
+      if (grandEl) grandEl.textContent = fmt(total);
     }
 
     shippingRadios.forEach(r => {
-      r.addEventListener('change', () => {
-        shipping = r.value === 'express' ? 299 : 0;
+      r.addEventListener('change', (e) => {
+        const target = e.currentTarget;
+        const price = Number(target.dataset.price || '0') || 0;
+        shipping = price;
         updateTotals();
       });
     });
 
     promoBtn?.addEventListener('click', () => {
-      const code = (promoInput.value || '').trim().toUpperCase();
-      // Simple front-end mock: SHARP10 = 10% off
+      const code = (promoInput?.value || '').trim().toUpperCase();
+      // Demo-only: SHARP10 = 10% off
       if (code === 'SHARP10') {
-        promo = Math.round(base * 0.10);
+        promo = Math.round(base * 0.10 * 100) / 100; // keep cents
       } else {
         promo = 0;
         if (code) alert('Promo code not recognized.');

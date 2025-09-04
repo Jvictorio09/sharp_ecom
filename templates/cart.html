@@ -33,7 +33,8 @@
                 </div>
               </div>
               <div class="text-right">
-                <p class="font-medium">JD{{ row.line_total }}</p>
+                <!-- was: JD{{ row.line_total }} -->
+                <p class="font-medium">{{ row.line_total|money:request }}</p>
               </div>
             </div>
             {% endfor %}
@@ -52,61 +53,66 @@
       </div>
 
       <!-- Summary -->
-<aside class="lg:sticky lg:top-24 h-max">
-  <div class="rounded-2xl border border-line bg-white overflow-hidden">
-    <!-- Header -->
-    <div class="px-6 py-4 border-b border-line">
-      <p class="font-semibold">Order Summary</p>
-    </div>
+      <aside class="lg:sticky lg:top-24 h-max">
+        <div class="rounded-2xl border border-line bg-white overflow-hidden">
+          <!-- Header -->
+          <div class="px-6 py-4 border-b border-line">
+            <p class="font-semibold">Order Summary</p>
+          </div>
 
-    <!-- Body -->
-    <div class="p-6 space-y-4 flex flex-col">
-      <!-- Promo -->
-      <div class="flex gap-2">
-        <input id="promo" type="text" placeholder="Promo code"
-               class="w-full px-4 py-2.5 rounded-full border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
-        <button id="applyPromo" class="px-4 py-2.5 rounded-full text-white bg-ink hover:bg-[var(--sharp-hunter)]">Apply</button>
-      </div>
+          <!-- Body -->
+          <div class="p-6 space-y-4 flex flex-col">
+            <!-- Promo -->
+            <div class="flex gap-2">
+              <input id="promo" type="text" placeholder="Promo code"
+                     class="w-full px-4 py-2.5 rounded-full border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
+              <button id="applyPromo" class="px-4 py-2.5 rounded-full text-white bg-ink hover:bg-[var(--sharp-hunter)]">Apply</button>
+            </div>
 
-      <!-- Totals -->
-      <div class="text-sm space-y-2">
-        <div class="flex items-center justify-between">
-          <span>Subtotal</span>
-          <span id="sumSubtotal" class="font-medium">JD{{ subtotal }}</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <span>Promo</span>
-          <span id="sumPromo" class="font-medium">JD0.00</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <span>Estimated Shipping</span>
-          <span id="sumShipping" class="font-medium">JD0.00</span>
-        </div>
-        <div class="pt-2 border-t border-line flex items-center justify-between text-base">
-          <span class="font-semibold">Total</span>
-          <span id="sumTotal" class="font-semibold">JD{{ subtotal }}</span>
-        </div>
-        <p class="text-xs opacity-70">Shipping and taxes are finalized at checkout.</p>
-      </div>
+            <!-- Totals -->
+            <div class="text-sm space-y-2">
+              <div class="flex items-center justify-between">
+                <span>Subtotal</span>
+                <!-- carry raw subtotal as data, display with filter -->
+                <span id="sumSubtotal"
+                      class="font-medium"
+                      data-subtotal="{{ subtotal }}">{{ subtotal|money:request }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Promo</span>
+                <!-- start neutral; JS will format using learned currency -->
+                <span id="sumPromo" class="font-medium">—</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Estimated Shipping</span>
+                <span id="sumShipping" class="font-medium">—</span>
+              </div>
+              <div class="pt-2 border-t border-line flex items-center justify-between text-base">
+                <span class="font-semibold">Total</span>
+                <!-- initial = subtotal; JS recalculates -->
+                <span id="sumTotal" class="font-semibold">{{ subtotal|money:request }}</span>
+              </div>
+              <p class="text-xs opacity-70">Shipping and taxes are finalized at checkout.</p>
+            </div>
 
-      <!-- Trust -->
-      <div class="flex items-center gap-3 text-xs opacity-80">
-        <span class="inline-flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-[var(--sharp-gold)]"></span> Encrypted checkout
-        </span>
-        <span>30-day guarantee</span>
-      </div>
-    </div>
+            <!-- Trust -->
+            <div class="flex items-center gap-3 text-xs opacity-80">
+              <span class="inline-flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-[var(--sharp-gold)]"></span> Encrypted checkout
+              </span>
+              <span>30-day guarantee</span>
+            </div>
+          </div>
 
-    <!-- Footer (anchors the CTA, no more floating) -->
-    <div class="px-6 py-4 border-t border-line bg-white/85 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-      <a href="{% url 'checkout' %}"
-         class="btn w-full px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] text-center font-medium">
-        Checkout
-      </a>
-    </div>
-  </div>
-</aside>
+          <!-- Footer -->
+          <div class="px-6 py-4 border-t border-line bg-white/85 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+            <a href="{% url 'checkout' %}"
+               class="btn w-full px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] text-center font-medium">
+              Checkout
+            </a>
+          </div>
+        </div>
+      </aside>
 
     </div>
 
@@ -122,34 +128,43 @@
   </div>
 </section>
 
-<!-- Optional: tiny frontend math for promo preview (no backend change) -->
+<!-- Promo preview: learns currency prefix/suffix from server-rendered subtotal -->
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    const parsePeso = (s) => parseFloat(String(s).replace(/[^\d.]/g, '')) || 0;
-    const formatPeso = (n) => 'JD' + n.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-
-    let base = parsePeso('{{ subtotal }}');
-    let promo = 0;
-    let shipping = 0; // Keep at 0 for cart page; final in checkout
-
     const elSub = document.getElementById('sumSubtotal');
     const elPro = document.getElementById('sumPromo');
     const elShip = document.getElementById('sumShipping');
     const elTot = document.getElementById('sumTotal');
 
+    // raw numeric subtotal from data attr (no currency)
+    let base = parseFloat(elSub?.dataset.subtotal || '0') || 0;
+    let promo = 0;
+    let shipping = 0; // keep 0 here; final shipping is computed at checkout
+
+    // Learn prefix/suffix (currency symbol/code/spacing) from server string
+    const sample = (elSub?.textContent || '').trim();
+    const m = sample.match(/[0-9][0-9,.\s]*[0-9]|[0-9]/); // first numeric run
+    const prefix = m ? sample.slice(0, m.index) : '';
+    const suffix = m ? sample.slice(m.index + m[0].length) : '';
+
+    function fmt(n) {
+      const num = Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return `${prefix}${num}${suffix}`.trim();
+    }
+
     function render() {
-      elSub.textContent = formatPeso(base);
-      elPro.textContent = '-' + formatPeso(promo);
-      elShip.textContent = formatPeso(shipping);
-      elTot.textContent = formatPeso(Math.max(0, base - promo + shipping));
+      if (elSub) elSub.textContent = fmt(base);
+      if (elPro) elPro.textContent = promo > 0 ? `-${fmt(promo)}` : fmt(0);
+      if (elShip) elShip.textContent = fmt(shipping);
+      if (elTot) elTot.textContent = fmt(Math.max(0, base - promo + shipping));
     }
     render();
 
     document.getElementById('applyPromo')?.addEventListener('click', () => {
-      const code = (document.getElementById('promo').value || '').trim().toUpperCase();
+      const code = (document.getElementById('promo')?.value || '').trim().toUpperCase();
       // Cosmetic demo: SHARP10 = 10% off
       if (code === 'SHARP10') {
-        promo = Math.round(base * 0.10);
+        promo = Math.round(base * 0.10 * 100) / 100; // keep cents
       } else {
         promo = 0;
         if (code) alert('Promo code not recognized.');
