@@ -261,46 +261,67 @@ def cart_summary_json(request):
     """Return JSON summary for drawer refresh."""
     return JsonResponse({"ok": True, "cart": _cart_json(request.session)})
 
+from decimal import Decimal
+
+def _post_first(request, *names) -> str:
+    """Return the first non-empty POST value among the given names."""
+    for n in names:
+        v = (request.POST.get(n) or "").strip()
+        if v:
+            return v
+    return ""
 
 def checkout(request):
     """
     Checkout — creates Order + OrderItems, sends emails, clears cart.
     Supports both the old address field name `address` and new `address_line1`.
+    Accepts phone from `phone_e164` (preferred), then `phone`, then `phone_display`.
     """
     cart = _get_cart(request.session)
     items, subtotal = _items_and_subtotal(cart)
 
     if request.method == "POST":
         # Contact
-        full_name = request.POST.get("full_name", "").strip()
-        phone = request.POST.get("phone", "").strip()
-        email = request.POST.get("email", "").strip()
+        full_name = (request.POST.get("full_name") or "").strip()
+        phone = _post_first(request, "phone_e164", "phone", "phone_display")
+        email = (request.POST.get("email") or "").strip()
 
         # Address (new preferred; fallback to `address`)
-        address_line1 = request.POST.get("address_line1", "").strip() or request.POST.get("address", "").strip()
-        city = request.POST.get("city", "").strip()
-        province = request.POST.get("province", "").strip()
-        zip_code = request.POST.get("zip", "").strip()
-        notes = request.POST.get("notes", "").strip()
+        address_line1 = _post_first(request, "address_line1", "address")
+        city = (request.POST.get("city") or "").strip()
+        # Optional fields (may be absent in the new form)
+        province = (request.POST.get("province") or "").strip()
+        zip_code = (request.POST.get("zip") or "").strip()
+        notes = (request.POST.get("notes") or "").strip()
+        country = (request.POST.get("country") or "").strip()  # ok if your Order doesn't have this field; we won't set it unless present
 
         # Choices
-        shipping_method = request.POST.get("shipping", "standard")
-        payment_method = request.POST.get("payment", "cod")
+        shipping_method = (request.POST.get("shipping") or "standard").strip().lower()
+        payment_method = (request.POST.get("payment") or "cod").strip().lower()
 
         if not items:
             messages.error(request, "Your cart is empty.")
             return redirect("cart")
+
+        # ✅ This was failing because `phone` came back empty
         if not (full_name and phone and address_line1):
             messages.error(request, "Please fill in Full Name, Phone, and Address.")
             return render(request, "checkout.html", {"items": items, "subtotal": subtotal})
 
-        # Shipping cost
-        shipping_cost = Decimal("0.00") if shipping_method == "standard" else Decimal("299.00")
-        discount_total = Decimal("0.00")  # Add server-side promo calc later
+        # Shipping cost (support 'free' explicitly)
+        if shipping_method in ("standard", "free"):
+            shipping_cost = Decimal("0.00")
+        elif shipping_method == "express":
+            shipping_cost = Decimal("299.00")
+        else:
+            # Unknown method defaults to free (safe)
+            shipping_cost = Decimal("0.00")
+
+        discount_total = Decimal("0.00")  # TODO: promo code server-side calc
         grand_total = (subtotal + shipping_cost - discount_total).quantize(Decimal("0.01"))
 
-        # Create Order
-        order = Order.objects.create(
+        # Create Order (only set fields that exist)
+        order_kwargs = dict(
             full_name=full_name,
             phone=phone,
             email=email,
@@ -317,6 +338,16 @@ def checkout(request):
             grand_total=grand_total,
             status="pending",
         )
+        # Add country only if your Order model has it
+        try:
+            from django.forms.models import model_to_dict
+            # crude check: if attribute exists on the model instance, include it
+            if hasattr(Order(), "country"):
+                order_kwargs["country"] = country
+        except Exception:
+            pass
+
+        order = Order.objects.create(**order_kwargs)
 
         # Items
         for row in items:
@@ -343,6 +374,7 @@ def checkout(request):
         messages.success(request, "Order placed! We’ve emailed your confirmation.")
         return redirect(f"/thanks/?o={order.order_number}")
 
+    # GET
     return render(request, "checkout.html", {"items": items, "subtotal": subtotal})
 
 
@@ -401,7 +433,7 @@ def order_status(request):
     - Adds honeypot + basic per-IP rate limiting to deter enumeration.
     """
     context = {}
-    template = "orders/order_status.html"  # change if your template path differs
+    template = "order_status.html"  # change if your template path differs
 
     if request.method != "POST":
         return render(request, template, context)
@@ -991,7 +1023,7 @@ def order_status(request):
     - Adds honeypot + basic per-IP rate limiting to deter enumeration.
     """
     context = {}
-    template = "orders/order_status.html"  # change if your template path differs
+    template = "order_status.html"  # change if your template path differs
 
     if request.method != "POST":
         return render(request, template, context)
