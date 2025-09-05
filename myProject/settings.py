@@ -89,6 +89,15 @@ TEMPLATES = [
     },
 ]
 
+
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE    = "Lax"
+# If you serve over HTTPS in prod, set these True in prod:
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", False)
+CSRF_COOKIE_SECURE    = env_bool("CSRF_COOKIE_SECURE", False)
+
+
+
 WSGI_APPLICATION = 'myProject.wsgi.application'
 
 # Database

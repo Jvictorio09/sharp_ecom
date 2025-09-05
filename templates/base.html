@@ -4,6 +4,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content="{{ csrf_token }}">
+
     <title>{% block title %}SHARP — Quiet Luxury{% endblock %}</title>
 
     <!-- Tailwind (prototype). Replace with your compiled build in production. -->
@@ -164,7 +166,154 @@
       </div>
     </header>
 
+    <!-- Global Search Modal -->
+<div id="searchModal" class="fixed inset-0 z-[60] hidden">
+  <!-- Backdrop -->
+  <div id="searchBack" class="absolute inset-0 bg-black/40 opacity-0 transition-opacity"></div>
+
+  <!-- Dialog -->
+  <div class="absolute inset-x-0 top-16 mx-auto w-[min(680px,92%)]
+              scale-95 opacity-0 transition-all duration-200
+              rounded-2xl bg-white shadow-xl border border-line"
+       id="searchDialog" role="dialog" aria-modal="true" aria-labelledby="searchLabel">
+    <form id="searchForm" class="p-3 border-b border-line">
+      <div class="relative">
+        <input id="searchInputGlobal"
+               type="search" inputmode="search" autocomplete="off"
+               placeholder="Search products…"
+               class="w-full pl-10 pr-24 py-3 rounded-xl border border-line bg-white text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
+               aria-labelledby="searchLabel" />
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M21 21l-4.2-4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="11" cy="11" r="7.25" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        <button type="submit"
+                class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">
+          Search
+        </button>
+      </div>
+      <p id="searchLabel" class="sr-only">Search products</p>
+    </form>
+
+    <!-- Recent & quick suggestions -->
+    <div class="p-3">
+      <div class="mb-2 text-xs uppercase tracking-wider opacity-60">Recent</div>
+      <div id="recentWrap" class="flex flex-wrap gap-2"></div>
+
+      <div class="mt-4 mb-2 text-xs uppercase tracking-wider opacity-60">Quick filters</div>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" data-q="bundle" class="chip">Bundles</button>
+        <button type="button" data-q="bestseller" class="chip">Bestsellers</button>
+        <button type="button" data-q="sale" class="chip">On Sale</button>
+        <button type="button" data-q="new" class="chip">New</button>
+        <button type="button" data-q="under 1500" class="chip">Under 1500</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* small niceties reusing your chip style */
+  #searchModal.show #searchBack { opacity: 1 }
+  #searchModal.show #searchDialog { opacity: 1; transform: none }
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+</style>
+
+
+
     <script>
+
+        (function() {
+    const modal   = document.getElementById("searchModal");
+    const back    = document.getElementById("searchBack");
+    const dialog  = document.getElementById("searchDialog");
+    const input   = document.getElementById("searchInputGlobal");
+    const form    = document.getElementById("searchForm");
+    const openBtn = document.getElementById("searchBtn");
+    const recentWrap = document.getElementById("recentWrap");
+
+    const RECENT_KEY = "sharp_recent_searches";
+    const MAX_RECENT = 6;
+
+    function loadRecent(){
+      try { return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); }
+      catch { return []; }
+    }
+    function saveRecent(term){
+      term = (term||"").trim();
+      if(!term) return;
+      let arr = loadRecent().filter(t => t.toLowerCase() !== term.toLowerCase());
+      arr.unshift(term);
+      if(arr.length > MAX_RECENT) arr = arr.slice(0, MAX_RECENT);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(arr));
+    }
+    function renderRecent(){
+      const arr = loadRecent();
+      recentWrap.innerHTML = "";
+      if(!arr.length){ recentWrap.innerHTML = '<span class="opacity-60 text-sm">No recent searches</span>'; return; }
+      arr.forEach(t=>{
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "chip";
+        b.textContent = t;
+        b.addEventListener("click", ()=> go(`/products/?q=${encodeURIComponent(t)}`));
+        recentWrap.appendChild(b);
+      });
+    }
+
+    function open(){
+      modal.classList.remove("hidden");
+      requestAnimationFrame(()=> modal.classList.add("show"));
+      setTimeout(()=> input?.focus(), 30);
+      renderRecent();
+    }
+    function close(){
+      modal.classList.remove("show");
+      setTimeout(()=> modal.classList.add("hidden"), 150);
+      input.value = "";
+    }
+    function go(url){ window.location.href = url; }
+
+    // open from header button
+    openBtn?.addEventListener("click", open);
+
+    // backdrop & esc close
+    back?.addEventListener("click", close);
+    document.addEventListener("keydown", (e)=>{
+      // Esc to close
+      if(e.key === "Escape" && !modal.classList.contains("hidden")) close();
+      // UX sugar: '/' opens, unless in an input/textarea
+      const tag = (e.target?.tagName || "").toLowerCase();
+      if (e.key === "/" && !modal.classList.contains("show") && !["input","textarea","select"].includes(tag)) {
+        e.preventDefault();
+        open();
+      }
+      // Cmd/Ctrl+K opens
+      if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        if (modal.classList.contains("show")) close(); else open();
+      }
+    });
+
+    // submit -> redirect to products with q param
+    form?.addEventListener("submit", (e)=>{
+      e.preventDefault();
+      const q = (input.value || "").trim();
+      if(!q) return close();
+      saveRecent(q);
+      go(`/products/?q=${encodeURIComponent(q)}`);
+    });
+
+    // quick chips click
+    modal.addEventListener("click", (e)=>{
+      const chip = e.target.closest("[data-q]");
+      if(!chip) return;
+      const q = chip.getAttribute("data-q") || "";
+      if(!q) return;
+      saveRecent(q);
+      go(`/products/?q=${encodeURIComponent(q)}`);
+    });
+  })();
       // Mobile menu toggle
       const mobileBtn = document.getElementById("mobileMenuBtn");
       const mobileMenu = document.getElementById("mobileMenu");
@@ -209,13 +358,7 @@
       window.addEventListener("resize", updateLogoOnScroll);
 
       // Simple "Search" click placeholder
-      const searchBtn = document.getElementById("searchBtn");
-      if (searchBtn) {
-        searchBtn.addEventListener("click", () => {
-          // Hook this to your real search modal later
-          alert("Search coming soon.");
-        });
-      }
+    
     </script>
 
     <!-- Django messages -->
@@ -367,128 +510,191 @@
 
     <!-- App Scripts: CSRF + Drawer + AJAX cart -->
     <script>
-      document.getElementById("year").textContent = new Date().getFullYear();
+  // Footer year
+  document.getElementById("year").textContent = new Date().getFullYear();
 
-      function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== "") {
-          const cookies = document.cookie.split(";");
-          for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === name + "=") {
-              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-              break;
-            }
-          }
-        }
-        return cookieValue;
-      }
-
-      const drawer = document.getElementById("cartDrawer");
-      const overlay = document.getElementById("overlay");
-      const openCartBtn = document.getElementById("openCart");
-      const closeCartBtn = document.getElementById("closeCart");
-      const itemsEl = document.getElementById("cartItems");
-      const subtotalEl = document.getElementById("cartSubtotal");
-
-      const openDrawer = () => {
-        drawer.classList.remove("drawer-closed");
-        drawer.classList.add("drawer-open");
-        overlay.classList.remove("pointer-events-none");
-        overlay.classList.add("opacity-100");
-      };
-      const closeDrawer = () => {
-        drawer.classList.remove("drawer-open");
-        drawer.classList.add("drawer-closed");
-        overlay.classList.add("pointer-events-none");
-        overlay.classList.remove("opacity-100");
-      };
-      if (openCartBtn) openCartBtn.addEventListener("click", () => { refreshCart(); openDrawer(); });
-      if (closeCartBtn) closeCartBtn.addEventListener("click", closeDrawer);
-      overlay.addEventListener("click", closeDrawer);
-      document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
-
-      async function refreshCart() {
-        try {
-          const res = await fetch('{% url "cart_summary_json" %}', {
-            headers: { "X-Requested-With": "XMLHttpRequest" },
-          });
-          const data = await res.json();
-          renderCart(data.cart);
-        } catch (err) {
-          console.error(err);
+  // --- CSRF helpers ---
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== "") {
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === name + "=") {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
         }
       }
+    }
+    return cookieValue;
+  }
+  function getCsrfToken() {
+    // Prefer cookie; fallback to <meta name="csrf-token" content="...">
+    return getCookie("csrftoken") ||
+           document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") ||
+           "";
+  }
 
-      function renderCart(cart) {
-      itemsEl.innerHTML = "";
-      if (!cart || !cart.items || cart.items.length === 0) {
-        itemsEl.innerHTML = '<div class="py-10 text-center text-sm opacity-70">Your bag is impeccably empty—for now.</div>';
-        subtotalEl.textContent = "—";
-        return;
-      }
+  // --- Drawer elements ---
+  const drawer = document.getElementById("cartDrawer");
+  const overlay = document.getElementById("overlay");
+  const openCartBtn = document.getElementById("openCart");
+  const closeCartBtn = document.getElementById("closeCart");
+  const itemsEl = document.getElementById("cartItems");
+  const subtotalEl = document.getElementById("cartSubtotal");
 
-      cart.items.forEach((it) => {
-        const row = document.createElement("div");
-        row.className = "py-4 flex items-center gap-4";
-        row.innerHTML = `
-          <div class="w-16 h-16 rounded-lg bg-ivory overflow-hidden">
-            <img src="${it.image_url}" alt="${it.name}" class="w-full h-full object-cover" loading="lazy"/>
-          </div>
-          <div class="flex-1">
-            <a href="/product/${it.slug}/" class="font-medium hover:underline">${it.name}</a>
-            <p class="text-sm opacity-70">Qty: ${it.qty}</p>
-          </div>
-          <div class="text-right">
-            <p class="font-medium">${it.line_total_display}</p>
-            <button class="text-sm underline opacity-70 hover:opacity-100" data-remove="${it.id}">Remove</button>
-          </div>`;
-        itemsEl.appendChild(row);
+  const openDrawer = () => {
+    drawer.classList.remove("drawer-closed");
+    drawer.classList.add("drawer-open");
+    overlay.classList.remove("pointer-events-none");
+    overlay.classList.add("opacity-100");
+  };
+  const closeDrawer = () => {
+    drawer.classList.remove("drawer-open");
+    drawer.classList.add("drawer-closed");
+    overlay.classList.add("pointer-events-none");
+    overlay.classList.remove("opacity-100");
+  };
+
+  if (openCartBtn) openCartBtn.addEventListener("click", () => { refreshCart(); openDrawer(); });
+  if (closeCartBtn) closeCartBtn.addEventListener("click", closeDrawer);
+  overlay.addEventListener("click", closeDrawer);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+
+  // --- Utilities ---
+  async function parseJsonOrLog(res) {
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+      const text = await res.text();
+      console.warn("Expected JSON but got:", {
+        status: res.status,
+        statusText: res.statusText,
+        headers: Object.fromEntries(res.headers.entries()),
+        bodySample: text.slice(0, 500)
       });
+      return null;
+    }
+    return res.json();
+  }
 
-      // Use server-formatted subtotal
-      subtotalEl.textContent = cart.subtotal_display;
+  function showInlineError(msg) {
+    itemsEl.innerHTML = `
+      <div class="py-10 text-center text-sm">
+        <div class="mb-2 text-red-600 font-medium">Oops — ${msg}</div>
+        <div class="opacity-70">Try reloading the page, or go to the full cart.</div>
+        <a href="/cart/" class="inline-block mt-3 px-4 py-2 rounded-full border border-line hover:border-[var(--sharp-gold)]">
+          View Cart
+        </a>
+      </div>`;
+    subtotalEl.textContent = "—";
+  }
 
-      // hook removes (unchanged)
-      itemsEl.querySelectorAll("[data-remove]").forEach((btn) => {
-        btn.addEventListener("click", async (e) => {
-          const id = e.currentTarget.getAttribute("data-remove");
-          await fetch(`{% url 'cart_remove' 0 %}`.replace("/0/", "/" + id + "/"), {
-            method: "POST",
-            headers: {
-              "X-Requested-With": "XMLHttpRequest",
-              "X-CSRFToken": getCookie("csrftoken"),
-            },
-          });
-          refreshCart();
-        });
+  // --- Cart fetchers ---
+  async function refreshCart() {
+    try {
+      const res = await fetch('{% url "cart_summary_json" %}', {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        credentials: "same-origin", // 🔑 include cookies on mobile
       });
+      const data = await parseJsonOrLog(res);
+      if (!data) { showInlineError("couldn’t load your bag."); return; }
+      renderCart(data.cart);
+    } catch (err) {
+      console.error("refreshCart error:", err);
+      showInlineError("network issue while loading your bag.");
+    }
+  }
+
+  function renderCart(cart) {
+    itemsEl.innerHTML = "";
+    if (!cart || !cart.items || cart.items.length === 0) {
+      itemsEl.innerHTML = '<div class="py-10 text-center text-sm opacity-70">Your bag is impeccably empty—for now.</div>';
+      subtotalEl.textContent = "—";
+      return;
     }
 
+    cart.items.forEach((it) => {
+      const row = document.createElement("div");
+      row.className = "py-4 flex items-center gap-4";
+      row.innerHTML = `
+        <div class="w-16 h-16 rounded-lg bg-ivory overflow-hidden">
+          <img src="${it.image_url}" alt="${it.name}" class="w-full h-full object-cover" loading="lazy"/>
+        </div>
+        <div class="flex-1">
+          <a href="/product/${it.slug}/" class="font-medium hover:underline">${it.name}</a>
+          <p class="text-sm opacity-70">Qty: ${it.qty}</p>
+        </div>
+        <div class="text-right">
+          <p class="font-medium">${it.line_total_display}</p>
+          <button class="text-sm underline opacity-70 hover:opacity-100" data-remove="${it.id}">Remove</button>
+        </div>`;
+      itemsEl.appendChild(row);
+    });
 
-      // Delegate add-to-cart (works from any template)
-      document.addEventListener("click", async (e) => {
-        const btn = e.target.closest("[data-add-to-cart]");
-        if (!btn) return;
-        const pid = btn.getAttribute("data-add-to-cart");
-        const qty = btn.getAttribute("data-qty") || 1;
+    // Use server-formatted subtotal (currency-aware)
+    subtotalEl.textContent = cart.subtotal_display;
+
+    // Hook removes
+    itemsEl.querySelectorAll("[data-remove]").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        const id = e.currentTarget.getAttribute("data-remove");
         try {
-          await fetch(`{% url 'cart_add' 0 %}`.replace("/0/", "/" + pid + "/"), {
+          const res = await fetch(`{% url 'cart_remove' 0 %}`.replace("/0/", "/" + id + "/"), {
             method: "POST",
             headers: {
               "X-Requested-With": "XMLHttpRequest",
-              "Content-Type": "application/x-www-form-urlencoded",
-              "X-CSRFToken": getCookie("csrftoken"),
+              "X-CSRFToken": getCsrfToken(),
             },
-            body: new URLSearchParams({ qty: String(qty) }),
+            credentials: "same-origin",
           });
-          await refreshCart();
-          openDrawer();
+          const data = await parseJsonOrLog(res);
+          if (!data) { showInlineError("couldn’t update your bag."); return; }
+          refreshCart();
         } catch (err) {
-          console.error(err);
+          console.error("remove error:", err);
+          showInlineError("couldn’t update your bag.");
         }
       });
-    </script>
+    });
+  }
+
+  // --- Delegate Add-to-Cart globally ---
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-add-to-cart]");
+    if (!btn) return;
+
+    // Avoid accidental form submissions on mobile
+    if (typeof btn.type === "string" && btn.type.toLowerCase() !== "button") {
+      e.preventDefault();
+    }
+
+    const pid = btn.getAttribute("data-add-to-cart");
+    const qty = btn.getAttribute("data-qty") || 1;
+
+    try {
+      const res = await fetch(`{% url 'cart_add' 0 %}`.replace("/0/", "/" + pid + "/"), {
+        method: "POST",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-CSRFToken": getCsrfToken(),
+        },
+        credentials: "same-origin",
+        body: new URLSearchParams({ qty: String(qty) }),
+      });
+
+      const data = await parseJsonOrLog(res);
+      if (!data) { showInlineError("couldn’t add that item."); return; }
+
+      await refreshCart();
+      openDrawer();
+    } catch (err) {
+      console.error("add-to-cart error:", err);
+      showInlineError("couldn’t add that item.");
+    }
+  });
+</script>
+
     {% block extra_scripts %}{% endblock %}
   </body>
 </html>

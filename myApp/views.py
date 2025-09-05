@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.utils.html import escape
 from django.views.decorators.http import require_POST
-
+from django.views.decorators.csrf import ensure_csrf_cookie
 from .models import Product, Order, OrderItem
 
 # --- Email safety helper (never crash the request) ---
@@ -182,6 +182,7 @@ def _is_ajax(request):
 from django.db.models import Prefetch
 from .models import Product, Order, OrderItem, ProductComponent  # + ProductComponent
 
+@ensure_csrf_cookie
 def home(request):
     featured = (
         Product.objects
@@ -211,6 +212,7 @@ def home(request):
 from django.db.models import Prefetch
 from .models import Product, ProductComponent  # add ProductComponent
 
+@ensure_csrf_cookie
 def product_list(request):
     q_type = (request.GET.get("type") or "all").lower()
 
@@ -228,7 +230,7 @@ def product_list(request):
 
     return render(request, "products.html", {"products": qs, "q_type": q_type})
 
-
+@ensure_csrf_cookie
 def product_detail(request, slug):
     product = get_object_or_404(Product, slug=slug, is_active=True)
     related = Product.objects.filter(is_active=True).exclude(id=product.id)[:4]

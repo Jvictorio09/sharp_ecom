@@ -1,80 +1,261 @@
 {% extends "base.html" %}
 {% block title %}Shop — SHARP{% endblock %}
 {% block content %}
+<style>
+  .chips::-webkit-scrollbar{display:none}
 
-<section class="py-12 md:py-16 border-t border-line bg-cream" data-animate-section>
+  /* glass dock padding/shape looks tight on mobile */
+  .chip-dock{padding:.35rem .5rem}
+
+  /* chip base */
+  .chip{
+    position:relative; display:inline-flex; align-items:center; justify-content:center;
+    min-height:44px; padding:.55rem .95rem; border-radius:9999px;
+    background:#fff; border:1px solid var(--sharp-line);
+    font-size:.9rem; line-height:1; color:var(--sharp-ink);
+    transition:transform .12s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+    will-change: transform;
+  }
+  .chip:active{ transform: translateY(1px) scale(.98) }
+  .chip.is-active{
+    background:linear-gradient(180deg,#fff,rgba(255,255,255,.9));
+    border-color: var(--sharp-gold);
+    box-shadow: inset 0 0 0 1px var(--sharp-gold);
+  }
+  .chip-ghost{ background:transparent }
+
+  /* edge fades */
+  .fade-left,.fade-right{
+    position:absolute; top:0; bottom:0; width:24px; pointer-events:none; z-index:2;
+  }
+  .fade-left{ left:0; background:linear-gradient(90deg, var(--sharp-cream), transparent) }
+  .fade-right{ right:0; background:linear-gradient(270deg, var(--sharp-cream), transparent) }
+
+  /* scroll arrows */
+  .nav-btn{
+    position:absolute; top:50%; transform:translateY(-50%);
+    width:32px; height:32px; border-radius:9999px;
+    background:rgba(255,255,255,.85); border:1px solid var(--sharp-line);
+    display:grid; place-items:center; color:var(--sharp-ink);
+    box-shadow:0 4px 18px rgba(0,0,0,.08);
+    z-index:3; opacity:0; pointer-events:none; transition:opacity .2s ease;
+  }
+  .nav-btn.show{ opacity:1; pointer-events:auto }
+
+  /* animated underline indicator */
+  #chipTrack{ position:relative }
+  #chipIndicator{
+    position:absolute; left:0; bottom:2px; height:3px; width:0; border-radius:999px;
+    background: linear-gradient(90deg, var(--sharp-gold), var(--sharp-hunter));
+    transition: transform .25s cubic-bezier(.2,.8,.2,1), width .25s cubic-bezier(.2,.8,.2,1);
+    transform: translateX(0);
+  }
+
+  @media (min-width: 768px){
+    .chip-dock{ padding: .5rem 0; background:transparent; border-color:transparent; box-shadow:none }
+    .fade-left,.fade-right,.nav-btn{ display:none }
+  }
+</style>
+
+<section 
+  class="pt-6 md:pt-12 pb-12 md:pb-16 border-t border-line bg-cream" 
+  data-animate-section
+>
   <div class="max-w-7xl mx-auto px-4 md:px-8">
     <!-- Header -->
-    <div class="mb-8 md:mb-12">
-      <p class="uppercase tracking-[0.18em] text-xs text-ink/60 will-reveal">Catalog</p>
-      <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+    <div class="mb-4 md:mb-8">
+      <p class="uppercase tracking-[0.18em] text-xs text-ink/60 ">Catalog</p>
+      <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-2 md:gap-4">
         <div>
-          <h1 class="text-3xl md:text-5xl font-extrabold will-reveal delay-100">The Essentials</h1>
-          <p class="mt-2 text-ink/70 max-w-2xl will-reveal delay-200">Considered materials. Built to last. Designed for real life.</p>
+          <h1 class="text-2xl sm:text-3xl md:text-5xl font-extrabold">
+            The Essentials
+          </h1>
+          <p class="mt-1 md:mt-2 text-ink/70 max-w-2xl text-sm sm:text-base">
+            Considered materials. Built to last. Designed for real life.
+          </p>
         </div>
-        <div class="text-sm text-ink/60 will-reveal delay-300">
+        <div class="text-xs sm:text-sm text-ink/60 ">
           <span id="countVisible">—</span> products
         </div>
       </div>
     </div>
 
-    <!-- Toolbar -->
-    <div class="mb-8 grid gap-3 md:grid-cols-12 will-reveal delay-300">
-      <!-- Quick filters (chips) -->
-      <div class="md:col-span-7 flex flex-wrap gap-2">
-        <button data-chip="all" class="chip-active px-3 py-2 rounded-full border border-line bg-white text-sm">All</button>
-        <button data-chip="bundle" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">Bundles</button>
-        <button data-chip="single" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">Singles</button>
+    <!-- Toolbar (sticky on mobile under header) -->
+<!-- Toolbar -->
+<div class="mb-6 md:mb-8">
+  <div class="md:grid md:grid-cols-12 md:gap-3 items-start">
+    <!-- Chips (col 1–7) -->
+    <div class="md:col-span-7">
+      <div class="relative">
+        <!-- Glass dock -->
+        <div
+          class="chip-dock sticky top-[68px] z-30 -mx-4 px-4 md:static md:mx-0 md:px-0
+                 rounded-2xl border border-line/70 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/45
+                 shadow-[0_4px_24px_rgba(0,0,0,.06)]"
+        >
+          <div class="relative">
+            <!-- Scroll arrows (mobile only) -->
+            <button type="button" id="chipsPrev" class="nav-btn left-0 md:hidden" aria-label="Scroll left">
+              <svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button type="button" id="chipsNext" class="nav-btn right-0 md:hidden" aria-label="Scroll right">
+              <svg viewBox="0 0 24 24" width="18" height="18"><path d="M9 18l6-6-6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
 
-        <!-- marketing chips -->
-        <button data-chip="new" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">New</button>
-        <button data-chip="bestseller" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">Bestsellers</button>
-        <button data-chip="sale" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">On Sale</button>
+            <!-- Edge fades (mobile only) -->
+            <div class="fade-left md:hidden"></div>
+            <div class="fade-right md:hidden"></div>
 
-        <!-- 🔥 currency-aware label; JS still filters at base 1500 -->
-        <button data-chip="under-1500" class="chip px-3 py-2 rounded-full border border-line bg-white text-sm hover:border-[var(--sharp-gold)]">
-          Under {{ 1500|money:request }}
-        </button>
-      </div>
+            <!-- Track + indicator -->
+            <div id="chipTrack"
+                 class="chips flex gap-2 overflow-x-auto whitespace-nowrap scroll-smooth py-2
+                        [scrollbar-width:none] [-ms-overflow-style:none]">
+              <span id="chipIndicator" aria-hidden="true"></span>
 
-      <!-- Search -->
-      <div class="md:col-span-3">
-        <div class="relative">
-          <input id="searchInput" type="search" placeholder="Search products"
-                 class="w-full pl-10 pr-4 py-2.5 rounded-full border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]" />
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M21 21l-4.2-4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            <circle cx="11" cy="11" r="7.25" stroke="currentColor" stroke-width="1.5"/>
-          </svg>
+              <!-- Keep BOTH classes on initial active -->
+              <button type="button" role="tab" aria-selected="true"
+                      data-chip="all"
+                      class="chip chip-active is-active" title="All">All</button>
+
+              <button type="button" role="tab" aria-selected="false"
+                      data-chip="bundle"
+                      class="chip" title="Bundles">Bundles</button>
+
+              <button type="button" role="tab" aria-selected="false"
+                      data-chip="single"
+                      class="chip" title="Singles">Singles</button>
+
+              <button type="button" role="tab" aria-selected="false"
+                      data-chip="new"
+                      class="chip" title="New">New</button>
+
+              <button type="button" role="tab" aria-selected="false"
+                      data-chip="bestseller"
+                      class="chip" title="Bestsellers">Bestsellers</button>
+
+              <button type="button" role="tab" aria-selected="false"
+                      data-chip="sale"
+                      class="chip" title="On sale">On Sale</button>
+
+              <button type="button" id="clearFilters" class="chip chip-ghost hidden" title="Clear filters">Clear</button>
+            </div>
+          </div>
         </div>
-      </div>
-
-      <!-- Sort -->
-      <div class="md:col-span-2">
-        <select id="sortSelect"
-                class="w-full px-4 py-2.5 rounded-full border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
-          <option value="featured">Sort: Featured</option>
-          <option value="price-asc">Price: Low to High</option>
-          <option value="price-desc">Price: High to Low</option>
-          <option value="name-asc">Name: A → Z</option>
-          <option value="name-desc">Name: Z → A</option>
-        </select>
       </div>
     </div>
 
+    <!-- Search (col 8–10) -->
+    <div class="md:col-span-3 mt-3 md:mt-0">
+      <div class="relative">
+        <input id="searchInput" type="search" inputmode="search" autocomplete="off" placeholder="Search products"
+               class="w-full pl-10 pr-4 py-3 rounded-full border border-line bg-white text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]" />
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M21 21l-4.2-4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="11" cy="11" r="7.25" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Sort (col 11–12) -->
+    <div class="md:col-span-2 mt-3 md:mt-0">
+      <select id="sortSelect"
+              class="w-full px-4 py-3 rounded-full border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
+        <option value="featured">Sort: Featured</option>
+        <option value="price-asc">Price: Low to High</option>
+        <option value="price-desc">Price: High to Low</option>
+        <option value="name-asc">Name: A → Z</option>
+        <option value="name-desc">Name: Z → A</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<script>
+  (() => {
+    const track = document.getElementById('chipTrack');
+    const indicator = document.getElementById('chipIndicator');
+    if (!track || !indicator) return; // ← guard: nothing to do
+
+    const chips = Array.from(track.querySelectorAll('.chip[data-chip]'));
+    const prev = document.getElementById('chipsPrev');
+    const next = document.getElementById('chipsNext');
+
+    function updateIndicator(target){
+      if(!target) return;
+      const r = target.getBoundingClientRect();
+      const tr = track.getBoundingClientRect();
+      const w = r.width;
+      const x = r.left - tr.left + track.scrollLeft;
+      const barW = Math.max(24, w * 0.6);
+      indicator.style.width = `${barW}px`;
+      indicator.style.transform = `translateX(${x + (w - barW)/2}px)`;
+    }
+
+    function setActive(btn){
+      chips.forEach(c=>{
+        const active = c===btn;
+        // Toggle BOTH classes so your filter code sees it
+        c.classList.toggle('is-active', active);
+        c.classList.toggle('chip-active', active);
+        c.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      updateIndicator(btn);
+
+      // Center active on track (mobile)
+      const r = btn.getBoundingClientRect();
+      const tr = track.getBoundingClientRect();
+      const targetScroll = track.scrollLeft + (r.left - tr.left) - (tr.width/2 - r.width/2);
+      track.scrollTo({ left: Math.max(0, targetScroll), behavior: 'smooth' });
+    }
+
+    function updateArrows(){
+      if (!prev || !next) return;
+      const canScroll = track.scrollWidth > track.clientWidth + 8;
+      if(!canScroll){ prev.classList.remove('show'); next.classList.remove('show'); return; }
+      const atStart = track.scrollLeft < 8;
+      const atEnd = track.scrollLeft > (track.scrollWidth - track.clientWidth - 8);
+      prev.classList.toggle('show', !atStart);
+      next.classList.toggle('show', !atEnd);
+    }
+
+    // Init: honor ?type=... if present
+    const params = new URLSearchParams(location.search);
+    const t = (params.get('type') || 'all').toLowerCase();
+    const initial = chips.find(b => (b.dataset.chip||'').toLowerCase() === t) || chips[0];
+    if (initial) setActive(initial);
+    updateArrows();
+
+    // Clicks
+    chips.forEach(btn=>{
+      btn.addEventListener('click', () => {
+        setActive(btn);
+        // optional broadcast if you want
+        document.dispatchEvent(new CustomEvent('chip-change', { detail:{ value: btn.dataset.chip }}));
+      });
+    });
+
+    track.addEventListener('scroll', updateArrows, { passive:true });
+    window.addEventListener('resize', ()=>{ updateIndicator(document.querySelector('.chip.is-active')); updateArrows(); });
+
+    prev?.addEventListener('click', ()=> track.scrollBy({ left: -Math.max(160, track.clientWidth*.7), behavior:'smooth' }));
+    next?.addEventListener('click', ()=> track.scrollBy({ left:  Math.max(160, track.clientWidth*.7), behavior:'smooth' }));
+  })();
+</script>
+
+
     <!-- Grid -->
-    <div id="productGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+    <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
       {% for p in products %}
       <div class="product-card will-reveal"
            data-name="{{ p.name|lower }}"
-           data-price="{{ p.price }}"  {# base currency number for sorting/filtering #}
+           data-price="{{ p.price }}"
            data-bundle="{% if p.is_bundle %}1{% else %}0{% endif %}"
            data-badge="{{ p.badge|default_if_none:''|lower }}"
            data-sale="{% if p.compare_price and p.compare_price > p.price %}1{% else %}0{% endif %}">
         {% include "partials/_product_card.html" with p=p %}
 
         {% if p.is_bundle %}
-          <p class="mt-2 text-xs text-ink/70">
+          <p class="mt-2 text-[12px] text-ink/70">
             {% for link in p.component_links.all %}
               {{ link.quantity }}× {{ link.component.name }}{% if not forloop.last %}, {% endif %}
             {% endfor %}
@@ -105,12 +286,30 @@
   </div>
 </section>
 
-<!-- Tiny styles + script -->
+<!-- Styles -->
 <style>
-  .will-reveal { opacity: 0; transform: translateY(12px); transition: opacity .6s ease, transform .6s ease; }
+  /* Reveal animation */
+  .will-reveal { opacity: 0; transform: translateY(12px); transition: opacity .45s ease, transform .45s ease; }
   .in-view .will-reveal, .will-reveal.revealed { opacity: 1; transform: translateY(0); }
+  @media (prefers-reduced-motion: reduce) {
+    .will-reveal { transition: none; opacity: 1; transform: none; }
+  }
+
+  /* Chips */
+  .chip { display:inline-flex; align-items:center; gap:.5rem; padding:.6rem .9rem; margin-right:.5rem;
+          white-space:nowrap; border:1px solid var(--sharp-line); border-radius:9999px; background:#fff; font-size:.875rem; }
   .chip-active { border-color: var(--sharp-gold); box-shadow: inset 0 0 0 1px var(--sharp-gold); }
+  .chip-ghost { background:transparent; }
+  .chip-scroll { display:flex; overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none; gap:.5rem; }
+  .chip-scroll::-webkit-scrollbar { display:none; }
+  /* Sticky toolbar hint (under sticky header height ~64px) */
+  @media (max-width: 767px) {
+    .chip-scroll { position: sticky; top: calc(64px + 1px); z-index: 30; padding-top:.25rem; padding-bottom:.5rem;
+                   background: linear-gradient(#efefef,#efefef) padding-box; /* var(--sharp-cream) */ }
+  }
 </style>
+
+<!-- Script -->
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const grid = document.getElementById('productGrid');
@@ -119,13 +318,14 @@
     const search = document.getElementById('searchInput');
     const sort = document.getElementById('sortSelect');
     const chips = document.querySelectorAll('[data-chip]');
+    const clearBtn = document.getElementById('clearFilters');
 
     // Reveal on view
     const obs = new IntersectionObserver((ents) => {
       ents.forEach(e => { if (e.isIntersecting) e.target.classList.add('revealed'); });
-    }, { threshold: 0.12 });
+    }, { threshold: 0.1, rootMargin: '50px 0px' });
     document.querySelectorAll('[data-animate-section]').forEach(s => {
-      new IntersectionObserver((es)=>{es.forEach(en=>{if(en.isIntersecting) en.target.classList.add('in-view');});},{threshold:.2}).observe(s);
+      new IntersectionObserver((es)=>{es.forEach(en=>{if(en.isIntersecting) en.target.classList.add('in-view');});},{threshold:.15}).observe(s);
     });
     cards.forEach(c => obs.observe(c));
 
@@ -141,10 +341,16 @@
       if (countEl) countEl.textContent = visible;
     }
 
+    function activeTag() {
+      const a = document.querySelector('[data-chip].chip-active');
+      return a ? a.getAttribute('data-chip') : 'all';
+    }
+
     function applyFilters() {
       const q = (search?.value || '').trim().toLowerCase();
-      const activeChip = document.querySelector('[data-chip].chip-active');
-      const tag = activeChip ? activeChip.getAttribute('data-chip') : 'all';
+      const tag = activeTag();
+
+      let anyFiltered = q.length > 0 || tag !== 'all';
 
       cards.forEach(card => {
         const name = card.dataset.name || '';
@@ -154,24 +360,18 @@
         const isBundle = card.dataset.bundle === '1';
 
         let ok = true;
-
-        // text search
         if (q && !name.includes(q)) ok = false;
-
-        // bundle filters
         if (tag === 'bundle' && !isBundle) ok = false;
         if (tag === 'single' && isBundle) ok = false;
-
-        // marketing chips
         if (tag === 'new' && !/new/.test(badge)) ok = false;
         if (tag === 'bestseller' && !/best|bestseller/.test(badge)) ok = false;
         if (tag === 'sale' && !onSale) ok = false;
-
-        // price chip — threshold in base currency (label is converted server-side)
         if (tag === 'under-1500' && !(price < 1500)) ok = false;
 
         card.style.display = ok ? '' : 'none';
       });
+
+      if (clearBtn) clearBtn.classList.toggle('hidden', !anyFiltered);
 
       applySort();
       updateCount();
@@ -183,7 +383,7 @@
       const hidden = cards.filter(c => c.style.display === 'none');
 
       visible.sort((a,b) => {
-        const pa = parseFloat(a.dataset.price || '0'); // base currency
+        const pa = parseFloat(a.dataset.price || '0');
         const pb = parseFloat(b.dataset.price || '0');
         const na = (a.dataset.name || '').toLowerCase();
         const nb = (b.dataset.name || '').toLowerCase();
@@ -201,8 +401,13 @@
       hidden.forEach(node => grid.appendChild(node));
     }
 
+    // Debounce for mobile typing
+    function debounce(fn, ms=160) {
+      let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+    }
+
     // Events
-    search?.addEventListener('input', applyFilters);
+    search?.addEventListener('input', debounce(applyFilters, 160));
     sort?.addEventListener('change', applySort);
     chips.forEach(chip => chip.addEventListener('click', () => {
       chips.forEach(c => c.classList.remove('chip-active'));
@@ -220,9 +425,22 @@
       applyFilters();
     }));
 
+    clearBtn?.addEventListener('click', () => {
+      search.value = '';
+      chips.forEach(c => c.classList.remove('chip-active'));
+      document.querySelector('[data-chip="all"]')?.classList.add('chip-active');
+      const p = new URLSearchParams(location.search);
+      p.delete('type');
+      const url = `${location.pathname}?${p.toString()}`;
+      history.replaceState(null, '', url.endsWith('?') ? url.slice(0,-1) : url);
+      applyFilters();
+    });
+
     // Initial
     applyFilters();
   });
+
+  
 </script>
 
 {% endblock %}
