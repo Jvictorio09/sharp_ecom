@@ -208,3 +208,6 @@ LOGIN_URL = 'dashboard_login'
 
 TEMPLATES[0]['OPTIONS']['builtins'] = ['myApp.templatetags.money']
 
+
+PRICE_SOURCE_CURRENCY = "JOD"
+

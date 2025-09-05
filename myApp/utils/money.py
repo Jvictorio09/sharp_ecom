@@ -1,11 +1,9 @@
-# myApp/utils/money.py
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from django.core.cache import cache
 from myApp.models import FxRate
 
-BASE = "USD"
+BASE = "USD"  # fine; not relied upon for cross rates
 SYMBOLS = {"USD": "$", "PHP": "₱", "JOD": "JD", "AED": "د.إ", "EUR": "€", "GBP": "£"}
-# Minor units (ISO 4217)
 MINOR_UNITS = {"USD": 2, "PHP": 2, "EUR": 2, "GBP": 2, "AED": 2, "JOD": 3}
 
 def _to_decimal(x) -> Decimal:
@@ -16,61 +14,87 @@ def _to_decimal(x) -> Decimal:
 
 def _quantize(amount: Decimal, ccy: str) -> Decimal:
     digits = MINOR_UNITS.get((ccy or BASE).upper(), 2)
-    step = Decimal(1).scaleb(-digits)  # 10**-digits
+    step = Decimal(1).scaleb(-digits)
     return amount.quantize(step, rounding=ROUND_HALF_UP)
 
-def _rate(to_ccy: str) -> Decimal | None:
-    to_ccy = (to_ccy or BASE).upper()
-    if to_ccy == BASE:
-        return Decimal("1")
-    key = f"fx:{BASE}->{to_ccy}"
+def _pair_rate(base_ccy: str, quote_ccy: str) -> Decimal | None:
+    """Return base->quote; if only reverse exists, invert. Cached."""
+    b = (base_ccy or BASE).upper()
+    q = (quote_ccy or BASE).upper()
+    if b == q: return Decimal("1")
+
+    key = f"fx:{b}->{q}"
     cached = cache.get(key)
     if cached is not None:
-        return Decimal(str(cached))
-    row = FxRate.objects.only("rate").filter(base=BASE, quote=to_ccy).first()
-    if not row:
-        return None
-    cache.set(key, str(row.rate), 60 * 10)  # cache 10 min
-    return Decimal(str(row.rate))
+        try: return Decimal(str(cached))
+        except Exception: pass
 
+    # direct
+    row = FxRate.objects.only("rate").filter(base=b, quote=q).first()
+    if row:
+        cache.set(key, str(row.rate), 600)
+        return Decimal(str(row.rate))
+
+    # reverse
+    row = FxRate.objects.only("rate").filter(base=q, quote=b).first()
+    if row:
+        inv = Decimal("1") / Decimal(str(row.rate))
+        cache.set(key, str(inv), 600)
+        return inv
+
+    return None
+
+def rate_between(from_ccy: str, to_ccy: str) -> Decimal | None:
+    """Rate f->t. Try direct, invert, else bridge via anchors."""
+    f = (from_ccy or BASE).upper()
+    t = (to_ccy or BASE).upper()
+    if f == t: return Decimal("1")
+
+    r = _pair_rate(f, t)
+    if r is not None: return r
+
+    for a in ("USD","JOD","EUR","GBP","AED","PHP"):
+        r1 = _pair_rate(f, a)
+        r2 = _pair_rate(a, t)
+        if r1 is not None and r2 is not None:
+            return r1 * r2
+    return None
+
+# Backwards-compatible: BASE -> to_ccy
 def convert(amount_base, to_ccy: str) -> Decimal:
-    """Convert from BASE to `to_ccy`; if rate missing, return unconverted amount (rounded for display)."""
-    to_ccy = (to_ccy or BASE).upper()
-    amt = _to_decimal(amount_base)
-    r = _rate(to_ccy)
+    return convert_any(amount_base, BASE, to_ccy)
+
+# New: any -> any
+def convert_any(amount, from_ccy: str, to_ccy: str) -> Decimal:
+    amt = _to_decimal(amount)
+    r = rate_between(from_ccy, to_ccy)
     if r is None:
-        return _quantize(amt, to_ccy)  # symbol will change, amount stays base
+        return _quantize(amt, to_ccy)  # show unconverted but rounded (rare)
     return _quantize(amt * r, to_ccy)
 
 def _format_signed(sym: str, amt: Decimal) -> str:
-    # Show minus before symbol: -$12.34
-    if amt.is_signed():
-        return f"-{sym}{abs(amt):,}"
-    return f"{sym}{amt:,}"
+    return f"-{sym}{abs(amt):,}" if amt.is_signed() else f"{sym}{amt:,}"
 
 def format_money(amount_base, ccy: str) -> str:
-    """Format with symbol + thousands + correct decimals (no request needed)."""
     ccy = (ccy or BASE).upper()
     sym = SYMBOLS.get(ccy, f"{ccy} ")
     return _format_signed(sym, convert(amount_base, ccy))
 
+def format_money_any(amount, from_ccy: str, to_ccy: str) -> str:
+    to_ccy = (to_ccy or BASE).upper()
+    sym = SYMBOLS.get(to_ccy, f"{to_ccy} ")
+    conv = convert_any(amount, from_ccy, to_ccy)
+    return _format_signed(sym, conv)
+
 def currency_from_request(request) -> str:
-    """Request.currency → session → cookie → BASE."""
-    if not request:
-        return BASE
-    c = getattr(request, "currency", None)
-    if c: return c
-    try:
-        c = request.session.get("currency")
-        if c: return c
-    except Exception:
-        pass
-    try:
-        c = request.COOKIES.get("currency")
-        if c: return c
-    except Exception:
-        pass
-    return BASE
+    if not request: return BASE
+    c = (getattr(request, "currency", None)
+         or getattr(getattr(request, "session", None), "get", lambda *_: None)("currency")
+         or getattr(getattr(request, "COOKIES", {}), "get", lambda *_: None)("currency"))
+    return (c or BASE)
 
 def format_money_from_request(amount_base, request) -> str:
     return format_money(amount_base, currency_from_request(request))
+
+def format_money_from_request_any(amount, from_ccy: str, request) -> str:
+    return format_money_any(amount, from_ccy, currency_from_request(request))
