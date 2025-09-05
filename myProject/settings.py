@@ -147,60 +147,27 @@ TEMPLATES[0]['OPTIONS']['context_processors'] += [
 # ---------------------------
 # EMAIL CONFIG — Primary: Resend (HTTPS API). Fallbacks: SMTP (optional) → console.
 # ---------------------------
-import warnings
+import os
 
-# Env flags / secrets
-RESEND_API_KEY = os.getenv('RESEND_API_KEY', '').strip()
-EMAIL_ALLOW_SMTP = env_bool('EMAIL_ALLOW_SMTP', False)  # set to 1 only if you want SMTP fallback
+# If you still use Django's send_mail elsewhere, keep it from tripping in prod:
+DEBUG = os.environ.get("DEBUG", "False").lower() in ("1","true","yes")
 
-if RESEND_API_KEY:
-    # Primary: Resend via Anymail (Railway-friendly, no open ports needed)
-    EMAIL_BACKEND = 'anymail.backends.resend.EmailBackend'
-    ANYMAIL = {
-        'RESEND_API_KEY': RESEND_API_KEY,
-        # Avoid hard errors for features not supported by provider (e.g., tags/metadata)
-        'IGNORE_UNSUPPORTED_FEATURES': True,
-    }
+# Not strictly required for Resend (we’ll call the HTTP API), but safe defaults:
+EMAIL_BACKEND = (
+    "django.core.mail.backends.console.EmailBackend" if DEBUG
+    else "django.core.mail.backends.dummy.EmailBackend"
+)
 
-    # Quiet any provider capability warnings
-    try:
-        from anymail.exceptions import AnymailNotSupportedWarning
-        warnings.filterwarnings('ignore', category=AnymailNotSupportedWarning)
-    except Exception:
-        pass
+# Useful for emails you render or any fallback usage
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL") or os.environ.get("RESEND_FROM")
 
-elif EMAIL_ALLOW_SMTP:
-    # Optional fallback: SMTP (e.g., Gmail App Password) — not recommended for production scale
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-
-    if env_bool('EMAIL_USE_SSL', False):
-        EMAIL_PORT = env_int('EMAIL_PORT', 465)
-        EMAIL_USE_SSL = True
-        EMAIL_USE_TLS = False
-    else:
-        EMAIL_PORT = env_int('EMAIL_PORT', 587)
-        EMAIL_USE_TLS = env_bool('EMAIL_USE_TLS', True)
-        EMAIL_USE_SSL = False
-
-    EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'juliavictorio16@gmail.com')
-    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')  # 16-char Gmail App Password
-
-else:
-    # Safe default: write emails to console/logs (prevents checkout crashes)
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
-# Common email settings
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'SHARP <noreply@sharphair.shop>')
-SERVER_EMAIL = os.getenv('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
-EMAIL_TIMEOUT = env_int('EMAIL_TIMEOUT', 20)
-
-# App-specific addresses
-CONTACT_RECEIVER_EMAIL = os.getenv('CONTACT_RECEIVER_EMAIL', 'support@sharphair.shop')
-ADMIN_ORDER_EMAIL = os.getenv('ADMIN_ORDER_EMAIL', 'orders@sharphair.shop')
-
-# Legacy variable kept if some code still references it
-CONTACT_TO = os.environ.get('CONTACT_TO', CONTACT_RECEIVER_EMAIL)
+# Resend config (used by your utility function)
+RESEND = {
+    "API_KEY": os.environ.get("RESEND_API_KEY"),
+    "FROM": os.environ.get("RESEND_FROM"),
+    "REPLY_TO": os.environ.get("RESEND_REPLY_TO"),
+    "BASE_URL": os.environ.get("RESEND_BASE_URL", "https://api.resend.com"),
+}
 
 
 LOGIN_URL = 'dashboard_login'

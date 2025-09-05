@@ -18,6 +18,53 @@ from django.core.mail import get_connection, EmailMultiAlternatives
 
 logger = logging.getLogger(__name__)
 
+# --- Resend sender (HTTP) ---
+import requests
+
+def _send_email_resend(*, subject, text_body, to_list, html_body=None, reply_to=None, headers=None) -> bool:
+    """
+    Sends email using Resend HTTP API.
+    Reads credentials from settings.RESEND (API_KEY, FROM, REPLY_TO, BASE_URL).
+    Returns True/False.
+    """
+    try:
+        cfg = getattr(settings, "RESEND", {}) or {}
+        api_key = cfg.get("API_KEY")
+        sender  = cfg.get("FROM") or getattr(settings, "DEFAULT_FROM_EMAIL", None)
+        base    = cfg.get("BASE_URL", "https://api.resend.com")
+        if not (api_key and sender and to_list):
+            logger.error("Resend missing config or recipients. sender=%s to=%s", sender, to_list)
+            return False
+
+        payload = {
+            "from": sender,
+            "to": to_list,
+            "subject": subject or "",
+        }
+        if html_body:
+            payload["html"] = html_body
+        if text_body:
+            payload["text"] = text_body
+        # Prefer explicit arg, else settings.RESEND.REPLY_TO
+        payload["reply_to"] = reply_to or cfg.get("REPLY_TO")
+        if headers:
+            payload["headers"] = headers
+
+        r = requests.post(
+            f"{base.rstrip('/')}/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=30,
+        )
+        if r.status_code != 200:
+            logger.error("Resend error %s: %s", r.status_code, r.text[:500])
+            return False
+        return True
+    except Exception as e:
+        logger.exception("Resend send failed: %s", e)
+        return False
+
+
 # myApp/views.py
 # === currency formatter bridge ==========================================
 from importlib import import_module
@@ -59,26 +106,23 @@ logger = logging.getLogger(__name__)
 
 def _safe_send_mail(subject, text_body, from_email, to_list, html_body=None, extra_headers=None):
     """
-    Sends email using the configured EMAIL_BACKEND (Gmail SMTP, Resend via Anymail, etc.).
-    Returns True on success, False on failure. Supports custom headers (e.g., Reply-To).
+    Compatibility shim: route all mail through Resend.
+    - Ignores from_email (Resend uses settings.RESEND['FROM'])
+    - extra_headers may include 'Reply-To'; we map it to Resend's reply_to
     """
-    try:
-        conn = get_connection()  # respects settings.EMAIL_BACKEND
-        msg = EmailMultiAlternatives(
-            subject=subject,
-            body=text_body or "",
-            from_email=from_email,
-            to=to_list,
-            connection=conn,
-            headers=extra_headers or {},
-        )
-        if html_body:
-            msg.attach_alternative(html_body, "text/html")
-        msg.send()
-        return True
-    except Exception as e:
-        logger.exception("Email send failed: %s", e)
-        return False
+    reply_to = None
+    if isinstance(extra_headers, dict):
+        reply_to = extra_headers.get("Reply-To") or extra_headers.get("Reply_to") or extra_headers.get("reply-to")
+
+    return _send_email_resend(
+        subject=subject,
+        text_body=text_body,
+        to_list=to_list,
+        html_body=html_body,
+        reply_to=reply_to,
+        headers=None,  # pass through custom headers if you really need them
+    )
+
 
 
 
@@ -522,9 +566,9 @@ from django.utils.html import strip_tags
 def contact(request):
     """
     Contact page:
-    - Sends an admin notification email.
+    - Sends an admin notification email (via Resend through _safe_send_mail).
     - Sends a branded HTML auto-reply to the user (if they provided a valid email).
-    - Redirects to a dedicated 'contact_thanks' page on success.
+    - Redirects to 'contact_thanks' on success.
     """
     if request.method == "POST":
         name = (request.POST.get("name") or "").strip()
@@ -534,7 +578,11 @@ def contact(request):
         # Basic validation
         if not name or not message:
             messages.error(request, "Please provide your name and message.")
-            return render(request, "contact.html", {"name": name, "email": email, "message_text": message})
+            return render(request, "contact.html", {
+                "name": name,
+                "email": email,
+                "message_text": message
+            })
 
         # Validate email if provided (optional field)
         user_email_ok = False
@@ -543,51 +591,57 @@ def contact(request):
                 validate_email(email)
                 user_email_ok = True
             except ValidationError:
-                # We won't block the submit—just skip the auto-reply
-                user_email_ok = False
+                user_email_ok = False  # skip auto-reply; still accept the form
 
         # --- Admin notification ---
         admin_to = getattr(settings, "CONTACT_TO", None) or getattr(settings, "DEFAULT_FROM_EMAIL", None)
-        from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None)
-
-        if admin_to and from_email:
+        if admin_to:
             subject = f"New contact from {name}"
             body = f"Name: {name}\nEmail: {email or 'N/A'}\n\nMessage:\n{message}"
-            try:
-                send_mail(subject, body, from_email, [admin_to], fail_silently=False)
-            except Exception:
-                # Don't crash UX on mail issues—log in real apps
-                messages.warning(request, "Your message was received, but we couldn’t notify our team by email. We’ll still follow up.")
+            ok = _safe_send_mail(
+                subject=subject,
+                text_body=body,
+                from_email=None,                # Resend uses settings.RESEND['FROM']
+                to_list=[admin_to],
+                html_body=None
+            )
+            if not ok:
+                messages.warning(
+                    request,
+                    "Your message was received, but we couldn’t notify our team by email. We’ll still follow up."
+                )
 
         # --- Auto-reply to sender (HTML + plain text fallback) ---
-        if user_email_ok and from_email:
+        if user_email_ok:
             try:
                 context = {
                     "name": name,
                     "user_message": message,
                     "products_url": request.build_absolute_uri("/products/"),
                     "order_status_url": request.build_absolute_uri("/order-status/"),
-                    "support_email": admin_to or from_email,
+                    "support_email": admin_to or (getattr(settings, "DEFAULT_FROM_EMAIL", "") or ""),
                 }
                 html = render_to_string("emails/contact_autoreply.html", context)
-                text = strip_tags(html)  # simple plaintext fallback
+                text = strip_tags(html)
 
-                send_mail(
+                _safe_send_mail(
                     subject="Thanks for contacting SHARP — We’re on it",
-                    message=text,
-                    from_email=from_email,
-                    recipient_list=[email],
-                    html_message=html,
-                    fail_silently=True,  # don't break UX if the auto-reply fails
+                    text_body=text,
+                    from_email=None,             # Resend uses configured FROM
+                    to_list=[email],
+                    html_body=html
                 )
-            except Exception:
-                pass  # swallow auto-reply errors; optional: log
+            except Exception as e:
+                # Don't break UX if email fails
+                logger.exception("Auto-reply send failed: %s", e)
 
         messages.success(request, "Thanks for reaching out — your message has been received.")
         return redirect("contact_thanks")
 
     # GET
     return render(request, "contact.html")
+
+
 
 
 def contact_thanks(request):
@@ -650,28 +704,6 @@ def _email_admin_new_order(request, order: Order):
     )
 
 
-def _safe_send_mail(subject, text_body, from_email, to_list, html_body=None, extra_headers=None):
-    """
-    Sends email using the configured EMAIL_BACKEND (Gmail SMTP, Resend via Anymail, etc.).
-    Returns True on success, False on failure. Supports custom headers (e.g., Reply-To).
-    """
-    try:
-        conn = get_connection()  # respects settings.EMAIL_BACKEND
-        msg = EmailMultiAlternatives(
-            subject=subject,
-            body=text_body or "",
-            from_email=from_email,
-            to=to_list,
-            connection=conn,
-            headers=extra_headers or {},
-        )
-        if html_body:
-            msg.attach_alternative(html_body, "text/html")
-        msg.send()
-        return True
-    except Exception as e:
-        logger.exception("Email send failed: %s", e)
-        return False
 
 
 
@@ -1109,75 +1141,7 @@ from django.shortcuts import render, redirect
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
-def contact(request):
-    """
-    Contact page:
-    - Sends an admin notification email.
-    - Sends a branded HTML auto-reply to the user (if they provided a valid email).
-    - Redirects to a dedicated 'contact_thanks' page on success.
-    """
-    if request.method == "POST":
-        name = (request.POST.get("name") or "").strip()
-        email = (request.POST.get("email") or "").strip()
-        message = (request.POST.get("message") or "").strip()
 
-        # Basic validation
-        if not name or not message:
-            messages.error(request, "Please provide your name and message.")
-            return render(request, "contact.html", {"name": name, "email": email, "message_text": message})
-
-        # Validate email if provided (optional field)
-        user_email_ok = False
-        if email:
-            try:
-                validate_email(email)
-                user_email_ok = True
-            except ValidationError:
-                # We won't block the submit—just skip the auto-reply
-                user_email_ok = False
-
-        # --- Admin notification ---
-        admin_to = getattr(settings, "CONTACT_TO", None) or getattr(settings, "DEFAULT_FROM_EMAIL", None)
-        from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None)
-
-        if admin_to and from_email:
-            subject = f"New contact from {name}"
-            body = f"Name: {name}\nEmail: {email or 'N/A'}\n\nMessage:\n{message}"
-            try:
-                send_mail(subject, body, from_email, [admin_to], fail_silently=False)
-            except Exception:
-                # Don't crash UX on mail issues—log in real apps
-                messages.warning(request, "Your message was received, but we couldn’t notify our team by email. We’ll still follow up.")
-
-        # --- Auto-reply to sender (HTML + plain text fallback) ---
-        if user_email_ok and from_email:
-            try:
-                context = {
-                    "name": name,
-                    "user_message": message,
-                    "products_url": request.build_absolute_uri("/products/"),
-                    "order_status_url": request.build_absolute_uri("/order-status/"),
-                    "support_email": admin_to or from_email,
-                }
-                html = render_to_string("emails/contact_autoreply.html", context)
-                text = strip_tags(html)  # simple plaintext fallback
-
-                send_mail(
-                    subject="Thanks for contacting SHARP — We’re on it",
-                    message=text,
-                    from_email=from_email,
-                    recipient_list=[email],
-                    html_message=html,
-                    fail_silently=True,  # don't break UX if the auto-reply fails
-                )
-            except Exception:
-                pass  # swallow auto-reply errors; optional: log
-
-        messages.success(request, "Thanks for reaching out — your message has been received.")
-        return redirect("contact_thanks")
-
-    # GET
-    return render(request, "contact.html")
 
 
 def contact_thanks(request):
