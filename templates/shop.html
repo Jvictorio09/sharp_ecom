@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SHARP — Natural Hair Care</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --brand:#0b3b36; --accent:#0ea5a6; --gold:#263128; --ink:#1b1b1b; --line:#e5e7eb; --cream:#f8fafc;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans Arabic", sans-serif; }
+    .card { border:1px solid var(--line); box-shadow: 0 10px 24px rgba(2,6,23,.06); }
+    .chip { border:1px solid rgba(2,6,23,.12); }
+    /* RTL helpers */
+    [dir="rtl"] .rtl\:text-right { text-align:right; }
+    [dir="rtl"] .rtl\:flex-row-reverse { flex-direction: row-reverse; }
+    [dir="rtl"] .rtl\:ml-0 { margin-left:0; }
+    [dir="rtl"] .rtl\:mr-2 { margin-right:.5rem; }
+    [dir="rtl"] .rtl\:pl-0 { padding-left:0; }
+  </style>
+</head>
+<body class="bg-white text-slate-900">
+  <!-- Header -->
+  <header class="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-200">
+    <div class="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
+      <a href="#" class="font-extrabold text-xl tracking-wide" aria-label="Brand">SHARP</a>
+      <nav class="hidden md:flex items-center gap-6 text-sm">
+        <a href="#products" class="hover:opacity-70" data-i18n="nav.products">Products</a>
+        <a href="#about" class="hover:opacity-70" data-i18n="nav.about">About</a>
+        <a href="#contact" class="hover:opacity-70" data-i18n="nav.contact">Contact</a>
+      </nav>
+      <div class="flex items-center gap-2">
+        <button id="btn-en" class="chip px-3 py-1.5 rounded-full text-sm" aria-pressed="true">EN</button>
+        <button id="btn-ar" class="chip px-3 py-1.5 rounded-full text-sm">العربية</button>
+        <a href="#products" class="ml-2 hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full text-white bg-[var(--brand)] hover:bg-teal-700 transition" data-i18n="cta.shop">Explore Products</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="relative overflow-hidden">
+    <div class="absolute inset-0 -z-10">
+      <div class="h-[520px] bg-gradient-to-b from-white via-white to-[var(--cream)]"></div>
+    </div>
+    <div class="max-w-6xl mx-auto px-4 md:px-6 py-20">
+      <div class="grid md:grid-cols-2 gap-10 items-center rtl:flex-row-reverse">
+        <div>
+          <p class="uppercase tracking-[0.18em] text-xs text-slate-500" data-i18n="hero.kicker">Natural Hair Care</p>
+          <h1 class="text-4xl md:text-5xl font-extrabold mt-2 leading-tight" data-i18n="hero.title">Healthy hair, the natural way.</h1>
+          <p class="mt-4 text-slate-700 text-lg" data-i18n="hero.subtitle">Discover nature-powered formulas crafted with minerals and botanicals for strong, shiny, beach‑ready hair.</p>
+          <div class="mt-6 flex items-center gap-3">
+            <a href="#products" class="inline-flex items-center gap-2 px-5 py-3 rounded-full text-white bg-[var(--brand)] hover:bg-teal-700 transition" data-i18n="cta.shop">Explore Products</a>
+            <a href="#about" class="inline-flex items-center gap-2 px-5 py-3 rounded-full border border-slate-300 hover:bg-slate-50 transition" data-i18n="cta.learn">Learn more</a>
+          </div>
+        </div>
+        <div class="relative">
+          <img src="https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=1600&auto=format&fit=crop" alt="Sea salt spray on a beach rock" class="w-full h-[360px] object-cover rounded-2xl">
+          <div class="absolute -bottom-6 -right-6 bg-white/90 backdrop-blur rounded-xl p-4 card w-[240px]">
+            <p class="text-xs text-slate-500" data-i18n="hero.badge">Mineral-rich • SLS-free • Cruelty-free</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Products -->
+  <section id="products" class="py-16 border-t border-slate-200 bg-[var(--cream)]">
+    <div class="max-w-6xl mx-auto px-4 md:px-6">
+      <h2 class="text-2xl md:text-3xl font-extrabold" data-i18n="products.title">Our Products</h2>
+      <p class="mt-2 text-slate-700" data-i18n="products.blurb">Carefully crafted formulas powered by sea minerals and plant oils.</p>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+        <!-- Card 1 -->
+        <article class="card rounded-2xl bg-white overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1556229010-0d85b1a53f1a?q=80&w=1200&auto=format&fit=crop" alt="Sea Salt Spray" class="h-48 w-full object-cover">
+          <div class="p-5">
+            <h3 class="font-extrabold text-lg" data-i18n="p1.name">Sea Salt Spray</h3>
+            <p class="text-slate-700 mt-1" data-i18n="p1.desc">Add raw texture and beachy volume without crunch.</p>
+            <details class="mt-3">
+              <summary class="cursor-pointer text-sm font-semibold" data-i18n="p.common.use">How to use</summary>
+              <p class="mt-2 text-sm text-slate-700" data-i18n="p1.use">Mist onto damp or dry hair, scrunch, and air‑dry or diffuse.</p>
+            </details>
+            <details class="mt-3">
+              <summary class="cursor-pointer text-sm font-semibold" data-i18n="p.common.key">Key ingredients</summary>
+              <ul class="mt-2 text-sm text-slate-700 list-disc ms-5">
+                <li data-i18n="p1.k1">Dead Sea minerals balance the scalp</li>
+                <li data-i18n="p1.k2">Magnesium + calcium for shine and elasticity</li>
+              </ul>
+            </details>
+          </div>
+        </article>
+
+        <!-- Card 2 -->
+        <article class="card rounded-2xl bg-white overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1512208594561-1b552c1b24b1?q=80&w=1200&auto=format&fit=crop" alt="Nourishing Shampoo" class="h-48 w-full object-cover">
+          <div class="p-5">
+            <h3 class="font-extrabold text-lg" data-i18n="p2.name">Nourishing Shampoo</h3>
+            <p class="text-slate-700 mt-1" data-i18n="p2.desc">Gently cleanses while strengthening from root to tip.</p>
+            <details class="mt-3">
+              <summary class="cursor-pointer text-sm font-semibold" data-i18n="p.common.use">How to use</summary>
+              <p class="mt-2 text-sm text-slate-700" data-i18n="p2.use">Massage 2–3 pumps into wet hair and scalp, lather, rinse well.</p>
+            </details>
+            <details class="mt-3">
+              <summary class="cursor-pointer text-sm font-semibold" data-i18n="p.common.key">Key ingredients</summary>
+              <ul class="mt-2 text-sm text-slate-700 list-disc ms-5">
+                <li data-i18n="p2.k1">Aloe vera hydrates and soothes</li>
+                <li data-i18n="p2.k2">Argan oil nourishes and protects</li>
+                <li data-i18n="p2.k3">Rosemary oil stimulates the scalp</li>
+                <li data-i18n="p2.k4">Vitamin E & B5 support resilience</li>
+              </ul>
+            </details>
+          </div>
+        </article>
+
+        <!-- Card 3 -->
+        <article class="card rounded-2xl bg-white overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1556228453-efd6c1ff04b9?q=80&w=1200&auto=format&fit=crop" alt="Hydrating Conditioner" class="h-48 w-full object-cover">
+          <div class="p-5">
+            <h3 class="font-extrabold text-lg" data-i18n="p3.name">Hydrating Conditioner</h3>
+            <p class="text-slate-700 mt-1" data-i18n="p3.desc">Deep moisture for smoothness, shine, and easy detangling.</p>
+            <details class="mt-3">
+              <summary class="cursor-pointer text-sm font-semibold" data-i18n="p.common.use">How to use</summary>
+              <p class="mt-2 text-sm text-slate-700" data-i18n="p3.use">Apply to mid‑lengths and ends after shampooing, wait 2–3 minutes, rinse.</p>
+            </details>
+            <details class="mt-3">
+              <summary class="cursor-pointer text-sm font-semibold" data-i18n="p.common.key">Key ingredients</summary>
+              <ul class="mt-2 text-sm text-slate-700 list-disc ms-5">
+                <li data-i18n="p3.k1">Coconut oil restores softness</li>
+                <li data-i18n="p3.k2">Rice oil improves flexibility</li>
+                <li data-i18n="p3.k3">Vitamin E & B5 lock in hydration</li>
+              </ul>
+            </details>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section id="about" class="py-16">
+    <div class="max-w-6xl mx-auto px-4 md:px-6">
+      <div class="grid md:grid-cols-2 gap-10 items-start rtl:flex-row-reverse">
+        <div>
+          <h2 class="text-2xl md:text-3xl font-extrabold" data-i18n="about.title">About SHARP</h2>
+          <p class="mt-3 text-slate-700" data-i18n="about.copy">We believe in the power of natural ingredients. Our formulas combine Dead Sea minerals with proven plant oils to nourish hair and scalp—without harsh additives.</p>
+          <div class="mt-6 grid sm:grid-cols-3 gap-4">
+            <div class="card rounded-xl p-4 bg-white">
+              <p class="text-sm font-semibold" data-i18n="about.f1">Natural Ingredients</p>
+              <p class="text-xs text-slate-600 mt-1" data-i18n="about.f1d">Responsibly sourced botanicals and minerals.</p>
+            </div>
+            <div class="card rounded-xl p-4 bg-white">
+              <p class="text-sm font-semibold" data-i18n="about.f2">Proven Results</p>
+              <p class="text-xs text-slate-600 mt-1" data-i18n="about.f2d">Visible improvements to hair health.</p>
+            </div>
+            <div class="card rounded-xl p-4 bg-white">
+              <p class="text-sm font-semibold" data-i18n="about.f3">Sustainable</p>
+              <p class="text-xs text-slate-600 mt-1" data-i18n="about.f3d">Eco‑friendly packaging and practices.</p>
+            </div>
+          </div>
+        </div>
+        <div>
+          <img src="https://images.unsplash.com/photo-1532171875345-9712d4fd2b63?q=80&w=1600&auto=format&fit=crop" alt="Lifestyle hair care" class="w-full h-[380px] object-cover rounded-2xl">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact / CTA -->
+  <section id="contact" class="py-16 border-t border-slate-200 bg-[var(--cream)]">
+    <div class="max-w-6xl mx-auto px-4 md:px-6 text-center">
+      <h2 class="text-2xl md:text-3xl font-extrabold" data-i18n="cta.title">Ready to style naturally?</h2>
+      <p class="mt-2 text-slate-700" data-i18n="cta.desc">Message us for stockist info, bulk/wholesale, or product questions.</p>
+      <a href="mailto:hello@example.com" class="inline-flex items-center gap-2 mt-6 px-6 py-3 rounded-full text-white bg-[var(--brand)] hover:bg-teal-700 transition" data-i18n="cta.email">Email us</a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-10">
+    <div class="max-w-6xl mx-auto px-4 md:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+      <p class="text-slate-600">© <span id="year"></span> SHARP</p>
+      <p class="text-slate-500" data-i18n="foot.made">Made with sea breeze and good code.</p>
+    </div>
+  </footer>
+
+  <script>
+    const T = {
+      en: {
+        nav:{products:'Products', about:'About', contact:'Contact'},
+        hero:{kicker:'Natural Hair Care', title:'Healthy hair, the natural way.', subtitle:'Discover nature-powered formulas crafted with minerals and botanicals for strong, shiny, beach‑ready hair.', badge:'Mineral-rich • SLS-free • Cruelty-free'},
+        cta:{shop:'Explore Products', learn:'Learn more', title:'Ready to style naturally?', desc:'Message us for stockist info, bulk/wholesale, or product questions.', email:'Email us'},
+        products:{title:'Our Products', blurb:'Carefully crafted formulas powered by sea minerals and plant oils.'},
+        p:{common:{use:'How to use', key:'Key ingredients'}},
+        p1:{name:'Sea Salt Spray', desc:'Add raw texture and beachy volume without crunch.', use:'Mist onto damp or dry hair, scrunch, and air‑dry or diffuse.', k1:'Dead Sea minerals balance the scalp', k2:'Magnesium + calcium for shine and elasticity'},
+        p2:{name:'Nourishing Shampoo', desc:'Gently cleanses while strengthening from root to tip.', use:'Massage 2–3 pumps into wet hair and scalp, lather, rinse well.', k1:'Aloe vera hydrates and soothes', k2:'Argan oil nourishes and protects', k3:'Rosemary oil stimulates the scalp', k4:'Vitamin E & B5 support resilience'},
+        p3:{name:'Hydrating Conditioner', desc:'Deep moisture for smoothness, shine, and easy detangling.', use:'Apply to mid‑lengths and ends after shampooing, wait 2–3 minutes, rinse.', k1:'Coconut oil restores softness', k2:'Rice oil improves flexibility', k3:'Vitamin E & B5 lock in hydration'},
+        about:{title:'About SHARP', copy:'We believe in the power of natural ingredients. Our formulas combine Dead Sea minerals with proven plant oils to nourish hair and scalp—without harsh additives.', f1:'Natural Ingredients', f1d:'Responsibly sourced botanicals and minerals.', f2:'Proven Results', f2d:'Visible improvements to hair health.', f3:'Sustainable', f3d:'Eco‑friendly packaging and practices.'},
+        foot:{made:'Made with sea breeze and good code.'}
+      },
+      ar: {
+        nav:{products:'المنتجات', about:'نبذة', contact:'تواصل'},
+        hero:{kicker:'عناية طبيعية بالشعر', title:'شعر صحي، بالطريقة الطبيعية.', subtitle:'تركيبات مستوحاة من الطبيعة بمزيج من المعادن والنباتات لنعومة ولمعان وشكل شاطئي.', badge:'غني بالمعادن • خالٍ من SLS • غير مُجرّب على الحيوانات'},
+        cta:{shop:'تصفح المنتجات', learn:'اعرف المزيد', title:'جاهز لتصفيف طبيعي؟', desc:'راسلنا لبيع الجملة، الموزعين، أو أي استفسارات عن المنتجات.', email:'راسلنا'},
+        products:{title:'منتجاتنا', blurb:'تركيبات دقيقة مدعومة بمعادن البحر والزيوت النباتية.'},
+        p:{common:{use:'طريقة الاستخدام', key:'المكوّنات الأساسية'}},
+        p1:{name:'بخاخ ملح البحر', desc:'يضفي تموّجًا خامًا وحجمًا شاطئيًا بلا تكتّل.', use:'رُش على الشعر المبلل أو الجاف، اعصري الخصلات واتركيه ليجف طبيعيًا أو استخدمي الديفيوزر.', k1:'معادن البحر الميت توازن فروة الرأس', k2:'المغنيسيوم والكالسيوم للمعان والمرونة'},
+        p2:{name:'شامبو مغذٍ', desc:'ينظف بلطف بينما يقوي الشعر من الجذور حتى الأطراف.', use:'دلّكي 2–3 ضغطات على الشعر وفروة الرأس المبللين ثم اشطفي جيدًا.', k1:'الألوفيرا ترطب وتهدئ', k2:'زيت الأرغان يغذي ويحمي', k3:'زيت إكليل الجبل ينشّط الدورة في الفروة', k4:'فيتامين E وB5 يدعمان المتانة'},
+        p3:{name:'بلسم مرطّب', desc:'ترطيب عميق لنعومة ولمعان وسهولة في التسريح.', use:'يوضع على الأطراف ومنتصف الشعر بعد الشامبو لمدة 2–3 دقائق ثم يُشطف.', k1:'زيت جوز الهند يعيد النعومة', k2:'زيت الأرز يحسن المرونة', k3:'فيتامين E وB5 يثبّتان الترطيب'},
+        about:{title:'نبذة عن SHARP', copy:'نؤمن بقوة المكوّنات الطبيعية. نمزج معادن البحر الميت مع زيوت نباتية مثبتة لتغذية الشعر والفروة دون مواد قاسية.', f1:'مكوّنات طبيعية', f1d:'مصادر مسؤولة من نباتات ومعادن.', f2:'نتائج مثبتة', f2d:'تحسّن ملحوظ في صحة الشعر.', f3:'استدامة', f3d:'تعبئة وممارسات صديقة للبيئة.'},
+        foot:{made:'صُنع بنسيم البحر وكود جميل.'}
+      }
+    };
+
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+    function applyLanguage(lang){
+      const dict = T[lang] || T.en;
+      $$('[data-i18n]').forEach(el => {
+        const path = el.getAttribute('data-i18n').split('.');
+        let val = dict;
+        for (const p of path){ val = val?.[p]; }
+        if (typeof val === 'string') el.textContent = val;
+      });
+      document.documentElement.lang = (lang === 'ar' ? 'ar' : 'en');
+      document.documentElement.dir = (lang === 'ar' ? 'rtl' : 'ltr');
+      $('#btn-en').setAttribute('aria-pressed', lang==='en');
+      $('#btn-ar').setAttribute('aria-pressed', lang==='ar');
+      localStorage.setItem('lang', lang);
+    }
+
+    $('#btn-en').addEventListener('click', ()=>applyLanguage('en'));
+    $('#btn-ar').addEventListener('click', ()=>applyLanguage('ar'));
+    $('#year').textContent = new Date().getFullYear();
+
+    // Init
+    applyLanguage(localStorage.getItem('lang') || (navigator.language?.startsWith('ar') ? 'ar' : 'en'));
+  </script>
+</body>
+</html>
