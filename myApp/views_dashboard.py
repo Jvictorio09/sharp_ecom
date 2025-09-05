@@ -10,6 +10,16 @@ from django.views.decorators.http import require_POST
 
 from .models import Order
 
+# REMOVE this:
+# from django.core.mail import send_mail
+
+# KEEP these:
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags  # ok to keep even if not used
+
+# ADD this (imports the Resend-backed shim you already have):
+from .views import _safe_send_mail
+
 ORDER_STATUSES = [key for key, _ in Order.STATUS_CHOICES]
 DASH_AUTH_SESSION_KEY = "dashboard_authed"
 
@@ -104,10 +114,26 @@ def order_list(request):
         "order_statuses": ORDER_STATUSES,
     })
 
+# myApp/views_dashboard.py
 @dashboard_required
 def order_detail(request, order_number):
     order = get_object_or_404(Order, order_number=order_number)
-    return render(request, "dashboard/order_detail.html", {"order": order})
+
+    # Safe items queryset no matter the related_name
+    try:
+        items_qs = order.items.all()          # if you defined related_name="items"
+    except Exception:
+        items_qs = order.orderitem_set.all()  # Django default related_name
+
+    # Also pass choices so the template doesn’t reach into the class
+    order_statuses = getattr(Order, "STATUS_CHOICES", ())
+
+    return render(
+        request,
+        "dashboard/order_detail.html",
+        {"order": order, "items": items_qs, "order_statuses": order_statuses},
+    )
+
 
 # myApp/views_dashboard.py
 from django.conf import settings
@@ -157,38 +183,47 @@ def order_update(request, order_number):
 def _email_order_status_update(request, order, status_changed=True, tracking_changed=False):
     """
     Sends an email to the customer about the status update (and tracking, if changed).
-    Uses HTML + plaintext fallback.
+    Uses HTML + plaintext fallback via Resend (_safe_send_mail).
     """
+    if not order.email:
+        return
+
+    context = {
+        "order": order,
+        "request": request,
+        "status_changed": status_changed,
+        "tracking_changed": tracking_changed,
+    }
+
+    # Subject example: "Update: Your SHARP Order SH-123456 is now Shipped"
     try:
-        if not order.email:
-            return
-
-        context = {
-            "order": order,
-            "request": request,
-            "status_changed": status_changed,
-            "tracking_changed": tracking_changed,
-        }
-
-        # Subject example: "Update: Your SHARP Order SH-123456 is now Shipped"
         status_label = order.get_status_display() if hasattr(order, "get_status_display") else order.status.title()
-        subject = f"Update: Your SHARP Order {order.order_number} is now {status_label}"
+    except Exception:
+        status_label = (order.status or "Updated").title()
 
-        text_body = render_to_string("emails/order_status_update.txt", context)
-        html_body = render_to_string("emails/order_status_update.html", context)
+    subject = f"Update: Your SHARP Order {order.order_number} is now {status_label}"
 
-        send_mail(
-            subject=subject,
-            message=text_body,
-            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-            recipient_list=[order.email],
-            html_message=html_body,
-            fail_silently=False,
-        )
-    except Exception as e:
-        # Don't blow up the dashboard on email hiccups; you can log if desired.
-        # import logging; logging.getLogger(__name__).exception("Status email failed")
-        pass
+    text_body = render_to_string("emails/order_status_update.txt", context)
+    html_body = render_to_string("emails/order_status_update.html", context)
+
+    ok = _safe_send_mail(
+        subject=subject,
+        text_body=text_body,
+        from_email=None,                     # Resend uses settings.RESEND['FROM']
+        to_list=[order.email],
+        html_body=html_body,
+        extra_headers={
+            "Reply-To": (
+                getattr(settings, "CONTACT_TO", "")
+                or getattr(settings, "DEFAULT_FROM_EMAIL", "")
+                or ""
+            )
+        },
+    )
+
+    if not ok:
+        # Don’t break the dashboard UX, but let the operator know.
+        messages.warning(request, "Order updated, but we couldn’t send the status email. We’ll resend shortly.")
 
 
 @dashboard_required
@@ -198,3 +233,88 @@ def order_delete(request, order_number):
     get_object_or_404(Order, order_number=order_number).delete()
     messages.info(request, f"Order {order_number} deleted.")
     return redirect(next_url)
+
+
+# myApp/views_dashboard.py (add near other imports)
+from django.http import JsonResponse
+from decimal import Decimal
+from django.utils import timezone
+
+# Try to use the same money formatter your templates use
+try:
+    from .views import money_filter as _money  # mirrors {{ val|money:request }}
+except Exception:
+    def _money(val, request=None):
+        try:
+            return f"{Decimal(str(val or '0')):,.2f}"
+        except Exception:
+            return "0.00"
+
+@dashboard_required
+def order_summary_json(request, order_number):
+    """
+    Lightweight JSON payload for the 'View Order' modal on dashboard home.
+    """
+    order = get_object_or_404(Order, order_number=order_number)
+
+    # Resolve items regardless of related_name
+    items_mgr = getattr(order, "items", None)
+    items_qs = items_mgr.all() if hasattr(items_mgr, "all") else order.orderitem_set.all()
+
+    # Localized, pretty timestamps
+    placed_dt = timezone.localtime(order.created_at)
+    updated_dt = timezone.localtime(getattr(order, "updated_at", order.created_at))
+
+    # Friendly status
+    try:
+        status_label = order.get_status_display()
+    except Exception:
+        status_label = (order.status or "updated").title()
+
+    # Shipping display (Free for zero/None)
+    ship = order.shipping_cost or Decimal("0")
+    ship_display = _money(ship, request) if ship != 0 else "Free"
+
+    disc = order.discount_total or Decimal("0")
+    disc_display = f"-{_money(disc, request)}" if disc != 0 else ""
+
+    payload = {
+        "ok": True,
+        "order": {
+            "order_number": order.order_number,
+            "full_name": order.full_name or "",
+            "email": order.email or "",
+            "phone": order.phone or "",
+            "address_line1": getattr(order, "address_line1", "") or "",
+            "city": getattr(order, "city", "") or "",
+            "province": getattr(order, "province", "") or "",
+            "zip_code": getattr(order, "zip_code", "") or "",
+            "status": order.status,
+            "status_display": status_label,
+            "tracking_number": getattr(order, "tracking_number", "") or "",
+            "notes": order.notes or "",
+            "placed_iso": placed_dt.isoformat(),
+            "placed_display": placed_dt.strftime("%b %d, %Y %H:%M"),
+            "updated_display": updated_dt.strftime("%b %d, %Y %H:%M"),
+        },
+        "totals": {
+            "subtotal": str(order.subtotal or Decimal("0")),
+            "subtotal_display": _money(order.subtotal or 0, request),
+            "shipping": str(ship),
+            "shipping_display": ship_display,
+            "discount": str(disc),
+            "discount_display": disc_display,
+            "grand_total": str(order.grand_total or Decimal("0")),
+            "grand_total_display": _money(order.grand_total or 0, request),
+        },
+        "items": [
+            {
+                "name": it.name,
+                "qty": it.quantity,
+                "unit_display": _money(getattr(it, "unit_price", 0) or 0, request),
+                "total_display": _money(getattr(it, "line_total", 0) or 0, request),
+            }
+            for it in items_qs
+        ],
+    }
+    return JsonResponse(payload)

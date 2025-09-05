@@ -38,4 +38,7 @@ urlpatterns = [
     path("dashboard/order/<str:order_number>/", dash.order_detail, name="dashboard_order_detail"),
     path("dashboard/order/update/<str:order_number>/", dash.order_update, name="dashboard_order_update"),
     path("dashboard/order/delete/<str:order_number>/", dash.order_delete, name="dashboard_order_delete"),
+
+    path("dashboard/order/json/<str:order_number>/",  # NEW
+         dash.order_summary_json, name="dashboard_order_summary_json"),
 ]

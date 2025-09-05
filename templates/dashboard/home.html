@@ -1,3 +1,4 @@
+ 
 {% extends "dashboard/base_dashboard.html" %}
 {% block content %}
 
@@ -13,7 +14,7 @@
   </div>
   <div class="rounded-2xl border border-[#E1E1E1] bg-white p-6">
     <p class="text-sm text-black/60">Sales (30 days)</p>
-    <p class="text-3xl font-extrabold mt-1">JD{{ kpi.sales_30 }}</p>
+    <p class="text-3xl font-extrabold mt-1">{{ kpi.sales_30|default_if_none:0|money:request }}</p>
   </div>
 </div>
 
@@ -40,10 +41,17 @@
         {% for o in recent %}
         <tr class="border-t border-[#E1E1E1]">
           <td class="px-4 py-3">
-            <a class="underline" href="{% url 'dashboard_order_detail' o.order_number %}">{{ o.order_number }}</a>
+            <!-- Keep href as fallback, use data-view to intercept -->
+            <a class="underline"
+               href="{% url 'dashboard_order_detail' o.order_number %}"
+               data-view
+               data-order="{{ o.order_number }}"
+               data-customer="{{ o.full_name|escape }}">
+               {{ o.order_number }}
+            </a>
           </td>
           <td class="px-4 py-3">{{ o.full_name }}</td>
-          <td class="px-4 py-3">JD{{ o.grand_total }}</td>
+          <td class="px-4 py-3">{{ o.grand_total|default_if_none:0|money:request }}</td>
           <td class="px-4 py-3">
             <span class="inline-flex items-center px-2 py-1 rounded-full border
                {% if o.status == 'pending' %}border-amber-400 text-amber-700 bg-amber-50
@@ -86,77 +94,93 @@
 </div>
 
 <!-- ===========================
-     UPDATE MODAL (single instance)
+     VIEW MODAL (new)
 =========================== -->
-<div id="updateModal" class="fixed inset-0 z-50 hidden">
+<div id="viewModal" class="fixed inset-0 z-50 hidden">
   <div class="absolute inset-0 bg-black/40" data-close></div>
-  <div class="relative mx-auto mt-[10vh] w-[92%] max-w-xl rounded-2xl bg-white shadow-2xl border border-[#E1E1E1]">
+  <div class="relative mx-auto mt-[8vh] w-[92%] max-w-3xl rounded-2xl bg-white shadow-2xl border border-[#E1E1E1]">
     <div class="px-6 py-4 border-b border-[#E1E1E1] flex items-center justify-between">
-      <h3 class="text-lg font-semibold">Update order <span id="umOrder"></span></h3>
+      <div>
+        <h3 class="text-lg font-semibold">Order <span id="vmOrder"></span></h3>
+        <p class="text-xs text-black/60">Placed <span id="vmPlaced"></span> • Updated <span id="vmUpdated"></span></p>
+      </div>
       <button class="w-9 h-9 rounded-full border border-[#E1E1E1] hover:bg-gray-50" aria-label="Close" data-close>✕</button>
     </div>
-    <form id="updateForm" method="post" action="{% url 'dashboard_order_update' 'ORDNUM' %}" class="p-6 space-y-4">
-      {% csrf_token %}
-      <input type="hidden" name="next" value="{{ request.get_full_path }}">
-      <div>
-        <label class="text-xs text-black/70">Customer</label>
-        <p id="umCustomer" class="mt-1 font-medium"></p>
+    <div class="p-6 space-y-5">
+      <div class="flex flex-wrap gap-3 items-center">
+        <span class="text-sm">Status:</span>
+        <span id="vmStatusBadge" class="inline-flex items-center px-2 py-1 rounded-full border text-sm"></span>
+        <span id="vmTracking" class="text-sm text-black/70"></span>
       </div>
-      <div class="grid sm:grid-cols-2 gap-4">
-        <div>
-          
-          <label class="text-xs text-black/70">Status</label>
-            <select name="status" id="umStatus" class="mt-1 w-full px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white">
-            {% for s in order_statuses %}
-                <option value="{{ s }}">{{ s|title }}</option>
-            {% endfor %}
-            </select>
 
+      <div class="grid md:grid-cols-2 gap-5">
+        <div class="rounded-xl border border-[#E1E1E1]">
+          <div class="px-4 py-3 bg-[#FAFAF8] border-b border-[#E1E1E1] font-semibold">Items</div>
+          <div class="p-4 overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr><th class="text-left py-1">Item</th><th class="text-right py-1">Qty</th><th class="text-right py-1">Unit</th><th class="text-right py-1">Total</th></tr>
+              </thead>
+              <tbody id="vmItems"></tbody>
+            </table>
+          </div>
+          <div class="px-4 pb-4 text-sm space-y-1">
+            <div class="flex items-center justify-between"><span>Subtotal</span><span id="vmSubtotal"></span></div>
+            <div class="flex items-center justify-between"><span>Shipping</span><span id="vmShipping"></span></div>
+            <div class="flex items-center justify-between" id="vmDiscountRow" style="display:none;"><span>Discount</span><span id="vmDiscount"></span></div>
+            <div class="pt-2 border-t border-[#E1E1E1] flex items-center justify-between font-semibold">
+              <span>Total</span><span id="vmGrand"></span>
+            </div>
+          </div>
         </div>
-        <div>
-          <label class="text-xs text-black/70">Tracking # (optional)</label>
-          <input name="tracking" id="umTracking" class="mt-1 w-full px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white" placeholder="e.g., LBC123456789">
+
+        <div class="rounded-xl border border-[#E1E1E1]">
+          <div class="px-4 py-3 bg-[#FAFAF8] border-b border-[#E1E1E1] font-semibold">Customer</div>
+          <div class="p-4 text-sm space-y-1">
+            <div><span class="text-black/60">Name:</span> <span id="vmName"></span></div>
+            <div><span class="text-black/60">Email:</span> <span id="vmEmail"></span></div>
+            <div><span class="text-black/60">Phone:</span> <span id="vmPhone"></span></div>
+            <div class="pt-2">
+              <div class="text-black/60">Ship to:</div>
+              <div id="vmAddress"></div>
+            </div>
+            <div class="pt-2">
+              <div class="text-black/60">Notes:</div>
+              <div id="vmNotes" class="whitespace-pre-wrap"></div>
+            </div>
+          </div>
         </div>
       </div>
-      <div>
-        <label class="text-xs text-black/70">Internal notes</label>
-        <textarea name="notes" id="umNotes" rows="3" class="mt-1 w-full px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white" placeholder="Only visible to staff"></textarea>
+
+      <div class="flex items-center justify-end gap-2">
+        <button type="button" class="px-4 py-2 rounded-full border border-[#E1E1E1] bg-white hover:bg-gray-50" data-close>Close</button>
+        <button id="vmUpdateBtn" type="button" class="px-5 py-2 rounded-full text-white bg-[var(--sharp-mineral)] hover:bg-[var(--sharp-hunter)]">
+          Update
+        </button>
+        <button id="vmDeleteBtn" type="button" class="px-5 py-2 rounded-full text-white bg-rose-600 hover:bg-rose-700">
+          Delete
+        </button>
       </div>
-      <div class="pt-2 flex items-center justify-end gap-2">
-        <button type="button" class="px-4 py-2 rounded-full border border-[#E1E1E1] bg-white hover:bg-gray-50" data-close>Cancel</button>
-        <button class="px-5 py-2 rounded-full text-white bg-[var(--sharp-mineral)] hover:bg-[var(--sharp-hunter)]">Save changes</button>
-      </div>
-    </form>
+    </div>
   </div>
 </div>
 
 <!-- ===========================
-     DELETE MODAL (single instance)
+     UPDATE MODAL (existing)
 =========================== -->
-<div id="deleteModal" class="fixed inset-0 z-50 hidden">
-  <div class="absolute inset-0 bg-black/40" data-close></div>
-  <div class="relative mx-auto mt-[15vh] w-[92%] max-w-md rounded-2xl bg-white shadow-2xl border border-[#E1E1E1]">
-    <div class="px-6 py-4 border-b border-[#E1E1E1] flex items-center justify-between">
-      <h3 class="text-lg font-semibold">Delete order</h3>
-      <button class="w-9 h-9 rounded-full border border-[#E1E1E1] hover:bg-gray-50" aria-label="Close" data-close>✕</button>
-    </div>
-    <form id="deleteForm" method="post" action="{% url 'dashboard_order_delete' 'ORDNUM' %}" class="p-6 space-y-4">
-      {% csrf_token %}
-      <input type="hidden" name="next" value="{{ request.get_full_path }}">
-      <p class="text-sm">You’re about to delete <strong id="dmOrder"></strong> for <strong id="dmCustomer"></strong>. This action cannot be undone.</p>
-      <div class="pt-2 flex items-center justify-end gap-2">
-        <button type="button" class="px-4 py-2 rounded-full border border-[#E1E1E1] bg-white hover:bg-gray-50" data-close>Cancel</button>
-        <button class="px-5 py-2 rounded-full text-white bg-rose-600 hover:bg-rose-700">Delete</button>
-      </div>
-    </form>
-  </div>
-</div>
+<!-- (your existing update modal exactly as you posted) -->
+
+<!-- ===========================
+     DELETE MODAL (existing)
+=========================== -->
+<!-- (your existing delete modal exactly as you posted) -->
 
 <!-- Modal + actions script -->
 <script>
   (function () {
     const uModal = document.getElementById('updateModal');
     const dModal = document.getElementById('deleteModal');
+    const vModal = document.getElementById('viewModal');
 
     const umOrder = document.getElementById('umOrder');
     const umCustomer = document.getElementById('umCustomer');
@@ -169,21 +193,137 @@
     const dmCustomer = document.getElementById('dmCustomer');
     const deleteForm = document.getElementById('deleteForm');
 
-    // Helpers
+    const vmOrder = document.getElementById('vmOrder');
+    const vmPlaced = document.getElementById('vmPlaced');
+    const vmUpdated = document.getElementById('vmUpdated');
+    const vmStatusBadge = document.getElementById('vmStatusBadge');
+    const vmTracking = document.getElementById('vmTracking');
+    const vmItems = document.getElementById('vmItems');
+    const vmSubtotal = document.getElementById('vmSubtotal');
+    const vmShipping = document.getElementById('vmShipping');
+    const vmDiscountRow = document.getElementById('vmDiscountRow');
+    const vmDiscount = document.getElementById('vmDiscount');
+    const vmGrand = document.getElementById('vmGrand');
+    const vmName = document.getElementById('vmName');
+    const vmEmail = document.getElementById('vmEmail');
+    const vmPhone = document.getElementById('vmPhone');
+    const vmAddress = document.getElementById('vmAddress');
+    const vmNotes = document.getElementById('vmNotes');
+    const vmUpdateBtn = document.getElementById('vmUpdateBtn');
+    const vmDeleteBtn = document.getElementById('vmDeleteBtn');
+
     const open = el => el.classList.remove('hidden');
     const close = el => el.classList.add('hidden');
+    const esc = (s='') => s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+    // JSON URL template
+    const summaryUrlTmpl = "{% url 'dashboard_order_summary_json' 'ORDNUM' %}";
+    const updateUrlTmpl  = "{% url 'dashboard_order_update' 'ORDNUM' %}";
+    const deleteUrlTmpl  = "{% url 'dashboard_order_delete' 'ORDNUM' %}";
 
     // Close handlers
     document.querySelectorAll('[data-close]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        close(uModal); close(dModal);
+      btn.addEventListener('click', () => { close(uModal); close(dModal); close(vModal); });
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { close(uModal); close(dModal); close(vModal); } });
+
+    // Intercept "order number" clicks → View modal
+    document.querySelectorAll('[data-view]').forEach(a => {
+      a.addEventListener('click', async (evt) => {
+        evt.preventDefault();
+        const order = a.getAttribute('data-order');
+        const customer = a.getAttribute('data-customer') || '';
+        const url = summaryUrlTmpl.replace('ORDNUM', order);
+
+        try {
+          const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          if (!data.ok) throw new Error('Not ok');
+
+          // Fill top line
+          vmOrder.textContent = order;
+          vmPlaced.textContent = data.order.placed_display || '';
+          vmUpdated.textContent = data.order.updated_display || '';
+
+          // Status badge + tracking
+          const status = (data.order.status || 'pending');
+          const label = data.order.status_display || status;
+          vmStatusBadge.textContent = label;
+          vmStatusBadge.className = "inline-flex items-center px-2 py-1 rounded-full border text-sm " +
+            (status === 'pending'   ? 'border-amber-400 text-amber-700 bg-amber-50' :
+             status === 'confirmed' ? 'border-sky-400 text-sky-700 bg-sky-50' :
+             status === 'shipped'   ? 'border-indigo-400 text-indigo-700 bg-indigo-50' :
+             status === 'delivered' ? 'border-emerald-400 text-emerald-700 bg-emerald-50' :
+             status === 'canceled'  ? 'border-rose-400 text-rose-700 bg-rose-50' :
+                                      'border-gray-300 text-gray-700 bg-gray-50');
+
+          vmTracking.textContent = data.order.tracking_number
+            ? `Tracking: ${data.order.tracking_number}`
+            : '';
+
+          // Items table
+          vmItems.innerHTML = '';
+          (data.items || []).forEach(it => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td class="py-1 pr-2">${esc(it.name || '')}</td>
+              <td class="py-1 text-right">${esc(String(it.qty || ''))}</td>
+              <td class="py-1 text-right">${esc(it.unit_display || '')}</td>
+              <td class="py-1 text-right">${esc(it.total_display || '')}</td>`;
+            vmItems.appendChild(tr);
+          });
+
+          // Totals
+          vmSubtotal.textContent = data.totals.subtotal_display || '';
+          vmShipping.textContent = data.totals.shipping_display || '';
+          if (data.totals.discount_display) {
+            vmDiscountRow.style.display = '';
+            vmDiscount.textContent = data.totals.discount_display;
+          } else {
+            vmDiscountRow.style.display = 'none';
+            vmDiscount.textContent = '';
+          }
+          vmGrand.textContent = data.totals.grand_total_display || '';
+
+          // Customer + address + notes
+          vmName.textContent = data.order.full_name || '';
+          vmEmail.textContent = data.order.email || '';
+          vmPhone.textContent = data.order.phone || '';
+          vmAddress.textContent = [
+            data.order.address_line1, data.order.city, data.order.province, data.order.zip_code
+          ].filter(Boolean).join(', ');
+          vmNotes.textContent = data.order.notes || '';
+
+          // Wire Update + Delete buttons from the View modal
+          vmUpdateBtn.onclick = () => {
+            // prefill update modal
+            umOrder.textContent = order;
+            umCustomer.textContent = customer;
+            umStatus.value = status;
+            umNotes.value = data.order.notes || '';
+            umTracking.value = data.order.tracking_number || '';
+            updateForm.setAttribute('action', updateUrlTmpl.replace('ORDNUM', order));
+            close(vModal);
+            open(uModal);
+          };
+          vmDeleteBtn.onclick = () => {
+            dmOrder.textContent = order;
+            dmCustomer.textContent = customer;
+            deleteForm.setAttribute('action', deleteUrlTmpl.replace('ORDNUM', order));
+            close(vModal);
+            open(dModal);
+          };
+
+          open(vModal);
+        } catch (err) {
+          // Fallback: go to the detail page if fetch fails
+          window.location.href = a.getAttribute('href');
+        }
       });
     });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { close(uModal); close(dModal); }
-    });
 
-    // Edit buttons
+    // Existing Update buttons
     document.querySelectorAll('[data-edit]').forEach(btn => {
       btn.addEventListener('click', () => {
         const order = btn.getAttribute('data-order');
@@ -197,36 +337,27 @@
         umNotes.value = notes;
         umTracking.value = '';
 
-        // Replace placeholder in action URL
-        const baseAction = updateForm.getAttribute('action'); // e.g., /dashboard/orders/ORDNUM/update/
-        updateForm.setAttribute('action', baseAction.replace('ORDNUM', order));
-
+        updateForm.setAttribute('action', updateUrlTmpl.replace('ORDNUM', order));
         open(uModal);
       });
     });
 
-    // Delete buttons
+    // Existing Delete buttons
     document.querySelectorAll('[data-delete]').forEach(btn => {
       btn.addEventListener('click', () => {
         const order = btn.getAttribute('data-order');
         const customer = btn.getAttribute('data-customer') || '';
-
         dmOrder.textContent = order;
         dmCustomer.textContent = customer;
-
-        const baseAction = deleteForm.getAttribute('action'); // /dashboard/orders/ORDNUM/delete/
-        deleteForm.setAttribute('action', baseAction.replace('ORDNUM', order));
-
+        deleteForm.setAttribute('action', deleteUrlTmpl.replace('ORDNUM', order));
         open(dModal);
       });
     });
 
-    // Clicking backdrop closes modals
-    [uModal, dModal].forEach(modal => {
+    // Backdrop click closes modals
+    [uModal, dModal, vModal].forEach(modal => {
       modal.addEventListener('click', (e) => {
-        if (e.target && e.target.getAttribute('data-close') !== null) {
-          close(modal);
-        }
+        if (e.target && e.target.getAttribute('data-close') !== null) close(modal);
       });
     });
   })();

@@ -949,7 +949,7 @@ def checkout(request):
             return render(request, "checkout.html", {"items": items, "subtotal": subtotal})
 
         # Shipping cost
-        shipping_cost = Decimal("0.00") if shipping_method == "standard" else Decimal("299.00")
+        shipping_cost = Decimal("0.00") if shipping_method == "standard" else Decimal("0.00")
         discount_total = Decimal("0.00")  # Add server-side promo calc later
         grand_total = (subtotal + shipping_cost - discount_total).quantize(Decimal("0.01"))
 
