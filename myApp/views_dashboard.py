@@ -1,29 +1,38 @@
 # myApp/views_dashboard.py
 from functools import wraps
+from decimal import Decimal
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login as dj_login, logout as dj_logout
 from django.db.models import Sum, Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags  # optional; handy if you add text fallbacks
+
 from .models import Order
 
-# REMOVE this:
-# from django.core.mail import send_mail
-
-# KEEP these:
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags  # ok to keep even if not used
-
-# ADD this (imports the Resend-backed shim you already have):
+# Use the same mail shim & money formatter you wired for Resend
 from .views import _safe_send_mail
+try:
+    from .views import money_filter as _money  # mirrors your template money filter
+except Exception:
+    def _money(val, request=None):
+        try:
+            return f"{Decimal(str(val or '0')):,.2f}"
+        except Exception:
+            return "0.00"
 
-ORDER_STATUSES = [key for key, _ in Order.STATUS_CHOICES]
+# -------------------------------------------------------------------
+# Auth gate (Django auth OR shared password)
+# -------------------------------------------------------------------
+ORDER_STATUSES = [key for key, _ in getattr(Order, "STATUS_CHOICES", ())]
 DASH_AUTH_SESSION_KEY = "dashboard_authed"
 
-# ---- Guard: allow either Django auth OR session flag ----
 def dashboard_required(viewfunc):
     @wraps(viewfunc)
     def _wrapped(request, *args, **kwargs):
@@ -35,9 +44,9 @@ def dashboard_required(viewfunc):
 
 def dashboard_login(request):
     """
-    Accepts either:
-      1) Django auth (username + password),
-      2) Shared gate password via DASHBOARD_PASSWORD (enter in the password field, leave username blank).
+    Accept either:
+      1) Django auth (username + password)
+      2) Shared gate password via settings.DASHBOARD_PASSWORD (put it in 'password'; leave username blank)
     """
     pwd_setting = getattr(settings, "DASHBOARD_PASSWORD", "changeme")
     context = {"next": request.GET.get("next", "/dashboard/")}
@@ -47,7 +56,6 @@ def dashboard_login(request):
         username = (request.POST.get("username") or "").strip()
         password = (request.POST.get("password") or "").strip()
 
-        # Try Django auth first if username provided
         if username:
             user = authenticate(request, username=username, password=password)
             if user is not None:
@@ -57,7 +65,6 @@ def dashboard_login(request):
             messages.error(request, "Invalid username or password.")
             return render(request, "dashboard/login.html", context, status=200)
 
-        # Fallback: shared dashboard password (no username)
         if password == pwd_setting:
             request.session[DASH_AUTH_SESSION_KEY] = True
             messages.success(request, "Welcome back.")
@@ -69,12 +76,14 @@ def dashboard_login(request):
     return render(request, "dashboard/login.html", context)
 
 def dashboard_logout(request):
-    # clear both auth modes
     request.session.pop(DASH_AUTH_SESSION_KEY, None)
     dj_logout(request)
     messages.info(request, "You have been logged out.")
     return redirect("/dashboard/login/")
 
+# -------------------------------------------------------------------
+# Dashboard pages
+# -------------------------------------------------------------------
 @dashboard_required
 def dashboard_home(request):
     kpi = {
@@ -91,14 +100,21 @@ def dashboard_home(request):
         "order_statuses": ORDER_STATUSES,
     })
 
+# myApp/views_dashboard.py
+from django.db.models import Sum, Q, Case, When, IntegerField  # make sure these are imported
+
 @dashboard_required
 def order_list(request):
-    status = request.GET.get("status", "all")
+    status = (request.GET.get("status") or "all").strip().lower()
     q = (request.GET.get("q") or "").strip()
+    sort = (request.GET.get("sort") or "created_desc").strip().lower()
 
-    qs = Order.objects.all().order_by("-created_at")
-    if status != "all":
+    qs = Order.objects.all()
+
+    valid_statuses = {k for k, _ in getattr(Order, "STATUS_CHOICES", ())}
+    if status != "all" and status in valid_statuses:
         qs = qs.filter(status=status)
+
     if q:
         qs = qs.filter(
             Q(order_number__icontains=q) |
@@ -107,171 +123,91 @@ def order_list(request):
             Q(phone__icontains=q)
         )
 
-    return render(request, "dashboard/orders.html", {
+    status_order_list = [k for k, _ in getattr(Order, "STATUS_CHOICES", ())]
+    status_case = Case(
+        *[When(status=val, then=pos) for pos, val in enumerate(status_order_list, start=1)],
+        default=len(status_order_list) + 1,
+        output_field=IntegerField(),
+    )
+
+    if sort == "status_asc":
+        qs = qs.order_by(status_case, "-created_at")
+    elif sort == "status_desc":
+        qs = qs.order_by(-status_case, "-created_at")
+    elif sort == "total_asc":
+        qs = qs.order_by("grand_total", "-created_at")
+    elif sort == "total_desc":
+        qs = qs.order_by("-grand_total", "-created_at")
+    elif sort == "created_asc":
+        qs = qs.order_by("created_at")
+    else:
+        qs = qs.order_by("-created_at")  # default
+
+    ctx = {
         "orders": qs[:200],
         "status": status,
         "q": q,
-        "order_statuses": ORDER_STATUSES,
-    })
+        "sort": sort,
+        "order_statuses": [k for k, _ in getattr(Order, "STATUS_CHOICES", ())],
+    }
 
-# myApp/views_dashboard.py
+    # If it's an AJAX request, return just the table HTML
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return render(request, "dashboard/_orders_table.html", ctx)
+
+    # Otherwise render the full page
+    return render(request, "dashboard/orders.html", ctx)
+
+
 @dashboard_required
 def order_detail(request, order_number):
+    """
+    Server-rendered fallback detail page.
+    Also used if the JSON modal fetch fails.
+    """
     order = get_object_or_404(Order, order_number=order_number)
 
-    # Safe items queryset no matter the related_name
-    try:
-        items_qs = order.items.all()          # if you defined related_name="items"
-    except Exception:
-        items_qs = order.orderitem_set.all()  # Django default related_name
+    # Resolve items whether related_name="items" or default
+    items_mgr = getattr(order, "items", None)
+    if hasattr(items_mgr, "all"):
+        items_qs = items_mgr.all()
+    else:
+        items_qs = order.orderitem_set.all()
 
-    # Also pass choices so the template doesn’t reach into the class
-    order_statuses = getattr(Order, "STATUS_CHOICES", ())
+    # Select related product if FK exists (best-effort)
+    try:
+        model = items_qs.model
+        if any(getattr(f, "name", "") == "product" and getattr(f, "is_relation", False)
+               for f in model._meta.get_fields()):
+            items_qs = items_qs.select_related("product")
+    except Exception:
+        pass
 
     return render(
         request,
         "dashboard/order_detail.html",
-        {"order": order, "items": items_qs, "order_statuses": order_statuses},
+        {"order": order, "items": items_qs, "order_statuses": tuple(getattr(Order, "STATUS_CHOICES", ()))},
     )
 
-
-# myApp/views_dashboard.py
-from django.conf import settings
-from django.core.mail import send_mail
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
-
-@dashboard_required
-@require_POST
-def order_update(request, order_number):
-    order = get_object_or_404(Order, order_number=order_number)
-
-    new_status = request.POST.get("status", order.status)
-    new_tracking = (request.POST.get("tracking") or "").strip()
-    new_notes = (request.POST.get("notes") or "").strip()
-    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or "/dashboard/"
-
-    # Validate status
-    valid_statuses = dict(Order.STATUS_CHOICES).keys()
-    if new_status not in valid_statuses:
-        messages.error(request, "Invalid status.")
-        return redirect(next_url)
-
-    # Track changes
-    status_changed = (order.status != new_status)
-    tracking_changed = (getattr(order, "tracking_number", "") or "") != new_tracking
-    notes_changed = (order.notes or "") != new_notes
-
-    # Apply changes
-    order.status = new_status
-    if hasattr(order, "tracking_number"):
-        order.tracking_number = new_tracking
-    order.notes = new_notes
-
-    if status_changed or tracking_changed or notes_changed:
-        order.save()
-        messages.success(request, f"Order {order.order_number} updated.")
-
-        # Notify the customer if we have their email
-        if order.email and (status_changed or tracking_changed):
-            _email_order_status_update(request, order, status_changed=status_changed, tracking_changed=tracking_changed)
-    else:
-        messages.info(request, "No changes made.")
-
-    return redirect(next_url)
-
-def _email_order_status_update(request, order, status_changed=True, tracking_changed=False):
-    """
-    Sends an email to the customer about the status update (and tracking, if changed).
-    Uses HTML + plaintext fallback via Resend (_safe_send_mail).
-    """
-    if not order.email:
-        return
-
-    context = {
-        "order": order,
-        "request": request,
-        "status_changed": status_changed,
-        "tracking_changed": tracking_changed,
-    }
-
-    # Subject example: "Update: Your SHARP Order SH-123456 is now Shipped"
-    try:
-        status_label = order.get_status_display() if hasattr(order, "get_status_display") else order.status.title()
-    except Exception:
-        status_label = (order.status or "Updated").title()
-
-    subject = f"Update: Your SHARP Order {order.order_number} is now {status_label}"
-
-    text_body = render_to_string("emails/order_status_update.txt", context)
-    html_body = render_to_string("emails/order_status_update.html", context)
-
-    ok = _safe_send_mail(
-        subject=subject,
-        text_body=text_body,
-        from_email=None,                     # Resend uses settings.RESEND['FROM']
-        to_list=[order.email],
-        html_body=html_body,
-        extra_headers={
-            "Reply-To": (
-                getattr(settings, "CONTACT_TO", "")
-                or getattr(settings, "DEFAULT_FROM_EMAIL", "")
-                or ""
-            )
-        },
-    )
-
-    if not ok:
-        # Don’t break the dashboard UX, but let the operator know.
-        messages.warning(request, "Order updated, but we couldn’t send the status email. We’ll resend shortly.")
-
-
-@dashboard_required
-@require_POST
-def order_delete(request, order_number):
-    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or "/dashboard/"
-    get_object_or_404(Order, order_number=order_number).delete()
-    messages.info(request, f"Order {order_number} deleted.")
-    return redirect(next_url)
-
-
-# myApp/views_dashboard.py (add near other imports)
-from django.http import JsonResponse
-from decimal import Decimal
-from django.utils import timezone
-
-# Try to use the same money formatter your templates use
-try:
-    from .views import money_filter as _money  # mirrors {{ val|money:request }}
-except Exception:
-    def _money(val, request=None):
-        try:
-            return f"{Decimal(str(val or '0')):,.2f}"
-        except Exception:
-            return "0.00"
-
+# -------------------------------------------------------------------
+# JSON for the “View Order” modal
+# -------------------------------------------------------------------
 @dashboard_required
 def order_summary_json(request, order_number):
-    """
-    Lightweight JSON payload for the 'View Order' modal on dashboard home.
-    """
     order = get_object_or_404(Order, order_number=order_number)
 
-    # Resolve items regardless of related_name
+    # Items (agnostic to related_name)
     items_mgr = getattr(order, "items", None)
     items_qs = items_mgr.all() if hasattr(items_mgr, "all") else order.orderitem_set.all()
 
-    # Localized, pretty timestamps
     placed_dt = timezone.localtime(order.created_at)
     updated_dt = timezone.localtime(getattr(order, "updated_at", order.created_at))
 
-    # Friendly status
     try:
         status_label = order.get_status_display()
     except Exception:
         status_label = (order.status or "updated").title()
 
-    # Shipping display (Free for zero/None)
     ship = order.shipping_cost or Decimal("0")
     ship_display = _money(ship, request) if ship != 0 else "Free"
 
@@ -293,7 +229,6 @@ def order_summary_json(request, order_number):
             "status_display": status_label,
             "tracking_number": getattr(order, "tracking_number", "") or "",
             "notes": order.notes or "",
-            "placed_iso": placed_dt.isoformat(),
             "placed_display": placed_dt.strftime("%b %d, %Y %H:%M"),
             "updated_display": updated_dt.strftime("%b %d, %Y %H:%M"),
         },
@@ -318,3 +253,129 @@ def order_summary_json(request, order_number):
         ],
     }
     return JsonResponse(payload)
+
+# -------------------------------------------------------------------
+# Update / Delete
+# -------------------------------------------------------------------
+@dashboard_required
+@require_POST
+def order_update(request, order_number):
+    """
+    Update status/tracking/notes.
+    Triggers a customer email when status or tracking changed.
+    """
+    order = get_object_or_404(Order, order_number=order_number)
+
+    new_status = request.POST.get("status", order.status)
+    new_tracking = (request.POST.get("tracking") or "").strip()
+    new_notes = (request.POST.get("notes") or "").strip()
+    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or "/dashboard/"
+
+    valid_statuses = dict(getattr(Order, "STATUS_CHOICES", ())).keys()
+    if new_status not in valid_statuses:
+        messages.error(request, "Invalid status.")
+        return redirect(next_url)
+
+    status_changed = (order.status != new_status)
+    tracking_changed = (getattr(order, "tracking_number", "") or "") != new_tracking
+    notes_changed = (order.notes or "") != new_notes
+
+    # Apply
+    order.status = new_status
+    if hasattr(order, "tracking_number"):
+        order.tracking_number = new_tracking
+    order.notes = new_notes
+
+    if status_changed or tracking_changed or notes_changed:
+        order.save()
+        messages.success(request, f"Order {order.order_number} updated.")
+
+        # Optional notify checkbox support (defaults to True if either status/tracking changed)
+        notify_flag = request.POST.get("notify", "on").lower() not in ("", "0", "false", "off")
+        if order.email and notify_flag and (status_changed or tracking_changed):
+            _email_order_status_update(request, order, status_changed=status_changed, tracking_changed=tracking_changed)
+    else:
+        messages.info(request, "No changes made.")
+
+    return redirect(next_url)
+
+def _email_order_status_update(request, order, status_changed=True, tracking_changed=False):
+    """
+    Compose + send status/tracking update via your Resend-backed shim.
+    """
+    if not order.email:
+        return
+
+    try:
+        status_label = order.get_status_display()
+    except Exception:
+        status_label = (order.status or "Updated").title()
+
+    subject = f"Update: Your SHARP Order {order.order_number} is now {status_label}"
+
+    context = {
+        "order": order,
+        "request": request,
+        "status_changed": status_changed,
+        "tracking_changed": tracking_changed,
+    }
+
+    text_body = render_to_string("emails/order_status_update.txt", context)
+    html_body = render_to_string("emails/order_status_update.html", context)
+
+    ok = _safe_send_mail(
+        subject=subject,
+        text_body=text_body,
+        from_email=None,  # your shim uses settings.RESEND['FROM'] / DEFAULT_FROM_EMAIL
+        to_list=[order.email],
+        html_body=html_body,
+        extra_headers={
+            "Reply-To": (
+                getattr(settings, "CONTACT_TO", "")
+                or getattr(settings, "DEFAULT_FROM_EMAIL", "")
+                or ""
+            )
+        },
+    )
+
+    if not ok:
+        messages.warning(request, "Order updated, but we couldn’t send the status email. We’ll resend shortly.")
+
+@dashboard_required
+@require_POST
+def order_delete(request, order_number):
+    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or "/dashboard/"
+    get_object_or_404(Order, order_number=order_number).delete()
+    messages.info(request, f"Order {order_number} deleted.")
+    return redirect(next_url)
+
+
+
+from django.views.decorators.http import require_POST
+
+@dashboard_required
+@require_POST
+def order_bulk_delete(request):
+    """
+    Deletes multiple orders by order_number. Expects a POST with:
+      - order_numbers: CSV list of order numbers (e.g. "SH-000001,SH-000002")
+      - next: optional URL to redirect back to
+    """
+    raw = (request.POST.get("order_numbers") or "").strip()
+    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or "/dashboard/"
+
+    # Parse CSV -> list
+    order_numbers = [s.strip() for s in raw.split(",") if s.strip()]
+    if not order_numbers:
+        messages.info(request, "No orders selected.")
+        return redirect(next_url)
+
+    qs = Order.objects.filter(order_number__in=order_numbers)
+    count = qs.count()
+    if not count:
+        messages.info(request, "No matching orders found.")
+        return redirect(next_url)
+
+    qs.delete()  # cascades to items; that's fine
+    messages.success(request, f"Deleted {count} order(s).")
+    return redirect(next_url)

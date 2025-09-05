@@ -32,13 +32,24 @@ urlpatterns = [
     path("dashboard/login/", dash.dashboard_login, name="dashboard_login"),
     path("dashboard/logout/", dash.dashboard_logout, name="dashboard_logout"),
 
-    # Dashboard
     path("dashboard/", dash.dashboard_home, name="dashboard_home"),
     path("dashboard/orders/", dash.order_list, name="dashboard_order_list"),
     path("dashboard/order/<str:order_number>/", dash.order_detail, name="dashboard_order_detail"),
+
+    # JSON for modal
+    path("dashboard/order/json/<str:order_number>/", dash.order_summary_json, name="dashboard_order_summary_json"),
+
+    # Update/Delete
     path("dashboard/order/update/<str:order_number>/", dash.order_update, name="dashboard_order_update"),
     path("dashboard/order/delete/<str:order_number>/", dash.order_delete, name="dashboard_order_delete"),
-
     path("dashboard/order/json/<str:order_number>/",  # NEW
          dash.order_summary_json, name="dashboard_order_summary_json"),
+
+    # Dashboard bulk actions
+    path(
+        "dashboard/orders/bulk-delete/",
+        dash.order_bulk_delete,
+        name="dashboard_order_bulk_delete",
+    ),
+     
 ]
