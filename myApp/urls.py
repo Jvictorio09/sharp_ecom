@@ -16,8 +16,14 @@ urlpatterns = [
     path("cart/remove/<int:product_id>/", views.cart_remove, name="cart_remove"),
     path("cart/summary.json", views.cart_summary_json, name="cart_summary_json"),
 
-    # Checkout
+
+
+
     path("checkout/", views.checkout, name="checkout"),
+    path("api/countries/", views.country_list_api, name="country_list_api"),
+    path("api/address-schema/<str:code>/", views.address_schema_api, name="address_schema_api"),
+
+
     path("thanks/", views.thanks, name="thanks"),
 
     # Order status

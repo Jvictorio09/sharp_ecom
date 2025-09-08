@@ -316,12 +316,210 @@ def _post_first(request, *names) -> str:
         if v:
             return v
     return ""
+# views.py
+from decimal import Decimal
+import re
+import threading
 
+from django.contrib import messages
+from django.http import JsonResponse, Http404
+from django.shortcuts import redirect, render
+from django.db import transaction
+from django.urls import reverse
+
+from django_countries import countries
+
+from .models import Order, OrderItem
+# from .utils import _get_cart, _items_and_subtotal, _email_order_confirmation, _email_admin_new_order, CART_KEY
+# ^ uncomment / adjust imports to match your project layout
+
+# -----------------------------
+# Shipping destinations
+# -----------------------------
+# Middle East (curated) + USA. Adjust as needed.
+SHIP_TO = [
+    "AE",  # United Arab Emirates
+    "SA",  # Saudi Arabia
+    "QA",  # Qatar
+    "KW",  # Kuwait
+    "OM",  # Oman
+    "BH",  # Bahrain
+    "JO",  # Jordan
+    "LB",  # Lebanon
+    "EG",  # Egypt
+    "US",  # United States
+]
+SHIP_TO_COUNTRIES = [(code, dict(countries)[code]) for code in SHIP_TO]
+
+# -----------------------------
+# Address schemas (client + server mirror)
+# -----------------------------
+ADDRESS_RULES = {
+    "PH": {
+        "fields": [
+            {"key": "address_line1", "label": "House/Unit, Street, Building", "required": True},
+            {"key": "barangay", "label": "Barangay", "required": True},
+            {"key": "city", "label": "City / Municipality", "required": True},
+            {"key": "province", "label": "Province", "required": True},
+            {"key": "postal_code", "label": "ZIP Code", "required": True, "pattern": r"^[0-9]{4}$"},
+        ],
+        "example": "406 Diamond Lane, Cristimar Village, Brgy. San Roque, Antipolo City",
+    },
+    "JO": {
+        "fields": [
+            {"key": "address_line1", "label": "Building / Street", "required": True},
+            {"key": "area", "label": "Area", "required": True, "type": "select",
+             "options": ["Amman","Zarqa","Irbid","Balqa","Mafraq","Madaba","Karak","Tafilah","Ma'an","Aqaba","Jerash","Ajloun","Other"]},
+            {"key": "area_other", "label": "If Other, specify",
+             "requiredIf": {"field": "area", "equals": "Other"}},
+            {"key": "city", "label": "City / District", "required": True},
+            {"key": "postal_code", "label": "Postal Code (optional)", "required": False, "pattern": r"^[0-9]{5}$"},
+        ],
+        "example": "Building 12, Queen Rania St., Amman",
+    },
+    "US": {
+        "fields": [
+            {"key": "address_line1", "label": "Street address", "required": True},
+            {"key": "address_line2", "label": "Apt, suite, etc. (optional)", "required": False},
+            {"key": "city", "label": "City", "required": True},
+            {"key": "state", "label": "State", "required": True, "type": "select",
+             "options": ["AL","AK","AZ","AR","CA","CO","CT","DC","DE","FL","GA","HI","IA","ID","IL","IN","KS","KY","LA","MA","MD","ME","MI","MN","MO","MS","MT","NC","ND","NE","NH","NJ","NM","NV","NY","OH","OK","OR","PA","PR","RI","SC","SD","TN","TX","UT","VA","VT","WA","WI","WV","WY"]},
+            {"key": "postal_code", "label": "ZIP / ZIP+4", "required": True, "pattern": r"^[0-9]{5}(-[0-9]{4})?$"},
+        ],
+        "example": "1600 Pennsylvania Ave NW, Washington",
+    },
+    "AE": {
+        "fields": [
+            {"key": "address_line1", "label": "Building / Street", "required": True},
+            {"key": "emirate", "label": "Emirate", "required": True, "type": "select",
+             "options": ["Abu Dhabi","Dubai","Sharjah","Ajman","Umm Al Quwain","Ras Al Khaimah","Fujairah"]},
+            {"key": "area", "label": "Area / Community", "required": True},
+            {"key": "postal_code", "label": "P.O. Box (optional)", "required": False},
+        ],
+        "example": "Office 1003, XYZ Tower, Business Bay, Dubai",
+    },
+    "UK": {
+        "fields": [
+            {"key": "address_line1", "label": "Building and street", "required": True},
+            {"key": "address_line2", "label": "Address line 2 (optional)", "required": False},
+            {"key": "city", "label": "Town / City", "required": True},
+            {"key": "postal_code", "label": "Postcode", "required": True, "pattern": r"^[A-Za-z0-9 ]{5,8}$"},
+        ],
+        "example": "10 Downing St, London",
+    },
+    # Fallback
+    "ZZ": {
+        "fields": [
+            {"key": "address_line1", "label": "Address line 1", "required": True},
+            {"key": "address_line2", "label": "Address line 2 (optional)", "required": False},
+            {"key": "city", "label": "City / Locality", "required": True},
+            {"key": "province", "label": "State / Province / Region", "required": False},
+            {"key": "postal_code", "label": "Postal / ZIP Code", "required": False},
+        ],
+        "example": "",
+    },
+}
+
+# -----------------------------
+# Phone validation helpers
+# -----------------------------
+E164_RE = re.compile(r"^\+\d{8,15}$")
+try:
+    import phonenumbers  # type: ignore
+except Exception:
+    phonenumbers = None
+
+def _normalize_phone(e164: str | None) -> str | None:
+    if not e164:
+        return None
+    e164 = e164.strip()
+    if phonenumbers:
+        try:
+            num = phonenumbers.parse(e164, None)
+            if phonenumbers.is_valid_number(num):
+                return phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164)
+            return None
+        except Exception:
+            return None
+    # Fallback simple E.164 validation
+    return e164 if E164_RE.match(e164) else None
+
+# -----------------------------
+# Address validation (server mirror)
+# -----------------------------
+def _validate_address(country_code: str, data: dict):
+    code = (country_code or "").upper()
+    rules = ADDRESS_RULES.get(code, ADDRESS_RULES["ZZ"])
+
+    # Required
+    for f in rules.get("fields", []):
+        if f.get("required"):
+            if not (data.get(f["key"]) or "").strip():
+                raise ValueError(f'Please provide {f["label"]}.')
+
+    # Conditional requiredIf
+    for f in rules.get("fields", []):
+        cond = f.get("requiredIf")
+        if cond:
+            trigger_val = (data.get(cond["field"]) or "").strip()
+            if trigger_val == cond.get("equals"):
+                if not (data.get(f["key"]) or "").strip():
+                    raise ValueError(f'Please provide {f["label"]}.')
+
+    # Patterns
+    for f in rules.get("fields", []):
+        pat = f.get("pattern")
+        val = (data.get(f["key"]) or "").strip()
+        if pat and val:
+            if not re.compile(pat).match(val):
+                raise ValueError(f'Invalid {f["label"]}.')
+
+# -----------------------------
+# Tiny JSON APIs for the frontend
+# -----------------------------
+def country_list_api(request):
+    """
+    Returns only ship-to countries. Add "Other" in the UI if you want,
+    but server will reject non-SHIP_TO selections on POST.
+    """
+    data = [{"code": code, "name": dict(countries)[code]} for code in SHIP_TO]
+    return JsonResponse({"countries": data})
+
+def address_schema_api(request, code: str):
+    code = (code or "ZZ").upper()
+    schema = ADDRESS_RULES.get(code, ADDRESS_RULES["ZZ"])
+    return JsonResponse(schema)
+
+# -----------------------------
+# Utilities
+# -----------------------------
+def _post_first(request, *keys):
+    for k in keys:
+        v = request.POST.get(k)
+        if v:
+            return v
+    return ""
+
+def _send_emails_async(request, order):
+    def task():
+        try:
+            _email_order_confirmation(request, order)
+            _email_admin_new_order(request, order)
+        except Exception:
+            # swallow email exceptions so checkout never hangs
+            pass
+    threading.Thread(target=task, daemon=True).start()
+
+# -----------------------------
+# Checkout view
+# -----------------------------
 def checkout(request):
     """
-    Checkout — creates Order + OrderItems, sends emails, clears cart.
-    Supports both the old address field name `address` and new `address_line1`.
-    Accepts phone from `phone_e164` (preferred), then `phone`, then `phone_display`.
+    Checkout — creates Order + OrderItems, sends emails async, clears cart.
+    - Enforces ship-to countries (Middle East + USA).
+    - Validates phone strictly (E.164).
+    - Country-aware address validation (PH/JO/US/AE/UK + fallback).
+    - Stores a normalized address object into `Order.shipping_address` if present.
     """
     cart = _get_cart(request.session)
     items, subtotal = _items_and_subtotal(cart)
@@ -329,53 +527,81 @@ def checkout(request):
     if request.method == "POST":
         # Contact
         full_name = (request.POST.get("full_name") or "").strip()
-        phone = _post_first(request, "phone_e164", "phone", "phone_display")
+        raw_phone = _post_first(request, "phone_e164", "phone", "phone_display")
+        phone = _normalize_phone(raw_phone)
         email = (request.POST.get("email") or "").strip()
 
-        # Address (new preferred; fallback to `address`)
-        address_line1 = _post_first(request, "address_line1", "address")
-        city = (request.POST.get("city") or "").strip()
-        # Optional fields (may be absent in the new form)
-        province = (request.POST.get("province") or "").strip()
-        zip_code = (request.POST.get("zip") or "").strip()
-        notes = (request.POST.get("notes") or "").strip()
-        country = (request.POST.get("country") or "").strip()  # ok if your Order doesn't have this field; we won't set it unless present
+        # Country (ISO code like "PH", "JO", "US", "AE", "UK")
+        country = (request.POST.get("country") or "").strip().upper()
 
-        # Choices
+        # Short-circuit: shipping availability
+        if country not in SHIP_TO:
+            messages.error(request, "Sorry, we currently ship only to the Middle East and USA.")
+            return render(request, "checkout.html", {
+                "items": items, "subtotal": subtotal,
+                "ship_to_countries": SHIP_TO_COUNTRIES,
+            })
+
+        # Collect all possible address bits (schema will say which are required)
+        addr = {
+            "address_line1": request.POST.get("address_line1"),
+            "address_line2": request.POST.get("address_line2"),
+            "barangay": request.POST.get("barangay"),
+            "city": request.POST.get("city"),
+            "province": request.POST.get("province"),
+            "postal_code": request.POST.get("postal_code"),
+            "area": request.POST.get("area"),
+            "area_other": request.POST.get("area_other"),
+            "state": request.POST.get("state"),
+            "county": request.POST.get("county"),
+            "emirate": request.POST.get("emirate"),
+        }
+
         shipping_method = (request.POST.get("shipping") or "standard").strip().lower()
         payment_method = (request.POST.get("payment") or "cod").strip().lower()
 
+        # Basic cart check
         if not items:
             messages.error(request, "Your cart is empty.")
             return redirect("cart")
 
-        # ✅ This was failing because `phone` came back empty
-        if not (full_name and phone and address_line1):
-            messages.error(request, "Please fill in Full Name, Phone, and Address.")
-            return render(request, "checkout.html", {"items": items, "subtotal": subtotal})
+        # Core field checks
+        if not full_name:
+            messages.error(request, "Please enter your full name.")
+            return render(request, "checkout.html", {
+                "items": items, "subtotal": subtotal, "ship_to_countries": SHIP_TO_COUNTRIES
+            })
+        if not phone:
+            messages.error(request, "Please enter a valid phone number (e.g., +962 7X XXX XXXX).")
+            return render(request, "checkout.html", {
+                "items": items, "subtotal": subtotal, "ship_to_countries": SHIP_TO_COUNTRIES
+            })
 
-        # Shipping cost (support 'free' explicitly)
+        # Country-aware address validation
+        try:
+            _validate_address(country, addr)
+        except ValueError as e:
+            messages.error(request, str(e))
+            return render(request, "checkout.html", {
+                "items": items, "subtotal": subtotal, "ship_to_countries": SHIP_TO_COUNTRIES
+            })
+
+        # Shipping cost
         if shipping_method in ("standard", "free"):
             shipping_cost = Decimal("0.00")
         elif shipping_method == "express":
             shipping_cost = Decimal("299.00")
         else:
-            # Unknown method defaults to free (safe)
             shipping_cost = Decimal("0.00")
 
-        discount_total = Decimal("0.00")  # TODO: promo code server-side calc
+        discount_total = Decimal("0.00")  # TODO: apply promos server-side if needed
         grand_total = (subtotal + shipping_cost - discount_total).quantize(Decimal("0.01"))
 
-        # Create Order (only set fields that exist)
+        # Create the order (only set fields your model actually has)
         order_kwargs = dict(
             full_name=full_name,
             phone=phone,
             email=email,
-            address_line1=address_line1,
-            city=city,
-            province=province,
-            zip_code=zip_code,
-            notes=notes,
             shipping_method=shipping_method,
             payment_method=payment_method,
             subtotal=subtotal,
@@ -384,44 +610,80 @@ def checkout(request):
             grand_total=grand_total,
             status="pending",
         )
-        # Add country only if your Order model has it
+        # Optional fields if present on model
         try:
-            from django.forms.models import model_to_dict
-            # crude check: if attribute exists on the model instance, include it
             if hasattr(Order(), "country"):
                 order_kwargs["country"] = country
+            if hasattr(Order(), "shipping_address"):
+                order_kwargs["shipping_address"] = {k: (v or "").strip() for k, v in addr.items() if v}
+            if hasattr(Order(), "shipping_address_text"):
+                # Nice one-liner for emails / labels
+                order_kwargs["shipping_address_text"] = _format_address_text(country, addr)
         except Exception:
             pass
 
-        order = Order.objects.create(**order_kwargs)
+        with transaction.atomic():
+            order = Order.objects.create(**order_kwargs)
+            for row in items:
+                p = row["product"]
+                qty = row["qty"]
+                line_total = (p.price * qty).quantize(Decimal("0.01"))
+                OrderItem.objects.create(
+                    order=order,
+                    product=p,
+                    name=p.name,
+                    unit_price=p.price,
+                    quantity=qty,
+                    line_total=line_total,
+                )
 
-        # Items
-        for row in items:
-            p = row["product"]
-            qty = row["qty"]
-            line_total = (p.price * qty).quantize(Decimal("0.01"))
-            OrderItem.objects.create(
-                order=order,
-                product=p,
-                name=p.name,
-                unit_price=p.price,
-                quantity=qty,
-                line_total=line_total,
-            )
-
-        # Clear cart
+        # Clear cart ASAP
         request.session[CART_KEY] = {}
         request.session.modified = True
 
-        # Emails
-        _email_order_confirmation(request, order)
-        _email_admin_new_order(request, order)
+        # Send emails AFTER commit, in background
+        transaction.on_commit(lambda: _send_emails_async(request, order))
 
         messages.success(request, "Order placed! We’ve emailed your confirmation.")
+        # Adjust thanks URL if you use a named url; here we keep your original redirect
         return redirect(f"/thanks/?o={order.order_number}")
 
     # GET
-    return render(request, "checkout.html", {"items": items, "subtotal": subtotal})
+    return render(request, "checkout.html", {
+        "items": items,
+        "subtotal": subtotal,
+        "ship_to_countries": SHIP_TO_COUNTRIES,
+    })
+
+# -----------------------------
+# Pretty label for shipping_address_text
+# -----------------------------
+def _format_address_text(country: str, a: dict) -> str:
+    country = (country or "").upper()
+    if country == "PH":
+        parts = [
+            a.get("address_line1"),
+            f"Brgy. {a.get('barangay')}" if a.get("barangay") else None,
+            a.get("city"),
+            a.get("province"),
+            a.get("postal_code"),
+            "Philippines",
+        ]
+    elif country == "JO":
+        area = a.get("area_other") if (a.get("area") == "Other") else a.get("area")
+        parts = [a.get("address_line1"), area, a.get("city"), a.get("postal_code"), "Jordan"]
+    elif country == "US":
+        parts = [a.get("address_line1"), a.get("address_line2"),
+                 f"{a.get('city')}, {a.get('state')} {a.get('postal_code')}", "United States"]
+    elif country == "AE":
+        parts = [a.get("address_line1"), a.get("area"), a.get("emirate"), "United Arab Emirates"]
+    elif country == "UK":
+        parts = [a.get("address_line1"), a.get("address_line2"), a.get("city"), a.get("postal_code"), "United Kingdom"]
+    else:
+        # Fallback
+        parts = [a.get("address_line1"), a.get("address_line2"), a.get("city"), a.get("province"), a.get("postal_code"),
+                 dict(countries).get(country, country)]
+    return ", ".join([p.strip() for p in parts if p and str(p).strip()])
 
 
 def thanks(request):

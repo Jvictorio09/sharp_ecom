@@ -47,14 +47,14 @@
               </div>
               <div>
                 <label class="text-sm">Phone</label>
-                <!-- Phone with dropdown -->
                 <input id="phone" name="phone_display" required inputmode="tel"
                   class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
                   placeholder="+63 9XX XXX XXXX">
+                <p id="phoneError" class="mt-1 text-xs text-rose-600 hidden">Please enter a valid phone number.</p>
 
-                <!-- Hidden fields your view can use -->
                 <input type="hidden" name="phone_e164" id="phone_e164">
                 <input type="hidden" name="phone_country" id="phone_country">
+
               </div>
               <div class="md:col-span-2">
                 <label class="text-sm">Email (optional)</label>
@@ -74,23 +74,15 @@
                 <select id="countrySelect" name="country" required
                         class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
                   <option value="" disabled selected>Select a country</option>
-                  <!-- Options injected by JS (full list) -->
+                  <!-- Options injected by JS (ship-to only) -->
                 </select>
+                <p id="countryWarning" class="hidden mt-2 text-sm text-rose-600">
+                  We currently only ship to the Middle East and USA.
+                </p>
               </div>
 
-              <div>
-                <label class="text-sm">Street / Building</label>
-                <input name="address_line1" required
-                       class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
-                       placeholder="Unit / House no., Street, Building">
-              </div>
-
-              <div>
-                <label class="text-sm">City</label>
-                <input name="city" required
-                       class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
-                       placeholder="e.g., Quezon City">
-              </div>
+              <!-- Dynamic address fields render here based on selected country -->
+              <div id="addressFields" class="space-y-4"></div>
 
               <div>
                 <label class="text-sm">Notes (optional)</label>
@@ -99,6 +91,7 @@
                           placeholder="Gate instructions, landmark, preferred delivery times…"></textarea>
               </div>
             </div>
+
           </div>
 
           <!-- Delivery Method (free only) -->
@@ -136,9 +129,10 @@
             <a href="{% url 'product_list' %}" class="btn px-6 py-3 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)] text-center">
               Continue Shopping
             </a>
-            <button class="btn flex-1 px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]">
-              Place Order
-            </button>
+              <button id="placeOrderBtn" class="btn flex-1 px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]">
+                Place Order
+              </button>
+
           </div>
         </form>
       </div>
@@ -189,7 +183,7 @@
               </div>
               <div class="pt-2 border-t border-line flex items-center justify-between text-base">
                 <span class="font-semibold">Total</span>
-                <span id="sumSubtotal" class="font-semibold">{{ subtotal|money:request }}</span>
+                <span id="grandTotal" class="font-semibold">{{ subtotal|money:request }}</span>
               </div>
               <p class="text-xs opacity-70">Shipping and taxes calculated at delivery.</p>
             </div>
@@ -251,151 +245,177 @@
     updateTotals();
 
     // ====== Countries (full list) ======
-    const countries = [
-      // ISO alpha-2 + name (minimal canonical list)
-      { code:'AF', name:'Afghanistan' }, { code:'AL', name:'Albania' }, { code:'DZ', name:'Algeria' },
-      { code:'AS', name:'American Samoa' }, { code:'AD', name:'Andorra' }, { code:'AO', name:'Angola' },
-      { code:'AI', name:'Anguilla' }, { code:'AQ', name:'Antarctica' }, { code:'AG', name:'Antigua and Barbuda' },
-      { code:'AR', name:'Argentina' }, { code:'AM', name:'Armenia' }, { code:'AW', name:'Aruba' },
-      { code:'AU', name:'Australia' }, { code:'AT', name:'Austria' }, { code:'AZ', name:'Azerbaijan' },
-      { code:'BS', name:'Bahamas' }, { code:'BH', name:'Bahrain' }, { code:'BD', name:'Bangladesh' },
-      { code:'BB', name:'Barbados' }, { code:'BY', name:'Belarus' }, { code:'BE', name:'Belgium' },
-      { code:'BZ', name:'Belize' }, { code:'BJ', name:'Benin' }, { code:'BM', name:'Bermuda' },
-      { code:'BT', name:'Bhutan' }, { code:'BO', name:'Bolivia' }, { code:'BQ', name:'Bonaire, Sint Eustatius and Saba' },
-      { code:'BA', name:'Bosnia and Herzegovina' }, { code:'BW', name:'Botswana' }, { code:'BR', name:'Brazil' },
-      { code:'IO', name:'British Indian Ocean Territory' }, { code:'VG', name:'British Virgin Islands' },
-      { code:'BN', name:'Brunei Darussalam' }, { code:'BG', name:'Bulgaria' }, { code:'BF', name:'Burkina Faso' },
-      { code:'BI', name:'Burundi' }, { code:'KH', name:'Cambodia' }, { code:'CM', name:'Cameroon' },
-      { code:'CA', name:'Canada' }, { code:'CV', name:'Cabo Verde' }, { code:'KY', name:'Cayman Islands' },
-      { code:'CF', name:'Central African Republic' }, { code:'TD', name:'Chad' }, { code:'CL', name:'Chile' },
-      { code:'CN', name:'China' }, { code:'CX', name:'Christmas Island' }, { code:'CC', name:'Cocos (Keeling) Islands' },
-      { code:'CO', name:'Colombia' }, { code:'KM', name:'Comoros' }, { code:'CG', name:'Congo' },
-      { code:'CD', name:'Congo, Democratic Republic of the' }, { code:'CK', name:'Cook Islands' },
-      { code:'CR', name:'Costa Rica' }, { code:'CI', name:"Côte d'Ivoire" }, { code:'HR', name:'Croatia' },
-      { code:'CU', name:'Cuba' }, { code:'CW', name:'Curaçao' }, { code:'CY', name:'Cyprus' },
-      { code:'CZ', name:'Czechia' }, { code:'DK', name:'Denmark' }, { code:'DJ', name:'Djibouti' },
-      { code:'DM', name:'Dominica' }, { code:'DO', name:'Dominican Republic' }, { code:'EC', name:'Ecuador' },
-      { code:'EG', name:'Egypt' }, { code:'SV', name:'El Salvador' }, { code:'GQ', name:'Equatorial Guinea' },
-      { code:'ER', name:'Eritrea' }, { code:'EE', name:'Estonia' }, { code:'SZ', name:'Eswatini' },
-      { code:'ET', name:'Ethiopia' }, { code:'FK', name:'Falkland Islands [Malvinas]' },
-      { code:'FO', name:'Faroe Islands' }, { code:'FJ', name:'Fiji' }, { code:'FI', name:'Finland' },
-      { code:'FR', name:'France' }, { code:'GF', name:'French Guiana' }, { code:'PF', name:'French Polynesia' },
-      { code:'GA', name:'Gabon' }, { code:'GM', name:'Gambia' }, { code:'GE', name:'Georgia' },
-      { code:'DE', name:'Germany' }, { code:'GH', name:'Ghana' }, { code:'GI', name:'Gibraltar' },
-      { code:'GR', name:'Greece' }, { code:'GL', name:'Greenland' }, { code:'GD', name:'Grenada' },
-      { code:'GP', name:'Guadeloupe' }, { code:'GU', name:'Guam' }, { code:'GT', name:'Guatemala' },
-      { code:'GG', name:'Guernsey' }, { code:'GN', name:'Guinea' }, { code:'GW', name:'Guinea-Bissau' },
-      { code:'GY', name:'Guyana' }, { code:'HT', name:'Haiti' }, { code:'HN', name:'Honduras' },
-      { code:'HK', name:'Hong Kong' }, { code:'HU', name:'Hungary' }, { code:'IS', name:'Iceland' },
-      { code:'IN', name:'India' }, { code:'ID', name:'Indonesia' }, { code:'IR', name:'Iran' },
-      { code:'IQ', name:'Iraq' }, { code:'IE', name:'Ireland' }, { code:'IM', name:'Isle of Man' },
-      { code:'IL', name:'Israel' }, { code:'IT', name:'Italy' }, { code:'JM', name:'Jamaica' },
-      { code:'JP', name:'Japan' }, { code:'JE', name:'Jersey' }, { code:'JO', name:'Jordan' },
-      { code:'KZ', name:'Kazakhstan' }, { code:'KE', name:'Kenya' }, { code:'KI', name:'Kiribati' },
-      { code:'KW', name:'Kuwait' }, { code:'KG', name:'Kyrgyzstan' }, { code:'LA', name:'Lao PDR' },
-      { code:'LV', name:'Latvia' }, { code:'LB', name:'Lebanon' }, { code:'LS', name:'Lesotho' },
-      { code:'LR', name:'Liberia' }, { code:'LY', name:'Libya' }, { code:'LI', name:'Liechtenstein' },
-      { code:'LT', name:'Lithuania' }, { code:'LU', name:'Luxembourg' }, { code:'MO', name:'Macao' },
-      { code:'MG', name:'Madagascar' }, { code:'MW', name:'Malawi' }, { code:'MY', name:'Malaysia' },
-      { code:'MV', name:'Maldives' }, { code:'ML', name:'Mali' }, { code:'MT', name:'Malta' },
-      { code:'MH', name:'Marshall Islands' }, { code:'MQ', name:'Martinique' }, { code:'MR', name:'Mauritania' },
-      { code:'MU', name:'Mauritius' }, { code:'YT', name:'Mayotte' }, { code:'MX', name:'Mexico' },
-      { code:'FM', name:'Micronesia' }, { code:'MD', name:'Moldova' }, { code:'MC', name:'Monaco' },
-      { code:'MN', name:'Mongolia' }, { code:'ME', name:'Montenegro' }, { code:'MS', name:'Montserrat' },
-      { code:'MA', name:'Morocco' }, { code:'MZ', name:'Mozambique' }, { code:'MM', name:'Myanmar' },
-      { code:'NA', name:'Namibia' }, { code:'NR', name:'Nauru' }, { code:'NP', name:'Nepal' },
-      { code:'NL', name:'Netherlands' }, { code:'NC', name:'New Caledonia' }, { code:'NZ', name:'New Zealand' },
-      { code:'NI', name:'Nicaragua' }, { code:'NE', name:'Niger' }, { code:'NG', name:'Nigeria' },
-      { code:'NU', name:'Niue' }, { code:'NF', name:'Norfolk Island' }, { code:'KP', name:"Korea (DPRK)" },
-      { code:'MP', name:'Northern Mariana Islands' }, { code:'NO', name:'Norway' },
-      { code:'OM', name:'Oman' }, { code:'PK', name:'Pakistan' }, { code:'PW', name:'Palau' },
-      { code:'PS', name:'Palestine, State of' }, { code:'PA', name:'Panama' }, { code:'PG', name:'Papua New Guinea' },
-      { code:'PY', name:'Paraguay' }, { code:'PE', name:'Peru' }, { code:'PH', name:'Philippines' },
-      { code:'PL', name:'Poland' }, { code:'PT', name:'Portugal' }, { code:'PR', name:'Puerto Rico' },
-      { code:'QA', name:'Qatar' }, { code:'RE', name:'Réunion' }, { code:'RO', name:'Romania' },
-      { code:'RU', name:'Russian Federation' }, { code:'RW', name:'Rwanda' }, { code:'BL', name:'Saint Barthélemy' },
-      { code:'SH', name:'Saint Helena' }, { code:'KN', name:'Saint Kitts and Nevis' },
-      { code:'LC', name:'Saint Lucia' }, { code:'MF', name:'Saint Martin (French part)' },
-      { code:'PM', name:'Saint Pierre and Miquelon' }, { code:'VC', name:'Saint Vincent and the Grenadines' },
-      { code:'WS', name:'Samoa' }, { code:'SM', name:'San Marino' }, { code:'ST', name:'Sao Tome and Principe' },
-      { code:'SA', name:'Saudi Arabia' }, { code:'SN', name:'Senegal' }, { code:'RS', name:'Serbia' },
-      { code:'SC', name:'Seychelles' }, { code:'SL', name:'Sierra Leone' }, { code:'SG', name:'Singapore' },
-      { code:'SX', name:'Sint Maarten (Dutch part)' }, { code:'SK', name:'Slovakia' }, { code:'SI', name:'Slovenia' },
-      { code:'SB', name:'Solomon Islands' }, { code:'SO', name:'Somalia' }, { code:'ZA', name:'South Africa' },
-      { code:'KR', name:'Korea (Republic of)' }, { code:'SS', name:'South Sudan' }, { code:'ES', name:'Spain' },
-      { code:'LK', name:'Sri Lanka' }, { code:'SD', name:'Sudan' }, { code:'SR', name:'Suriname' },
-      { code:'SJ', name:'Svalbard and Jan Mayen' }, { code:'SE', name:'Sweden' }, { code:'CH', name:'Switzerland' },
-      { code:'SY', name:'Syrian Arab Republic' }, { code:'TW', name:'Taiwan' }, { code:'TJ', name:'Tajikistan' },
-      { code:'TZ', name:'Tanzania' }, { code:'TH', name:'Thailand' }, { code:'TL', name:'Timor-Leste' },
-      { code:'TG', name:'Togo' }, { code:'TK', name:'Tokelau' }, { code:'TO', name:'Tonga' },
-      { code:'TT', name:'Trinidad and Tobago' }, { code:'TN', name:'Tunisia' }, { code:'TR', name:'Türkiye' },
-      { code:'TM', name:'Turkmenistan' }, { code:'TC', name:'Turks and Caicos Islands' },
-      { code:'TV', name:'Tuvalu' }, { code:'UG', name:'Uganda' }, { code:'UA', name:'Ukraine' },
-      { code:'AE', name:'United Arab Emirates' }, { code:'GB', name:'United Kingdom' }, { code:'US', name:'United States' },
-      { code:'UM', name:'U.S. Outlying Islands' }, { code:'UY', name:'Uruguay' }, { code:'UZ', name:'Uzbekistan' },
-      { code:'VU', name:'Vanuatu' }, { code:'VA', name:'Holy See' }, { code:'VE', name:'Venezuela' },
-      { code:'VN', name:'Viet Nam' }, { code:'VI', name:'U.S. Virgin Islands' }, { code:'WF', name:'Wallis and Futuna' },
-      { code:'EH', name:'Western Sahara' }, { code:'YE', name:'Yemen' }, { code:'ZM', name:'Zambia' }, { code:'ZW', name:'Zimbabwe' },
-    ];
+    // ====== Ship-to countries + dynamic address schemas ======
+      const form = document.getElementById('checkoutForm');
+      const countrySelect = document.getElementById('countrySelect');
+      const countryWarning = document.getElementById('countryWarning');
+      const addressWrap = document.getElementById('addressFields');
+      const placeOrderBtn = document.getElementById('placeOrderBtn');
 
-    const countrySelect = document.getElementById('countrySelect');
-    if (countrySelect && countrySelect.options.length <= 1) {
-      countries.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.name;
-        opt.dataset.iso = c.code.toLowerCase();
-        opt.textContent = c.name;
-        countrySelect.appendChild(opt);
-      });
-    }
+      // phone init
+      const phoneInput = document.getElementById('phone');
+      const phoneE164 = document.getElementById('phone_e164');
+      const phoneCountry = document.getElementById('phone_country');
+      const phoneError = document.getElementById('phoneError');
 
-    // ====== Phone dropdown (intl-tel-input) ======
-    const phoneInput = document.getElementById('phone');
-    const phoneE164 = document.getElementById('phone_e164');
-    const phoneCountry = document.getElementById('phone_country');
+      let iti = null;
+      if (phoneInput) {
+        iti = window.intlTelInput(phoneInput, {
+          initialCountry: 'auto',
+          preferredCountries: ['ph','ae','jo','us','gb'],
+          utilsScript: 'https://cdn.jsdelivr.net/npm/intl-tel-input@23.7.3/build/js/utils.js',
+          nationalMode: false,
+          autoPlaceholder: 'polite',
+          geoIpLookup: (cb) => cb('ph'),
+        });
 
-    let iti = null;
-    if (phoneInput) {
-      iti = window.intlTelInput(phoneInput, {
-        initialCountry: 'auto',
-        preferredCountries: ['ph', 'ae', 'jo', 'us', 'gb'],
-        utilsScript: 'https://cdn.jsdelivr.net/npm/intl-tel-input@23.7.3/build/js/utils.js',
-        nationalMode: false,
-        autoPlaceholder: 'polite',
-        geoIpLookup: (cb) => cb('ph'), // default to PH; replace with a geoip if desired
-      });
+        phoneInput.addEventListener('countrychange', () => {
+          const data = iti.getSelectedCountryData();
+          if (phoneCountry) phoneCountry.value = data?.iso2?.toUpperCase() || '';
+          // Try to sync country dropdown if that country is in ship-to list
+          const opt = [...(countrySelect?.options || [])].find(o => o.value === (data?.iso2 || '').toUpperCase());
+          if (opt) countrySelect.value = opt.value;
+        });
+      }
 
-      // Sync: when phone country changes, set the Country select if empty/different
-      phoneInput.addEventListener('countrychange', () => {
-        const data = iti.getSelectedCountryData();
-        if (phoneCountry) phoneCountry.value = data?.iso2?.toUpperCase() || '';
-        if (countrySelect) {
-          const match = [...countrySelect.options].find(o => (o.dataset.iso || '').toLowerCase() === (data?.iso2 || ''));
-          if (match) countrySelect.value = match.value;
+      // fetch ship-to list (Middle East + USA) from server
+      async function loadCountries() {
+        const res = await fetch('/api/countries/');
+        const js = await res.json();
+        // Populate dropdown
+        js.countries.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.code;      // ISO-2
+          opt.textContent = c.name;
+          countrySelect.appendChild(opt);
+        });
+        // Add "Other" for disclaimer
+        const other = document.createElement('option');
+        other.value = 'ZZ';
+        other.textContent = 'Other';
+        countrySelect.appendChild(other);
+      }
+
+      function renderFields(schema) {
+        addressWrap.innerHTML = '';
+        schema.fields.forEach(f => {
+          const row = document.createElement('div');
+          const isSelect = f.type === 'select';
+          row.innerHTML = `
+            <label class="text-sm">${f.label}</label>
+            ${isSelect
+              ? `<select name="${f.key}" id="${f.key}" ${f.required ? 'required' : ''} class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
+                  <option value="" ${f.required ? 'disabled selected' : ''}>Select...</option>
+                  ${(f.options || []).map(o => `<option value="${o}">${o}</option>`).join('')}
+                </select>`
+              : `<input name="${f.key}" id="${f.key}" ${f.required ? 'required' : ''} ${f.pattern ? `pattern="${f.pattern}"` : ''}
+                  class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">`
+            }
+            ${schema.example ? `<p class="text-xs text-slate-500">e.g., ${schema.example}</p>` : ''}
+          `;
+          addressWrap.appendChild(row);
+        });
+
+        // requiredIf support (e.g., JO area_other)
+        schema.fields.forEach(f => {
+          if (f.requiredIf) {
+            const trigger = document.getElementById(f.requiredIf.field);
+            const target  = document.getElementById(f.key);
+            const toggle = () => {
+              const on = trigger.value === f.requiredIf.equals;
+              target.closest('div').classList.toggle('hidden', !on);
+              on ? target.setAttribute('required', 'required') : target.removeAttribute('required');
+            };
+            trigger?.addEventListener('change', toggle);
+            toggle();
+          }
+        });
+      }
+
+      async function loadSchema(code) {
+        const res = await fetch(`/api/address-schema/${code}/`);
+        const schema = await res.json();
+        renderFields(schema);
+      }
+
+      // country change behavior
+      countrySelect?.addEventListener('change', () => {
+        const code = countrySelect.value;
+        countryWarning.classList.toggle('hidden', code !== 'ZZ');
+        if (code !== 'ZZ') {
+          loadSchema(code);
+          // sync phone picker if possible
+          try { if (iti) iti.setCountry(code.toLowerCase()); } catch {}
+        } else {
+          addressWrap.innerHTML = ''; // don't render fields for unsupported
         }
       });
-    }
 
-    // Sync reverse: when Country select changes, set phone dropdown
-    countrySelect?.addEventListener('change', () => {
-      const iso2 = (countrySelect.selectedOptions[0]?.dataset.iso || '').toLowerCase();
-      if (iti && iso2) iti.setCountry(iso2);
-    });
+      (async function initAddressUI(){
+        await loadCountries();
+        const defaultCode = 'PH'; // or set from geo if you like
+        // If PH isn't in ship-to, default to JO/US/AE—here we keep PH for local testing
+        if ([...countrySelect.options].some(o => o.value === defaultCode)) {
+          countrySelect.value = defaultCode;
+        }
+        countryWarning.classList.add('hidden');
+        if (countrySelect.value !== 'ZZ') {
+          await loadSchema(countrySelect.value);
+        }
+      })();
 
-    // On submit, capture E.164 + ISO country
-    const form = document.getElementById('checkoutForm');
-    form?.addEventListener('submit', (e) => {
-      if (iti) {
-        const number = iti.getNumber(); // E.164
-        document.getElementById('phone_e164').value = number || '';
-        document.querySelector('input[name="phone"]')?.remove(); // ensure no stale
-        const hidden = document.createElement('input');
-        hidden.type = 'hidden';
-        hidden.name = 'phone';
-        hidden.value = number || '';
-        form.appendChild(hidden);
-      }
-    });
+      // Submit: phone validation + double-submit guard + E.164 copy
+      form?.addEventListener('submit', (e) => {
+        // double-submit guard
+        if (placeOrderBtn) {
+          placeOrderBtn.disabled = true;
+          placeOrderBtn.classList.add('opacity-70', 'cursor-not-allowed');
+          placeOrderBtn.textContent = 'Placing order…';
+        }
+
+        // country must not be ZZ
+        if (countrySelect && countrySelect.value === 'ZZ') {
+          e.preventDefault();
+          alert('Sorry, we currently only ship to the Middle East and USA.');
+          if (placeOrderBtn) {
+            placeOrderBtn.disabled = false;
+            placeOrderBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+            placeOrderBtn.textContent = 'Place Order';
+          }
+          return;
+        }
+
+        // phone validity
+        if (iti && !iti.isValidNumber()) {
+          e.preventDefault();
+          phoneError?.classList.remove('hidden');
+          phoneInput?.focus();
+          if (placeOrderBtn) {
+            placeOrderBtn.disabled = false;
+            placeOrderBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+            placeOrderBtn.textContent = 'Place Order';
+          }
+          return;
+        }
+        phoneError?.classList.add('hidden');
+
+        // copy E.164 + ISO to hidden inputs
+        if (iti) {
+          const num = iti.getNumber();
+          const data = iti.getSelectedCountryData();
+          if (phoneE164) phoneE164.value = num || '';
+          if (phoneCountry) phoneCountry.value = data?.iso2?.toUpperCase() || '';
+
+          // Ensure only one "phone" key hits the server
+          document.querySelector('input[name="phone"]')?.remove();
+          const hidden = document.createElement('input');
+          hidden.type = 'hidden';
+          hidden.name = 'phone';
+          hidden.value = num || '';
+          form.appendChild(hidden);
+        }
+      });
+
 
   });
 </script>
