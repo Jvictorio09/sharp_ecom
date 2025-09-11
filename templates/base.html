@@ -6,7 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content="{{ csrf_token }}">
 
-    <title>{% block title %}SHARP — Quiet Luxury{% endblock %}</title>
+    <title>{% block title %}SHARP — Quiet Luxury, Everyday Living{% endblock %}</title>
+
+    <meta name="description" content="Discover SHARP — quiet luxury for your hair. Explore premium hair products, elegant care bundles, and timeless essentials designed for everyday beauty." />
+    <meta name="keywords" content="SHARP, hair care, quiet luxury, premium hair products, luxury hair bundles, modern hair essentials, hair treatment, hair styling" />
+    <meta name="author" content="SHARP Official" />
+
+
+    <!-- Social Sharing (Open Graph) -->
+    <meta property="og:title" content="SHARP — Quiet Luxury" />
+    <meta property="og:description" content="Explore SHARP: premium products and timeless bundles crafted for everyday elegance." />
+    <meta property="og:image" content="{{ request.build_absolute_uri }}/static/images/og-image.jpg" />
+    <meta property="og:url" content="{{ request.build_absolute_uri }}" />
+    <meta property="og:type" content="website" />
 
     <!-- Tailwind (prototype). Replace with your compiled build in production. -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -605,6 +617,33 @@
     }
   }
 
+  const _qtyTimers = new Map();
+  function updateQty(productId, nextQty) {
+    nextQty = Math.max(0, Math.min(999, Number(nextQty) || 0)); // 0 removes
+    const key = String(productId);
+    clearTimeout(_qtyTimers.get(key));
+    _qtyTimers.set(key, setTimeout(async () => {
+      try {
+        const res = await fetch(`{% url 'cart_update' 0 %}`.replace("/0/", "/" + productId + "/"), {
+          method: "POST",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-CSRFToken": getCsrfToken(),
+          },
+          credentials: "same-origin",
+          body: new URLSearchParams({ qty: String(nextQty) }),
+        });
+        const data = await parseJsonOrLog(res);
+        if (!data || !data.cart) { showInlineError("couldn’t update your bag."); return; }
+        renderCart(data.cart);         // <- reuse your existing renderer
+      } catch (err) {
+        console.error("qty update error:", err);
+        showInlineError("couldn’t update your bag.");
+      }
+    }, 250));
+  }
+
   function renderCart(cart) {
     itemsEl.innerHTML = "";
     if (!cart || !cart.items || cart.items.length === 0) {
@@ -614,22 +653,63 @@
     }
 
     cart.items.forEach((it) => {
+      const minQ = Math.max(1, Number(it.min_qty || 1));
+      const maxQ = Math.max(minQ, Number(it.max_qty || 999));
+
       const row = document.createElement("div");
       row.className = "py-4 flex items-center gap-4";
       row.innerHTML = `
         <div class="w-16 h-16 rounded-lg bg-ivory overflow-hidden">
           <img src="${it.image_url}" alt="${it.name}" class="w-full h-full object-cover" loading="lazy"/>
         </div>
+
         <div class="flex-1">
           <a href="/product/${it.slug}/" class="font-medium hover:underline">${it.name}</a>
-          <p class="text-sm opacity-70">Qty: ${it.qty}</p>
+
+          <div class="mt-2 inline-flex items-center gap-2">
+            <button class="qty-dec w-8 h-8 inline-flex items-center justify-center rounded-full border border-line hover:border-[var(--sharp-gold)]" aria-label="Decrease quantity">–</button>
+
+            <input type="number"
+                  class="qty-input w-14 text-center px-2 py-1 rounded-lg border border-line focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
+                  value="${it.qty}" min="${minQ}" max="${maxQ}" inputmode="numeric" />
+
+            <button class="qty-inc w-8 h-8 inline-flex items-center justify-center rounded-full border border-line hover:border-[var(--sharp-gold)]" aria-label="Increase quantity">+</button>
+          </div>
         </div>
+
         <div class="text-right">
           <p class="font-medium">${it.line_total_display}</p>
           <button class="text-sm underline opacity-70 hover:opacity-100" data-remove="${it.id}">Remove</button>
         </div>`;
+
+      const dec = row.querySelector(".qty-dec");
+      const inc = row.querySelector(".qty-inc");
+      const inp = row.querySelector(".qty-input");
+
+      dec.addEventListener("click", () => {
+        const next = Math.max(minQ, (Number(inp.value) || minQ) - 1);
+        inp.value = next;
+        updateQty(it.id, next);
+      });
+      inc.addEventListener("click", () => {
+        const next = Math.min(maxQ, (Number(inp.value) || minQ) + 1);
+        inp.value = next;
+        updateQty(it.id, next);
+      });
+      inp.addEventListener("input", () => {
+        let v = Number(inp.value) || minQ;
+        v = Math.min(maxQ, Math.max(0, v)); // allow 0 to quick-remove
+        updateQty(it.id, v);
+      });
+
       itemsEl.appendChild(row);
     });
+
+    // Optional: unify “Remove” to qty=0 (so you don’t need a separate endpoint)
+    itemsEl.querySelectorAll("[data-remove]").forEach((btn) => {
+      btn.addEventListener("click", () => updateQty(btn.getAttribute("data-remove"), 0));
+    });
+
 
     // Use server-formatted subtotal (currency-aware)
     subtotalEl.textContent = cart.subtotal_display;
