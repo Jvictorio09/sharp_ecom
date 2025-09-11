@@ -15,6 +15,30 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags  # optional; handy if you add text fallbacks
 
 from .models import Order
+# already present:
+from django.db.models import Q, Case, When, IntegerField
+from django.utils.dateparse import parse_date
+
+# add Product import (you have this model)
+from .models import Product
+
+try:
+    from openpyxl import Workbook
+    from openpyxl.utils import get_column_letter
+    OPENPYXL_OK = True
+except Exception:
+    OPENPYXL_OK = False
+
+# PDF
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    REPORTLAB_OK = True
+except Exception:
+    REPORTLAB_OK = False
+
 
 # Use the same mail shim & money formatter you wired for Resend
 from .views import _safe_send_mail
@@ -26,6 +50,121 @@ except Exception:
             return f"{Decimal(str(val or '0')):,.2f}"
         except Exception:
             return "0.00"
+        
+def _order_items_rel_name():
+    return 'items' if any(f.name == 'items' for f in Order._meta.get_fields()) else 'orderitem_set'
+
+def _item_has_product_fk(item_model):
+    try:
+        f = item_model._meta.get_field('product')
+        return getattr(f, 'is_relation', False)
+    except Exception:
+        return False
+
+def _model_has_field(model, field_name):
+    try:
+        model._meta.get_field(field_name)
+        return True
+    except Exception:
+        return False
+
+
+def _filtered_orders_queryset(request):
+    status = (request.GET.get("status") or "all").strip().lower()
+    q      = (request.GET.get("q") or "").strip()
+    sort   = (request.GET.get("sort") or "created_desc").strip().lower()
+
+    # Product filters
+    prod_text = (request.GET.get("product") or "").strip()
+    prod_id   = (request.GET.get("product_id") or "").strip()
+
+    # Dates (inclusive)
+    date_from = parse_date(request.GET.get("from") or "")
+    date_to   = parse_date(request.GET.get("to") or "")
+
+    qs = Order.objects.all()
+
+    # Date range
+    if date_from:
+        qs = qs.filter(created_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+
+    # Status
+    valid_statuses = {k for k, _ in getattr(Order, "STATUS_CHOICES", ())}
+    if status != "all" and status in valid_statuses:
+        qs = qs.filter(status=status)
+
+    # Global search
+    if q:
+        qs = qs.filter(
+            Q(order_number__icontains=q) |
+            Q(full_name__icontains=q) |
+            Q(email__icontains=q) |
+            Q(phone__icontains=q)
+        )
+
+    # Product filtering (safe)
+    if prod_text or prod_id:
+        items_rel = _order_items_rel_name()              # 'items' in your models
+        item_model = Order._meta.get_field(items_rel).related_model
+        has_prod_fk = _item_has_product_fk(item_model)
+
+        prod_q = Q()
+
+        if prod_id and has_prod_fk:
+            try:
+                prod_q |= Q(**{f"{items_rel}__product__id": int(prod_id)})
+            except ValueError:
+                pass
+
+        if prod_text:
+            prod_q |= Q(**{f"{items_rel}__name__icontains": prod_text})
+            if has_prod_fk:
+                prod_q |= Q(**{f"{items_rel}__product__name__icontains": prod_text})
+                prod_model = item_model._meta.get_field('product').related_model
+                if _model_has_field(prod_model, 'sku'):
+                    prod_q |= Q(**{f"{items_rel}__product__sku__icontains": prod_text})
+
+        try:
+            qs = qs.filter(prod_q).distinct()
+        except Exception:
+            # super safe fallback
+            if prod_text:
+                qs = qs.filter(**{f"{items_rel}__name__icontains": prod_text}).distinct()
+
+    # Sorting
+    status_order_list = [k for k, _ in getattr(Order, "STATUS_CHOICES", ())]
+    status_case = Case(
+        *[When(status=val, then=pos) for pos, val in enumerate(status_order_list, start=1)],
+        default=len(status_order_list) + 1,
+        output_field=IntegerField(),
+    )
+
+    if sort == "status_asc":
+        qs = qs.order_by(status_case, "-created_at")
+    elif sort == "status_desc":
+        qs = qs.order_by(-status_case, "-created_at")
+    elif sort == "total_asc":
+        qs = qs.order_by("grand_total", "-created_at")
+    elif sort == "total_desc":
+        qs = qs.order_by("-grand_total", "-created_at")
+    elif sort == "created_asc":
+        qs = qs.order_by("created_at")
+    else:
+        qs = qs.order_by("-created_at")
+
+    ctxbits = {
+        "status": status,
+        "q": q,
+        "sort": sort,
+        "product": prod_text,
+        "product_id": prod_id,
+        "date_from": date_from,
+        "date_to": date_to,
+    }
+    return qs, ctxbits
+
 
 # -------------------------------------------------------------------
 # Auth gate (Django auth OR shared password)
@@ -105,58 +244,26 @@ from django.db.models import Sum, Q, Case, When, IntegerField  # make sure these
 
 @dashboard_required
 def order_list(request):
-    status = (request.GET.get("status") or "all").strip().lower()
-    q = (request.GET.get("q") or "").strip()
-    sort = (request.GET.get("sort") or "created_desc").strip().lower()
+    qs, ctxbits = _filtered_orders_queryset(request)
 
-    qs = Order.objects.all()
-
-    valid_statuses = {k for k, _ in getattr(Order, "STATUS_CHOICES", ())}
-    if status != "all" and status in valid_statuses:
-        qs = qs.filter(status=status)
-
-    if q:
-        qs = qs.filter(
-            Q(order_number__icontains=q) |
-            Q(full_name__icontains=q) |
-            Q(email__icontains=q) |
-            Q(phone__icontains=q)
-        )
-
-    status_order_list = [k for k, _ in getattr(Order, "STATUS_CHOICES", ())]
-    status_case = Case(
-        *[When(status=val, then=pos) for pos, val in enumerate(status_order_list, start=1)],
-        default=len(status_order_list) + 1,
-        output_field=IntegerField(),
+    # supply products for the dropdown
+    products = list(
+        Product.objects.filter(is_active=True)
+        .order_by('name')
+        .values('id', 'name')[:1000]   # cap for safety; adjust if needed
     )
-
-    if sort == "status_asc":
-        qs = qs.order_by(status_case, "-created_at")
-    elif sort == "status_desc":
-        qs = qs.order_by(-status_case, "-created_at")
-    elif sort == "total_asc":
-        qs = qs.order_by("grand_total", "-created_at")
-    elif sort == "total_desc":
-        qs = qs.order_by("-grand_total", "-created_at")
-    elif sort == "created_asc":
-        qs = qs.order_by("created_at")
-    else:
-        qs = qs.order_by("-created_at")  # default
 
     ctx = {
         "orders": qs[:200],
-        "status": status,
-        "q": q,
-        "sort": sort,
         "order_statuses": [k for k, _ in getattr(Order, "STATUS_CHOICES", ())],
+        "products": products,
+        **ctxbits,
     }
 
-    # If it's an AJAX request, return just the table HTML
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         return render(request, "dashboard/_orders_table.html", ctx)
-
-    # Otherwise render the full page
     return render(request, "dashboard/orders.html", ctx)
+
 
 
 @dashboard_required
@@ -261,43 +368,109 @@ def order_summary_json(request, order_number):
 @require_POST
 def order_update(request, order_number):
     """
-    Update status/tracking/notes.
-    Triggers a customer email when status or tracking changed.
+    Update status / tracking / notes (and cancellation reasons).
+    - If moving to 'canceled', a cancel_reason is REQUIRED.
+    - If cancel_reason is provided even without a status change, we'll persist it.
+    - If your OrderItem has `cancel_reason`, you can pass item-level reasons via
+      inputs named `item_reason_<item.id>`; they'll be saved when present.
     """
     order = get_object_or_404(Order, order_number=order_number)
 
-    new_status = request.POST.get("status", order.status)
-    new_tracking = (request.POST.get("tracking") or "").strip()
-    new_notes = (request.POST.get("notes") or "").strip()
-    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or "/dashboard/"
+    new_status    = request.POST.get("status", order.status)
+    new_tracking  = (request.POST.get("tracking") or "").strip()
+    new_notes     = (request.POST.get("notes") or "").strip()
+    cancel_reason = (request.POST.get("cancel_reason") or "").strip()   # NEW
+    next_url      = request.POST.get("next") or request.META.get("HTTP_REFERER") or "/dashboard/"
 
-    valid_statuses = dict(getattr(Order, "STATUS_CHOICES", ())).keys()
+    # Validate status
+    valid_statuses = {k for k, _ in getattr(Order, "STATUS_CHOICES", ())}
     if new_status not in valid_statuses:
         messages.error(request, "Invalid status.")
         return redirect(next_url)
 
-    status_changed = (order.status != new_status)
-    tracking_changed = (getattr(order, "tracking_number", "") or "") != new_tracking
-    notes_changed = (order.notes or "") != new_notes
+    # If transitioning into 'canceled', require a reason
+    transitioning_to_canceled = (order.status != "canceled" and new_status == "canceled")
+    if transitioning_to_canceled and not cancel_reason:
+        # As a softer fallback, accept any provided item-level reasons as satisfying the requirement
+        # (in case you capture reasons per product). If none found, block the update.
+        has_item_reason = False
+        try:
+            items_qs = order.items.all() if hasattr(order, "items") else order.orderitem_set.all()
+            for it in items_qs:
+                val = (request.POST.get(f"item_reason_{it.id}") or "").strip()
+                if val:
+                    has_item_reason = True
+                    break
+        except Exception:
+            pass
 
-    # Apply
+        if not has_item_reason:
+            messages.error(request, "Please provide a reason for cancelling this order.")
+            return redirect(next_url)
+
+    # Detect changes
+    status_changed   = (order.status != new_status)
+    tracking_changed = (getattr(order, "tracking_number", "") or "") != new_tracking
+    notes_changed    = (order.notes or "") != new_notes
+
+    # Apply core fields
     order.status = new_status
     if hasattr(order, "tracking_number"):
         order.tracking_number = new_tracking
     order.notes = new_notes
 
-    if status_changed or tracking_changed or notes_changed:
+    # Persist order-level cancel_reason if:
+    # - we are transitioning to canceled (required above), OR
+    # - a value was provided (even if status didn't change)
+    if cancel_reason or transitioning_to_canceled:
+        # keep the latest non-empty reason; if empty and not transitioning, don't overwrite existing
+        if cancel_reason:
+            # Make sure your Order model has `cancel_reason` (TextField blank=True)
+            if hasattr(order, "cancel_reason"):
+                order.cancel_reason = cancel_reason
+
+    # Save now if any changed (status/tracking/notes or cancel_reason change)
+    dirty = status_changed or tracking_changed or notes_changed
+    # Consider cancel_reason as a change if provided and field exists
+    if hasattr(order, "cancel_reason") and cancel_reason and (order.cancel_reason != cancel_reason):
+        dirty = True
+
+    if dirty:
         order.save()
         messages.success(request, f"Order {order.order_number} updated.")
-
-        # Optional notify checkbox support (defaults to True if either status/tracking changed)
-        notify_flag = request.POST.get("notify", "on").lower() not in ("", "0", "false", "off")
-        if order.email and notify_flag and (status_changed or tracking_changed):
-            _email_order_status_update(request, order, status_changed=status_changed, tracking_changed=tracking_changed)
     else:
         messages.info(request, "No changes made.")
 
+    # Optional: save per-item cancellation reasons when provided
+    # (safe even if your OrderItem doesn't have cancel_reason)
+    saved_item_notes = False
+    try:
+        items_qs = order.items.all() if hasattr(order, "items") else order.orderitem_set.all()
+        for it in items_qs:
+            key = f"item_reason_{it.id}"
+            val = (request.POST.get(key) or "").strip()
+            if val and hasattr(it, "cancel_reason"):
+                if (it.cancel_reason or "") != val:
+                    it.cancel_reason = val
+                    it.save(update_fields=["cancel_reason"])
+                    saved_item_notes = True
+    except Exception:
+        # Don't block the flow if item-level saving fails
+        pass
+    if saved_item_notes:
+        messages.info(request, "Saved item-level cancellation notes.")
+
+    # Notify customer if enabled and if status or tracking changed
+    notify_flag = request.POST.get("notify", "on").lower() not in ("", "0", "false", "off")
+    if order.email and notify_flag and (status_changed or tracking_changed):
+        _email_order_status_update(
+            request, order,
+            status_changed=status_changed,
+            tracking_changed=tracking_changed
+        )
+
     return redirect(next_url)
+
 
 def _email_order_status_update(request, order, status_changed=True, tracking_changed=False):
     """
@@ -341,13 +514,38 @@ def _email_order_status_update(request, order, status_changed=True, tracking_cha
     if not ok:
         messages.warning(request, "Order updated, but we couldn’t send the status email. We’ll resend shortly.")
 
+from django.urls import reverse
+
 @dashboard_required
 @require_POST
 def order_delete(request, order_number):
-    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or "/dashboard/"
-    get_object_or_404(Order, order_number=order_number).delete()
+    """
+    Delete a single order.
+    - Requires a cancel_reason (so you keep context).
+    - Stores the reason on the order before deletion (if `cancel_reason` field exists).
+    - Always redirects to dashboard_home after delete.
+    """
+    reason = (request.POST.get("cancel_reason") or "").strip()
+    if not reason:
+        messages.error(request, "Please provide a reason for deletion.")
+        # send them back to where they came from, or to the detail page if available
+        return redirect(
+            request.META.get("HTTP_REFERER")
+            or reverse("dashboard_order_detail", args=[order_number])
+        )
+
+    order = get_object_or_404(Order, order_number=order_number)
+
+    # Persist the reason for audit before delete (if your model has the field)
+    if hasattr(order, "cancel_reason"):
+        order.cancel_reason = reason
+        order.save(update_fields=["cancel_reason"])
+
+    order.delete()
     messages.info(request, f"Order {order_number} deleted.")
-    return redirect(next_url)
+
+    # ✅ Always go to dashboard home after deletion
+    return redirect(reverse("dashboard_home"))
 
 
 
@@ -379,3 +577,184 @@ def order_bulk_delete(request):
     qs.delete()  # cascades to items; that's fine
     messages.success(request, f"Deleted {count} order(s).")
     return redirect(next_url)
+
+
+
+from io import BytesIO
+from django.http import HttpResponse
+from django.utils import timezone
+from django.db.models import Q
+
+@dashboard_required
+def order_export(request):
+    """
+    Export filtered orders as Excel (.xlsx) or PDF.
+    Rows are per line-item (order can appear multiple times).
+    Filters honored: status, sort, q, from, to, product, product_id
+    """
+    export_fmt = (request.GET.get("export") or "excel").lower()
+    qs, _ = _filtered_orders_queryset(request)
+
+    # Prefetch items (+ product if FK exists)
+    items_rel = _order_items_rel_name()
+    item_model = Order._meta.get_field(items_rel).related_model
+    has_prod_fk = _item_has_product_fk(item_model)
+    prefetch_path = f"{items_rel}__product" if has_prod_fk else items_rel
+    qs = qs.prefetch_related(prefetch_path)
+
+    prod_text = (request.GET.get("product") or "").strip()
+    prod_id   = (request.GET.get("product_id") or "").strip()
+
+    # Build flat rows (one row per item)
+    rows = []
+    for order in qs[:5000]:  # safety cap
+        items_mgr = getattr(order, "items", None)
+        items_qs = items_mgr.all() if hasattr(items_mgr, "all") else order.orderitem_set.all()
+
+        # If product filter applied, narrow items for this order too (export should match list)
+        if prod_text or prod_id:
+            try:
+                if prod_id and has_prod_fk:
+                    items_qs = items_qs.filter(product_id=int(prod_id))
+            except ValueError:
+                pass
+            if prod_text:
+                name_q = Q(name__icontains=prod_text)
+                if has_prod_fk:
+                    name_q |= Q(product__name__icontains=prod_text)
+                    # SKU optional
+                    prod_model = item_model._meta.get_field('product').related_model
+                    if _model_has_field(prod_model, 'sku'):
+                        name_q |= Q(product__sku__icontains=prod_text)
+                items_qs = items_qs.filter(name_q)
+
+        for it in items_qs:
+            item_name = (getattr(it, "name", None) or
+                         getattr(getattr(it, "product", None), "name", None) or "")[:255]
+            sku = getattr(getattr(it, "product", None), "sku", "") or ""
+            qty = int(getattr(it, "quantity", 0) or 0)
+            unit_display = _money(getattr(it, "unit_price", 0) or 0, request)
+            line_display = _money(getattr(it, "line_total", 0) or 0, request)
+
+            try:
+                status_label = order.get_status_display()
+            except Exception:
+                status_label = (order.status or "").title()
+
+            rows.append({
+                "Order #": order.order_number,
+                "Date": timezone.localtime(order.created_at).strftime("%Y-%m-%d %H:%M"),
+                "Status": status_label,
+                "Customer": order.full_name or "",
+                "Email": order.email or "",
+                "Phone": order.phone or "",
+                "Item": item_name,
+                "SKU": sku,
+                "Qty": qty,
+                "Unit Price": unit_display,
+                "Line Total": line_display,
+                "Grand Total": _money(order.grand_total or 0, request),
+            })
+
+    if export_fmt == "pdf":
+        return _export_pdf(rows)
+
+    # default: Excel
+    return _export_xlsx(rows)
+
+
+def _export_xlsx(rows):
+    """
+    Build and return an .xlsx response.
+    If openpyxl isn't installed, return a 400 with a friendly message.
+    """
+    try:
+        from openpyxl import Workbook
+        from openpyxl.utils import get_column_letter
+    except Exception:
+        return HttpResponse(
+            "Excel export is not available (openpyxl not installed). "
+            "Add 'openpyxl' to requirements.",
+            status=400
+        )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Orders"
+
+    headers = ["Order #","Date","Status","Customer","Email","Phone","Item","SKU","Qty","Unit Price","Line Total","Grand Total"]
+    ws.append(headers)
+    for r in rows:
+        ws.append([r.get(h, "") for h in headers])
+
+    # autosize
+    for col_idx, h in enumerate(headers, start=1):
+        max_len = max(
+            [len(str(h))] +
+            [len(str(ws.cell(row=i, column=col_idx).value or "")) for i in range(1, ws.max_row+1)]
+        )
+        ws.column_dimensions[get_column_letter(col_idx)].width = min(50, max_len + 2)
+
+    stream = BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+
+    resp = HttpResponse(
+        stream.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    resp["Content-Disposition"] = 'attachment; filename="orders.xlsx"'
+    return resp
+
+
+def _export_pdf(rows):
+    """
+    Build and return a PDF response.
+    If reportlab isn't installed, return a 400 with a friendly message.
+    """
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet
+    except Exception:
+        return HttpResponse(
+            "PDF export is not available (reportlab not installed). "
+            "Add 'reportlab' to requirements.",
+            status=400
+        )
+
+    buff = BytesIO()
+    doc = SimpleDocTemplate(
+        buff, pagesize=landscape(A4),
+        leftMargin=18, rightMargin=18, topMargin=24, bottomMargin=24
+    )
+
+    styles = getSampleStyleSheet()
+    story = [Paragraph("Orders Export", styles["Title"]), Spacer(1, 8)]
+
+    headers = ["Order #","Date","Status","Customer","Email","Phone","Item","SKU","Qty","Unit Price","Line Total","Grand Total"]
+    data = [headers]
+    for r in rows:
+        data.append([str(r.get(h, "")) for h in headers])
+
+    table = Table(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#263128")),
+        ("TEXTCOLOR",  (0,0), (-1,0), colors.white),
+        ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE",   (0,0), (-1,0), 10),
+        ("GRID",       (0,0), (-1,-1), 0.25, colors.HexColor("#E1E1E1")),
+        ("FONTSIZE",   (0,1), (-1,-1), 8),
+        ("VALIGN",     (0,0), (-1,-1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.whitesmoke, colors.HexColor("#F7F7F7")]),
+    ]))
+
+    story.append(table)
+    doc.build(story)
+
+    pdf = buff.getvalue()
+    buff.close()
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = 'attachment; filename="orders.pdf"'
+    return resp

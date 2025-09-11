@@ -108,6 +108,7 @@ class Order(models.Model):
     order_number = models.CharField(max_length=20, unique=True, editable=False)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+    cancel_reason = models.TextField(blank=True, default="")
 
     # Customer
     full_name = models.CharField(max_length=120)
@@ -162,7 +163,8 @@ class OrderItem(models.Model):
     )
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     line_total = models.DecimalField(max_digits=12, decimal_places=2)
-
+    cancel_reason = models.TextField(blank=True, default="")
+    
     class Meta:
         indexes = [
             models.Index(fields=["order"]),

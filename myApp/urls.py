@@ -42,8 +42,6 @@ urlpatterns = [
     path("dashboard/orders/", dash.order_list, name="dashboard_order_list"),
     path("dashboard/order/<str:order_number>/", dash.order_detail, name="dashboard_order_detail"),
 
-    # JSON for modal
-    path("dashboard/order/json/<str:order_number>/", dash.order_summary_json, name="dashboard_order_summary_json"),
 
     # Update/Delete
     path("dashboard/order/update/<str:order_number>/", dash.order_update, name="dashboard_order_update"),
@@ -57,5 +55,9 @@ urlpatterns = [
         dash.order_bulk_delete,
         name="dashboard_order_bulk_delete",
     ),
+
+    # urls.py
+    path("dashboard/orders/export/", dash.order_export, name="order_export"),
+
      
 ]

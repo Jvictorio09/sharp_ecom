@@ -1,6 +1,10 @@
 {% extends "dashboard/base_dashboard.html" %}
 {% block content %}
-<form id="ordersFilter" method="get" class="flex flex-wrap items-end gap-3 mb-4">
+<form id="ordersFilter"
+      method="get"
+      data-export-url="{% url 'order_export' %}"
+      class="flex flex-wrap items-end gap-3 mb-4">
+
   <div>
     <label class="text-xs">Status</label>
     <select name="status" class="block mt-1 px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white">
@@ -23,15 +27,59 @@
     </select>
   </div>
 
+  <div>
+    <label class="text-xs">From</label>
+    <input type="date" name="from" value="{{ date_from|date:'Y-m-d' }}"
+           class="block mt-1 px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white">
+  </div>
+
+  <div>
+    <label class="text-xs">To</label>
+    <input type="date" name="to" value="{{ date_to|date:'Y-m-d' }}"
+           class="block mt-1 px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white">
+  </div>
+
+  <!-- Product: dropdown (exact match) + optional free-text (name/SKU) -->
+  <div class="min-w-[260px]">
+    <label class="text-xs">Product</label>
+    <select name="product_id"
+            class="block w-full mt-1 px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white">
+      <option value="">All products</option>
+      {% if products %}
+        {% for p in products %}
+          <option value="{{ p.id }}"
+                  {% if product_id|default:''|stringformat:'s' == p.id|stringformat:'s' %}selected{% endif %}>
+            {{ p.name }}
+          </option>
+        {% endfor %}
+      {% endif %}
+    </select>
+    <div class="text-[11px] mt-1 opacity-70">
+      or type: 
+      <input name="product" value="{{ product|default_if_none:'' }}" placeholder="Name / SKU"
+             class="inline-block w-[190px] px-3 py-1 rounded-lg border border-[#E1E1E1] bg-white" />
+    </div>
+  </div>
+
   <div class="flex-1 min-w-[200px]">
     <label class="text-xs">Search</label>
-    <input name="q" value="{{ q }}" placeholder="Order #, name, email, phone"
+    <input name="q" value="{{ q|default_if_none:'' }}" placeholder="Order #, name, email, phone"
            class="block w-full mt-1 px-4 py-2 rounded-xl border border-[#E1E1E1] bg-white" />
   </div>
 
-  <button class="px-5 py-2 rounded-full text-white bg-[var(--sharp-mineral)] hover:bg-[var(--sharp-hunter)]">
-    Apply
-  </button>
+  <div class="flex items-center gap-2 mt-2">
+    <button class="px-5 py-2 rounded-full text-white bg-[var(--sharp-mineral)] hover:bg-[var(--sharp-hunter)]">
+      Apply
+    </button>
+
+    <!-- Export (real downloads; not AJAX) -->
+    <a id="exportXlsx"
+       class="px-4 py-2 rounded-full border border-[#E1E1E1] bg-white hover:border-[var(--sharp-mineral)]"
+       href="#">Export Excel</a>
+    <a id="exportPdf"
+       class="px-4 py-2 rounded-full border border-[#E1E1E1] bg-white hover:border-[var(--sharp-mineral)]"
+       href="#">Export PDF</a>
+  </div>
 </form>
 
 <div id="ordersTable">
@@ -42,44 +90,53 @@
 (function () {
   const form = document.getElementById('ordersFilter');
   const container = document.getElementById('ordersTable');
+  const xlsxBtn = document.getElementById('exportXlsx');
+  const pdfBtn  = document.getElementById('exportPdf');
+  const exportBase = form?.dataset?.exportUrl || '/dashboard/orders/export/';
 
-  // Fallback: if either missing, do nothing (plain GET will still work)
   if (!form || !container) return;
 
-  const debounce = (fn, ms=350) => {
-    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-  };
+  const debounce = (fn, ms=350) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; };
+  const buildQuery = () => new URLSearchParams(new FormData(form));
+
+  function setExportLinks() {
+    if (!xlsxBtn || !pdfBtn) return;
+    const params = buildQuery();
+    params.set('export', 'excel');
+    xlsxBtn.href = exportBase + '?' + params.toString();
+    params.set('export', 'pdf');
+    pdfBtn.href  = exportBase + '?' + params.toString();
+  }
 
   function loadViaAjax() {
-    const params = new URLSearchParams(new FormData(form));
+    const params = buildQuery();
     const url = window.location.pathname + '?' + params.toString();
     fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
       .then(html => {
         container.innerHTML = html;
-        // Update querystring so refresh/bookmark keeps the filter
         history.replaceState(null, '', url);
+        setExportLinks(); // keep export links in sync after results update
       })
-      .catch(() => {
-        // graceful fallback: full GET
-        window.location.href = url;
-      });
+      .catch(() => { window.location.href = url; });
   }
 
-  // Submit button → AJAX
-  form.addEventListener('submit', function (e) {
-    e.preventDefault();
-    loadViaAjax();
+  // AJAX triggers
+  form.addEventListener('submit', (e) => { e.preventDefault(); loadViaAjax(); });
+  form.querySelectorAll('select').forEach(sel => sel.addEventListener('change', loadViaAjax));
+  ['q','product'].forEach(name => {
+    const el = form.querySelector(`[name="${name}"]`);
+    if (el) el.addEventListener('input', debounce(loadViaAjax, 400));
+  });
+  ['from','to'].forEach(name => {
+    const el = form.querySelector(`[name="${name}"]`);
+    if (el) el.addEventListener('change', loadViaAjax);
   });
 
-  // Auto-run on filter change
-  form.querySelectorAll('select').forEach(sel => {
-    sel.addEventListener('change', loadViaAjax);
-  });
-
-  // Debounced search
-  const q = form.querySelector('input[name="q"]');
-  if (q) q.addEventListener('input', debounce(loadViaAjax, 400));
+  // Keep export links live as user edits
+  form.addEventListener('input', setExportLinks);
+  form.addEventListener('change', setExportLinks);
+  setExportLinks();
 })();
 </script>
 {% endblock %}
