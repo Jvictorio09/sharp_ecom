@@ -1,101 +1,190 @@
+<!-- ============ SHARP — WhatsApp Floater (Classy Edition) ============ -->
 <a id="waFloat"
    class="wa-wrap fixed bottom-6 right-6 z-[90]"
    href="#"
    target="_blank" rel="noopener nofollow"
    aria-label="Chat on WhatsApp"
-   data-wa="971795003006"
-   data-text="Hi SHARP! I have a quick question about your hair products.">
+   data-wa="962795003006"                
+   data-text="Hi SHARP! I have a quick question about your hair products."
+   data-country="auto"                    
+   data-accent="#263128"                  
+   data-size="56"                        
+   data-position="bottom-right"           
+   data-quiet="false">                   
 
-  <!-- Ambient glow behind the coin (very soft) -->
+  <!-- Ambient glow (subtle) -->
   <span class="wa-ambient" aria-hidden="true"></span>
 
-  <!-- The coin -->
+  <!-- Coin -->
   <span class="wa-coin" aria-hidden="true">
-    <span class="wa-ring"></span>
+    <span class="wa-glass"></span>
     <span class="wa-face">
-      <svg viewBox="0 0 32 32" class="wa-ico" aria-hidden="true">
+      <svg viewBox="0 0 32 32" class="wa-ico" aria-hidden="true" focusable="false">
         <path d="M19.11 17.13c-.27-.14-1.61-.79-1.86-.88-.25-.09-.43-.14-.61.14-.18.27-.7.88-.86 1.06-.16.18-.32.2-.59.07-.27-.14-1.14-.42-2.17-1.34-.8-.71-1.34-1.58-1.5-1.85-.16-.27-.02-.41.12-.55.12-.12.27-.32.41-.48.14-.16.18-.27.27-.45.09-.18.05-.34-.02-.48-.07-.14-.61-1.47-.84-2.01-.22-.53-.45-.46-.61-.47-.16-.01-.34-.01-.52-.01-.18 0-.48.07-.73.34-.25.27-.96.94-.96 2.29s.99 2.66 1.12 2.84c.14.18 1.95 2.98 4.72 4.17.66.28 1.18.45 1.58.58.66.21 1.26.18 1.73.11.53-.08 1.61-.66 1.84-1.3.23-.64.23-1.18.16-1.3-.07-.12-.25-.2-.52-.34zM16 3.2C9.5 3.2 4.2 8.51 4.2 15c0 2.09.56 4.04 1.54 5.72L4 28l7.48-1.96A11.74 11.74 0 0 0 16 26.8c6.5 0 11.8-5.31 11.8-11.8S22.5 3.2 16 3.2z"/>
       </svg>
     </span>
   </span>
+
+  <!-- Assistive label (visible on focus/hover) -->
+  <span class="wa-label">WhatsApp</span>
 </a>
 
 <style>
-/* ---- Layout ---- */
-.wa-wrap { display:inline-block; }
+/* ===== Variables ===== */
+:root {
+  --wa-size: 56px;
+  --wa-accent: #263128;   /* SHARP deep green */
+  --wa-green: #25D366;    /* WhatsApp core */
+  --wa-green-2: #1abb55;  /* gradient */
+  --wa-ring: rgba(255,255,255,.85);
+  --wa-shadow-a: 0 12px 30px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.10);
+  --wa-shadow-b: 0 18px 40px rgba(0,0,0,.18), 0 3px 10px rgba(0,0,0,.12);
+}
+
+/* ===== Layout ===== */
+.wa-wrap { display:inline-grid; position:fixed; gap:8px; }
 .wa-coin {
   position: relative;
-  display: grid;
-  place-items: center;
-  width: 56px; height: 56px;
-  border-radius: 9999px;
-  transform: translateZ(0);
+  display: grid; place-items: center;
+  width: var(--wa-size); height: var(--wa-size);
+  border-radius: 9999px; transform: translateZ(0);
   transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
-  box-shadow:
-    0 12px 30px rgba(0,0,0,.12),
-    0 2px 6px rgba(0,0,0,.10);
-  background: #fff;
+  box-shadow: var(--wa-shadow-a);
 }
-.wa-ring {
-  position:absolute; inset: 4px;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 2px rgba(255,255,255,.9), inset 0 0 0 1px rgba(0,0,0,.04);
+.wa-glass {
+  position:absolute; inset:0; border-radius:inherit;
   background:
-    radial-gradient(120% 120% at 30% 30%, rgba(255,255,255,.9), rgba(255,255,255,.8) 40%, rgba(255,255,255,.6) 60%, rgba(255,255,255,.4) 100%);
+    linear-gradient(180deg, rgba(255,255,255,.45), rgba(255,255,255,.15));
+  backdrop-filter: blur(6px) saturate(1.05);
+  -webkit-backdrop-filter: blur(6px) saturate(1.05);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), inset 0 -1px 0 rgba(0,0,0,.04);
 }
 .wa-face {
-  position:absolute; inset: 6px;
-  border-radius: inherit;
-  background:
-    radial-gradient(120% 140% at 30% 20%, #34e27a, #25D366 55%, #1abb55 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.65),
-    inset 0 -2px 6px rgba(0,0,0,.10);
+  position:absolute; inset: 6px; border-radius: inherit;
+  background: radial-gradient(120% 140% at 30% 20%, var(--wa-green), var(--wa-green-2) 58%, #109b45 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.65), inset 0 -2px 6px rgba(0,0,0,.10);
   display:grid; place-items:center;
 }
-.wa-ico { width: 22px; height: 22px; fill: #fff; filter: drop-shadow(0 1px 0 rgba(0,0,0,.10)); }
+.wa-ico { width: calc(var(--wa-size) * .40); height: calc(var(--wa-size) * .40); fill: #fff; filter: drop-shadow(0 1px 0 rgba(0,0,0,.10)); }
 
-/* Ambient glow with calm wave pulse */
+/* Ambient glow */
 .wa-ambient {
-  position:absolute; inset: -14px;
+  position:absolute; inset: calc(var(--wa-size) * -.25);
   border-radius: 9999px;
   background: radial-gradient(60% 60% at 50% 50%, rgba(37,211,102,.35), rgba(37,211,102,0) 70%);
-  filter: blur(8px);
-  opacity: .65;
-  pointer-events:none;
+  filter: blur(10px);
+  opacity: .55; pointer-events:none;
   animation: waWave 4s ease-in-out infinite;
 }
 
-@keyframes waWave {
-  0%, 100% { opacity:.55; transform: scale(1); }
-  50%      { opacity:.25; transform: scale(1.15); }
+/* Label (classy micro-pill) */
+.wa-label {
+  justify-self: center;
+  font-size: 12px; letter-spacing:.02em;
+  background: color-mix(in oklab, var(--wa-accent) 12%, white 88%);
+  color: color-mix(in oklab, var(--wa-accent) 85%, black 15%);
+  padding: 6px 10px; border-radius: 9999px;
+  opacity: 0; transform: translateY(6px);
+  transition: opacity .18s ease, transform .18s ease;
+  border: 1px solid rgba(0,0,0,.06);
 }
 
-/* Hover / Active */
-.wa-wrap:hover .wa-coin { transform: translateY(-1px); }
-.wa-wrap:active .wa-coin { transform: translateY(0); }
-.wa-wrap:hover .wa-ambient { opacity:.8; }
+/* Motion */
+@keyframes waWave { 0%,100%{opacity:.48; transform: scale(1)} 50%{opacity:.22; transform: scale(1.12)} }
+.wa-wrap:hover .wa-coin { transform: translateY(-1px); box-shadow: var(--wa-shadow-b);}
+.wa-wrap:hover .wa-ambient { opacity:.75; }
+.wa-wrap:hover .wa-label, .wa-wrap:focus-within .wa-label { opacity:1; transform: translateY(0); }
 
-/* Respect reduced motion */
+/* Focus ring */
+#waFloat:focus-visible .wa-coin { outline: 3px solid color-mix(in oklab, var(--wa-accent) 55%, #fff 45%); outline-offset: 3px; border-radius: 9999px; }
+
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .wa-ambient { animation: none !important; }
+  .wa-wrap * { transition: none !important; }
 }
 
 /* Dark mode */
 @media (prefers-color-scheme: dark) {
-  .wa-coin { box-shadow: 0 16px 36px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.25); }
+  .wa-label {
+    background: color-mix(in oklab, var(--wa-accent) 75%, black 25%);
+    color: #f8fafc;
+    border-color: rgba(255,255,255,.08);
+  }
   .wa-ambient { opacity: .75; }
 }
 
+/* Safe-area padding (iOS) */
+@supports (padding: max(0px)) {
+  .wa-wrap { 
+    padding-bottom: max(0px, env(safe-area-inset-bottom)); 
+    padding-right:  max(0px, env(safe-area-inset-right));
+    padding-left:   max(0px, env(safe-area-inset-left));
+  }
+}
+
+/* Position helper */
+.wa-wrap[data-pos="bottom-left"] { right:auto; left: 1.5rem; }
 </style>
 
 <script>
-  (function () {
-    const el = document.getElementById('waFloat');
-    if (!el) return;
-    const raw = (el.getAttribute('data-wa') || '').replace(/\D+/g, '');
-    const msg = encodeURIComponent(el.getAttribute('data-text') || '');
-    const link = raw ? `https://wa.me/${raw}${msg ? ('?text=' + msg) : ''}` : '#';
-    el.setAttribute('href', link);
-  })();
+(() => {
+  const el = document.getElementById('waFloat');
+  if (!el) return;
+
+  // ====== Config from data-* ======
+  const rawInput   = (el.getAttribute('data-wa') || '').trim();
+  const preset     = (el.getAttribute('data-country') || 'auto').toUpperCase();
+  const msg        = encodeURIComponent(el.getAttribute('data-text') || '');
+  const size       = Math.max(44, Math.min(72, parseInt(el.getAttribute('data-size') || '56', 10)));
+  const accent     = el.getAttribute('data-accent') || '#263128';
+  const pos        = (el.getAttribute('data-position') || 'bottom-right').toLowerCase();
+  const quiet      = (el.getAttribute('data-quiet') || 'false').toLowerCase() === 'true';
+
+  // Apply size & accent
+  document.documentElement.style.setProperty('--wa-size', size + 'px');
+  document.documentElement.style.setProperty('--wa-accent', accent);
+  if (pos === 'bottom-left') el.setAttribute('data-pos', 'bottom-left');
+  if (quiet) el.querySelector('.wa-ambient')?.remove();
+
+  // ====== Normalize phone to E.164 ======
+  // Accepts:
+  //  - E.164 (e.g., 9627xxxxxxxx)
+  //  - Local JO mobile: 07xxxxxxxx → 9627xxxxxxxx
+  //  - Local AE mobile: 05xxxxxxxx → 9715xxxxxxxx
+  function normalize(input) {
+    const digits = (input || '').replace(/\D+/g, '');
+    if (!digits) return '';
+
+    // Already E.164-ish
+    if (/^(971|962)\d{7,13}$/.test(digits)) return digits;
+
+    // Force by preset
+    if (preset === 'JO' && /^0?7\d{8}$/.test(digits)) return '962' + digits.replace(/^0/, '');
+    if (preset === 'AE' && /^0?5\d{8}$/.test(digits)) return '971' + digits.replace(/^0/, '');
+
+    // Auto-detect (prefer Jordan if 07…; UAE if 05…)
+    if (preset === 'AUTO') {
+      if (/^0?7\d{8}$/.test(digits)) return '962' + digits.replace(/^0/, '');
+      if (/^0?5\d{8}$/.test(digits)) return '971' + digits.replace(/^0/, '');
+    }
+
+    // Fallback: if it starts with country code-like
+    if (/^\d{10,15}$/.test(digits)) return digits;
+    return '';
+  }
+
+  const phone = normalize(rawInput);
+  const href  = phone ? `https://wa.me/${phone}${msg ? ('?text=' + msg) : ''}` : '#';
+  el.setAttribute('href', href);
+
+  // ====== Small analytics hook (optional) ======
+  el.addEventListener('click', () => {
+    try {
+      window.dataLayer?.push({ event: 'wa_click', phone, location: pos });
+    } catch(_) {}
+  }, { passive:true });
+
+})();
 </script>
+<!-- ============ /WhatsApp Floater ============ -->
