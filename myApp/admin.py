@@ -81,3 +81,26 @@ class PostAdmin(admin.ModelAdmin):
     list_display = ("title","published_at")
     prepopulated_fields = {"slug": ("title",)}
     inlines = [BlockInline]
+
+
+from django.contrib import admin
+from django.utils.html import format_html
+from .models import Subscriber
+
+@admin.register(Subscriber)
+class SubscriberAdmin(admin.ModelAdmin):
+    @admin.display(description="Status")
+    def status_badge(self, obj):
+        active = obj.unsubscribed_at is None
+        if active and obj.is_confirmed:
+            color, label = "#0ea5e9", "Active • confirmed"
+        elif active:
+            color, label = "#22c55e", "Active"
+        else:
+            color, label = "#ef4444", "Unsubscribed"
+        return format_html('<span style="padding:.2em .6em;border-radius:999px;background:{}20;color:{};font-size:12px;">{}</span>', color, color, label)
+
+    list_display = ("email", "name", "status_badge", "source", "created_at")
+    list_filter  = ("source", "is_confirmed", "created_at")
+    search_fields = ("email", "name", "ua")
+    ordering = ("-created_at",)

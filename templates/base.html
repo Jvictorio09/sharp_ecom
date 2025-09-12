@@ -407,20 +407,77 @@
             <p class="mt-3 text-sm opacity-80 max-w-xs">
               Essential care, perfectly considered.
             </p>
-            <form class="mt-6 flex gap-2" onsubmit="event.preventDefault(); alert('Welcome to the circle.');">
-              <input
-                type="email"
-                required
-                placeholder="Email address"
-                class="w-full px-4 py-3 rounded-full border border-line bg-white focus:outline-none focus:ring-2 ring-gold"
-              />
-              <button
-                class="btn px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]"
-              >
-                Join
-              </button>
-            </form>
+            <form id="newsletterForm" class="mt-6 flex gap-2">
+  {% csrf_token %}
+  <input
+    type="email"
+    name="email"
+    required
+    placeholder="Email address"
+    class="w-full px-4 py-3 rounded-full border border-line bg-white focus:outline-none focus:ring-2 ring-gold"
+  />
+  <!-- optional name -->
+  <input type="text" name="name" placeholder="Name (optional)" class="hidden" />
+
+  <!-- Honeypot (hidden from humans) -->
+  <input type="text" name="company" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true"/>
+
+  <button
+    class="btn px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]"
+  >
+    Join
+  </button>
+</form>
+
+<p id="newsletterMsg" class="mt-2 text-sm text-ink/70"></p>
+
           </div>
+
+          <script>
+(() => {
+  const form = document.getElementById("newsletterForm");
+  if (!form) return;
+  const msg  = document.getElementById("newsletterMsg");
+  const btn  = form.querySelector("button");
+  const csrf = form.querySelector('input[name="csrfmiddlewaretoken"]')?.value || "";
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    msg.textContent = "";
+    btn.disabled = true;
+
+    const fd = new FormData(form);
+    fd.set("source", "footer_form"); // tag this source
+
+    try {
+      const res = await fetch("{% url 'subscribe_create' %}", {
+        method: "POST",
+        headers: { "X-CSRFToken": csrf, "Accept": "application/json" },
+        body: fd,
+        credentials: "same-origin",
+      });
+
+      const ct = res.headers.get("content-type") || "";
+      const data = ct.includes("application/json") ? await res.json() : { ok:false, error:"Unexpected response" };
+
+      if (res.ok && data.ok) {
+        form.reset();
+        msg.textContent = "Welcome to the circle. Check your inbox for updates ✨";
+        msg.className = "mt-2 text-sm text-green-700";
+      } else {
+        msg.textContent = data.error || "Something went wrong. Please try again.";
+        msg.className = "mt-2 text-sm text-red-700";
+      }
+    } catch (err) {
+      msg.textContent = "Network hiccup. Please try again.";
+      msg.className = "mt-2 text-sm text-red-700";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
+
 
           <!-- Shop -->
           <div>

@@ -1483,3 +1483,73 @@ def blog_detail(request, slug):
 def blog_index(request):
     posts = Post.objects.order_by("-published_at")
     return render(request, "blog/post_list.html", {"posts": posts})
+
+
+import json, re
+from django.http import JsonResponse, HttpResponseNotAllowed
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
+from django.utils import timezone
+from django.core.cache import cache
+from .models import Subscriber
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+def _client_ip(request):
+    xff = request.META.get("HTTP_X_FORWARDED_FOR")
+    return (xff.split(",")[0].strip() if xff else request.META.get("REMOTE_ADDR"))
+
+@require_POST
+@csrf_protect
+def subscribe_create(request):
+    """
+    Create (or 'upsert') a subscriber. Idempotent on email.
+    Accepts form-encoded or JSON. Returns JSON.
+    Simple rate-limit: 1 hit / 5s per IP.
+    """
+    ip = _client_ip(request) or "0.0.0.0"
+    key = f"subrl:{ip}"
+    if cache.get(key):
+        return JsonResponse({"ok": False, "error": "Too many requests, please try again in a moment."}, status=429)
+    cache.set(key, 1, 5)
+
+    # Parse body
+    if request.content_type and "application/json" in request.content_type:
+        try:
+            body = json.loads(request.body.decode("utf-8"))
+        except Exception:
+            return JsonResponse({"ok": False, "error": "Bad JSON."}, status=400)
+        email = (body.get("email") or "").strip().lower()
+        name  = (body.get("name")  or "").strip()
+        source = (body.get("source") or "footer_form").strip()
+        honeypot = (body.get("company") or "").strip()
+    else:
+        email = (request.POST.get("email") or "").strip().lower()
+        name  = (request.POST.get("name")  or "").strip()
+        source = (request.POST.get("source") or "footer_form").strip()
+        honeypot = (request.POST.get("company") or "").strip()
+
+    if honeypot:
+        return JsonResponse({"ok": True, "message": "Thanks!"})  # silent success for bots
+
+    if not EMAIL_RE.match(email):
+        return JsonResponse({"ok": False, "error": "Please enter a valid email."}, status=400)
+
+    # Upsert behavior
+    sub, created = Subscriber.objects.get_or_create(email=email, defaults={
+        "name": name, "source": source, "ip": ip, "ua": request.META.get("HTTP_USER_AGENT","")[:500]
+    })
+    if not created:
+        # Reactivate if previously unsubscribed; update name/source if provided
+        changed = False
+        if sub.unsubscribed_at:
+            sub.unsubscribed_at = None
+            changed = True
+        if name and sub.name != name:
+            sub.name = name; changed = True
+        if source and sub.source != source:
+            sub.source = source; changed = True
+        if changed:
+            sub.save(update_fields=["unsubscribed_at", "name", "source"])
+
+    return JsonResponse({"ok": True, "created": created, "email": sub.email})

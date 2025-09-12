@@ -230,3 +230,32 @@ class PostBlock(models.Model):
 
     class Meta:
         ordering = ["order"]
+
+
+
+from django.db import models
+from django.utils import timezone
+from django.utils.crypto import get_random_string
+
+class Subscriber(models.Model):
+    email = models.EmailField(unique=True)
+    name = models.CharField(max_length=120, blank=True)
+    source = models.CharField(max_length=64, blank=True, help_text="e.g. footer_form, checkout, popup")
+    is_confirmed = models.BooleanField(default=False)
+    unsubscribed_at = models.DateTimeField(null=True, blank=True)
+
+    # audit
+    created_at = models.DateTimeField(auto_now_add=True)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    ua = models.TextField(blank=True)
+
+    # optional: for double opt-in or future use
+    confirm_token = models.CharField(max_length=48, blank=True, default="")
+
+    def save(self, *args, **kwargs):
+        if not self.confirm_token:
+            self.confirm_token = get_random_string(32)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.email
