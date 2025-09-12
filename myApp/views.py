@@ -1466,3 +1466,20 @@ def _email_admin_new_order(request, order: Order):
         to_list=[admin_email],
         # If you add an HTML template later, pass html_body=...
     )
+
+
+
+def blog_sample(request):
+    return render(request, "blog/post_detail_sample.html")
+
+
+from django.shortcuts import get_object_or_404, render
+from .models import Post
+
+def blog_detail(request, slug):
+    post = get_object_or_404(Post.objects.prefetch_related("blocks"), slug=slug)
+    return render(request, "blog/post_detail.html", {"post": post})
+
+def blog_index(request):
+    posts = Post.objects.order_by("-published_at")
+    return render(request, "blog/post_list.html", {"posts": posts})

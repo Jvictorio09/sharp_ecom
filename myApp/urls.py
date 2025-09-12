@@ -58,6 +58,9 @@ urlpatterns = [
 
     # urls.py
     path("dashboard/orders/export/", dash.order_export, name="order_export"),
+    path("blogs/", views.blog_sample, name="blogadag"),
 
+    path("blog/", views.blog_index, name="blog_index"),
+    path("blog/<slug:slug>/", views.blog_detail, name="blog_detail"),
      
 ]

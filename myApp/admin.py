@@ -65,3 +65,19 @@ class ProductAdmin(admin.ModelAdmin):
         csv = ",".join([p.strip() for chunk in csv.replace("\r", "").split("\n") for p in chunk.split(",") if p.strip()])
         obj.gallery_csv = csv
         super().save_model(request, obj, form, change)
+
+
+
+from django.contrib import admin
+from .models import Post, PostBlock
+
+class BlockInline(admin.TabularInline):
+    model = PostBlock
+    extra = 0
+    fields = ("order","kind","level","text","image1","image2","caption","prod_query")
+
+@admin.register(Post)
+class PostAdmin(admin.ModelAdmin):
+    list_display = ("title","published_at")
+    prepopulated_fields = {"slug": ("title",)}
+    inlines = [BlockInline]

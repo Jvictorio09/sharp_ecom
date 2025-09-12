@@ -183,3 +183,50 @@ class FxRate(models.Model):
 
     class Meta:
         unique_together = ("base","quote")
+
+
+
+from django.db import models
+from django.utils.text import slugify
+
+class Post(models.Model):
+    title        = models.CharField(max_length=200)
+    slug         = models.SlugField(max_length=220, unique=True, blank=True)
+    excerpt      = models.TextField(blank=True)
+    cover_image  = models.ImageField(upload_to="blog_covers/", blank=True, null=True)  # optional local
+    cover_image_url = models.URLField(blank=True)  # ✅ remote (Cloudinary) URL
+    published_at = models.DateTimeField(null=True, blank=True)
+    author_name  = models.CharField(max_length=120, default="SHARP Editorial")
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title)[:220]
+        super().save(*args, **kwargs)
+
+BLOCK_TYPES = [
+    ("paragraph","Paragraph"),
+    ("heading","Heading"),
+    ("image","Image"),
+    ("gallery2","2-Image Row"),
+    ("callout","Callout"),
+    ("quote","Pull Quote"),
+    ("product","Product Card"),
+]
+
+class PostBlock(models.Model):
+    post    = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="blocks")
+    order   = models.PositiveIntegerField(default=0)
+    kind    = models.CharField(max_length=20, choices=BLOCK_TYPES)
+    text    = models.TextField(blank=True)
+    level   = models.CharField(max_length=10, blank=True)
+    # Either local files…
+    image1  = models.ImageField(upload_to="blog/", blank=True, null=True)
+    image2  = models.ImageField(upload_to="blog/", blank=True, null=True)
+    # …or remote URLs (Cloudinary)
+    image1_url = models.URLField(blank=True)  # ✅
+    image2_url = models.URLField(blank=True)  # ✅
+    caption = models.CharField(max_length=200, blank=True)
+    prod_query = models.CharField(max_length=120, blank=True)
+
+    class Meta:
+        ordering = ["order"]

@@ -92,6 +92,9 @@
       </div>
     </div>
 
+    {% include "partials/whatsapp_float.html" %}
+
+
     <!-- Header -->
     <header class="sticky top-0 z-40 bg-cream/90 backdrop-blur supports-[backdrop-filter]:bg-cream/70 border-b border-line">
       <div class="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-6">
@@ -434,10 +437,16 @@
               <li><a class="hover:text-gold" href="{% url 'contact' %}">Contact</a></li>
               <li><a class="hover:text-gold" href="{% url 'cart' %}">Your Bag</a></li>
               <li><a class="hover:text-gold" href="{% url 'checkout' %}">Checkout</a></li>
+              <li>
+                <a class="hover:text-gold" href="{% url 'blog_index' %}">Blog</a>
+              </li>
+
             </ul>
           </div>
+
         </div>
 
+        <!-- Bottom bar -->
         <!-- Bottom bar -->
         <div class="mt-10 pt-6 border-t border-line text-sm flex flex-col md:flex-row items-center justify-between gap-4">
           <p>© <span id="year"></span> SHARP. All rights reserved.</p>
@@ -445,8 +454,39 @@
             <a href="#" class="hover:text-gold">Privacy</a>
             <span>•</span>
             <a href="#" class="hover:text-gold">Terms</a>
+            <span>•</span>
+            <!-- Instagram -->
+            <a href="https://www.instagram.com/sharp.jor?igsh=MWFhd2trdXV2ODUxMw==" 
+              target="_blank" rel="noopener"
+              aria-label="Follow us on Instagram"
+              class="hover:text-gold flex items-center gap-2">
+              <!-- Icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"
+                  class="w-4 h-4 fill-current">
+                <path d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9S160.5 370.8 
+                        224.1 370.8 339 319.5 339 255.9 287.7 141 224.1 141zm0 
+                        189.6c-41.1 0-74.7-33.5-74.7-74.7s33.5-74.7 
+                        74.7-74.7 74.7 33.5 74.7 74.7-33.6 74.7-74.7 
+                        74.7zm146.4-194.3c0 14.9-12 26.9-26.9 
+                        26.9s-26.9-12-26.9-26.9 12-26.9 
+                        26.9-26.9 26.9 12 26.9 26.9zm76.1 
+                        27.2c-1.7-35.9-9.9-67.7-36.2-93.9s-58-34.5-93.9-36.2C293.2 
+                        32 286.6 32 224 32s-69.2 0-92.5 
+                        1.7c-35.9 1.7-67.7 9.9-93.9 
+                        36.2S3.2 128.9 1.5 164.8C0 
+                        188.1 0 194.7 0 256.3s0 68.2 
+                        1.7 91.5c1.7 35.9 9.9 67.7 
+                        36.2 93.9s58 34.5 93.9 36.2c23.3 
+                        1.7 29.9 1.7 91.5 1.7s68.2 
+                        0 91.5-1.7c35.9-1.7 67.7-9.9 
+                        93.9-36.2s34.5-58 36.2-93.9c1.7-23.3 
+                        1.7-29.9 1.7-91.5s0-68.2-1.7-91.5z"/>
+              </svg>
+              <span class="hidden sm:inline">Instagram</span>
+            </a>
           </div>
         </div>
+
       </div>
     </footer>
 

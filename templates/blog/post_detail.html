@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title }}{% endblock %}
+{% block content %}
+
+<!-- Cover -->
+{% if post.cover_image_url %}
+  <img src="{{ post.cover_image_url }}" alt="{{ post.title }}" class="w-full h-64 md:h-96 object-cover rounded-2xl border border-line mb-8">
+{% elif post.cover_image %}
+  <img src="{{ post.cover_image.url }}" alt="{{ post.title }}" class="w-full h-64 md:h-96 object-cover rounded-2xl border border-line mb-8">
+{% endif %}
+
+<div class="max-w-6xl mx-auto px-4 md:px-8 py-12 grid md:grid-cols-[240px_1fr] gap-10">
+  <aside class="hidden md:block sticky top-28 self-start">
+    <div class="text-xs uppercase tracking-wider opacity-60 mb-3">On this page</div>
+    <nav id="toc" class="text-sm space-y-2"></nav>
+  </aside>
+
+  <div class="min-w-0">
+    {% for b in post.blocks.all %}
+      {% if b.kind == "heading" %}
+        {% if b.level == "h3" %}
+          <h3 id="h{{ forloop.counter }}" class="mt-12 text-xl font-semibold">{{ b.text }}</h3>
+        {% else %}
+          <h2 id="h{{ forloop.counter }}" class="mt-12 text-2xl font-semibold">{{ b.text }}</h2>
+        {% endif %}
+
+      {% elif b.kind == "paragraph" %}
+        <p class="mt-4">{{ b.text|linebreaksbr }}</p>
+
+      {% elif b.kind == "image" %}
+        <figure class="my-8 rounded-2xl overflow-hidden border border-line bg-white">
+          {% if b.image1_url %}
+            <img src="{{ b.image1_url }}" alt="{{ b.caption }}" class="w-full h-64 md:h-80 object-cover">
+          {% elif b.image1 %}
+            <img src="{{ b.image1.url }}" alt="{{ b.caption }}" class="w-full h-64 md:h-80 object-cover">
+          {% endif %}
+          {% if b.caption %}<figcaption class="px-4 py-3 text-sm opacity-70">{{ b.caption }}</figcaption>{% endif %}
+        </figure>
+
+      {% elif b.kind == "gallery2" %}
+        <div class="my-10 grid md:grid-cols-2 gap-4">
+          {% if b.image1_url %}
+            <img class="rounded-xl border border-line object-cover h-64" src="{{ b.image1_url }}" alt="">
+          {% elif b.image1 %}
+            <img class="rounded-xl border border-line object-cover h-64" src="{{ b.image1.url }}" alt="">
+          {% endif %}
+          {% if b.image2_url %}
+            <img class="rounded-xl border border-line object-cover h-64" src="{{ b.image2_url }}" alt="">
+          {% elif b.image2 %}
+            <img class="rounded-xl border border-line object-cover h-64" src="{{ b.image2.url }}" alt="">
+          {% endif %}
+        </div>
+
+      {% elif b.kind == "callout" %}
+        <div class="my-8 rounded-2xl border border-line bg-white p-5 md:p-6 elevate">
+          <div class="text-sm uppercase tracking-wider opacity-60 mb-1">Pro note</div>
+          <p class="text-[15px] leading-relaxed">{{ b.text|linebreaksbr }}</p>
+        </div>
+
+      {% elif b.kind == "quote" %}
+        <figure class="my-10">
+          <blockquote class="relative rounded-2xl bg-ivory p-6 border border-line">
+            <span class="absolute -top-3 left-6 text-4xl opacity-30 select-none">“</span>
+            <p class="md:text-xl leading-relaxed">{{ b.text }}</p>
+          </blockquote>
+          {% if b.caption %}<figcaption class="mt-3 text-sm opacity-70">— {{ b.caption }}</figcaption>{% endif %}
+        </figure>
+
+      {% elif b.kind == "product" %}
+        <div class="my-10 rounded-2xl border border-line bg-white p-5 md:p-6 flex flex-col md:flex-row gap-5">
+          {% if b.image1_url %}
+            <img src="{{ b.image1_url }}" class="w-full md:w-40 h-40 object-cover rounded-xl border border-line" alt="">
+          {% elif b.image1 %}
+            <img src="{{ b.image1.url }}" class="w-full md:w-40 h-40 object-cover rounded-xl border border-line" alt="">
+          {% endif %}
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold">{{ b.caption|default:"Featured Product" }}</h3>
+            <p class="mt-1 text-sm opacity-80">{{ b.text }}</p>
+            {% if b.prod_query %}
+              <div class="mt-3">
+                <a href="{% url 'product_list' %}?q={{ b.prod_query|urlencode }}"
+                   class="inline-block px-4 py-2 rounded-full border border-line hover:border-[var(--sharp-gold)]">View product</a>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+  (function(){
+    const toc = document.getElementById('toc');
+    if (!toc) return;
+    document.querySelectorAll('h2[id], h3[id]').forEach(h => {
+      const a = document.createElement('a');
+      a.href = '#' + h.id; a.textContent = h.textContent;
+      a.className = (h.tagName==='H2') ? 'block py-1 hover:text-gold' : 'block pl-3 py-1 opacity-80 hover:text-gold';
+      toc.appendChild(a);
+    });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}The SHARP Guide to Quiet-Luxury Hair{% endblock %}
+
+{% block content %}
+<article class="bg-cream">
+  <!-- Hero -->
+  <header class="relative">
+    <img src="https://images.unsplash.com/photo-1515387784663-e2e29a23f69a?q=80&w=1600"
+         alt="Silky hair with soft natural light"
+         class="w-full h-[42vh] md:h-[58vh] object-cover">
+    <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+    <div class="absolute bottom-6 left-4 md:left-8 max-w-4xl text-white">
+      <p class="text-xs tracking-widest opacity-80 uppercase">Hair Care • Routine</p>
+      <h1 class="mt-2 text-3xl md:text-5xl font-semibold leading-tight">Quiet Luxury, Everyday: The SHARP Hair Ritual</h1>
+      <div class="mt-3 text-sm opacity-90">By SHARP Editorial • 7 min read • Updated today</div>
+    </div>
+  </header>
+
+  <!-- Body -->
+  <div class="max-w-6xl mx-auto px-4 md:px-8 py-12 grid md:grid-cols-[240px_1fr] gap-10">
+    <!-- TOC (desktop) -->
+    <aside class="hidden md:block sticky top-28 self-start">
+      <div class="text-xs uppercase tracking-wider opacity-60 mb-3">On this page</div>
+      <nav id="toc" class="text-sm space-y-2"></nav>
+    </aside>
+
+    <!-- Article Content -->
+    <div class="min-w-0">
+      <!-- Lead -->
+      <p class="text-lg md:text-xl leading-relaxed opacity-90">
+        Quiet luxury isn’t a trend—it’s a discipline. In hair care, that means fewer products, better formulas, and rituals that work with your biology—not against it. Here’s how SHARP designs a routine that feels effortless and looks immaculate.
+      </p>
+
+      <!-- Image inline (edge-to-edge on mobile, framed on desktop) -->
+      <figure class="my-8 rounded-2xl overflow-hidden border border-line bg-white">
+        <img src="https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=1400"
+             alt="Minimal vanity with SHARP bottles" class="w-full object-cover">
+        <figcaption class="px-4 py-3 text-sm opacity-70">Less noise, more signal: clarity on your counter and your scalp.</figcaption>
+      </figure>
+
+      <h2 id="section-ritual" class="mt-10 text-2xl font-semibold">The 3-Step Ritual</h2>
+      <p class="mt-4">
+        Keep it simple. Your scalp is skin, not a chemistry set. We design around three levers: <em>cleanse, condition, protect</em>. If you’re doing more than that daily, you’re probably compensating for weak formulas.
+      </p>
+
+      <!-- Callout block -->
+      <div class="my-8 rounded-2xl border border-line bg-white p-5 md:p-6 elevate">
+        <div class="text-sm uppercase tracking-wider opacity-60 mb-1">Pro note</div>
+        <p class="text-[15px] leading-relaxed">
+          Shampoo is for scalp, conditioner is for mid-lengths to ends. If your roots feel heavy, you’re conditioning too high or too often.
+        </p>
+      </div>
+
+      <!-- Two-column image layout -->
+      <div class="my-10 grid md:grid-cols-2 gap-4">
+        <img class="rounded-xl border border-line object-cover"
+             src="https://images.unsplash.com/photo-1503951458645-643d53bfd90f?q=80&w=1200" alt="">
+        <img class="rounded-xl border border-line object-cover"
+             src="https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?q=80&w=1200" alt="">
+      </div>
+
+      <h2 id="section-ingredients" class="mt-12 text-2xl font-semibold">Ingredients That Earn Their Place</h2>
+      <p class="mt-4">
+        We bias toward biocompatible actives: niacinamide for scalp barrier, peptides for strength, and light silicones that evaporate cleanly (no waxy buildup).
+      </p>
+
+      <!-- Pull quote -->
+      <figure class="my-10">
+        <blockquote class="relative rounded-2xl bg-ivory p-6 border border-line">
+          <span class="absolute -top-3 left-6 text-4xl opacity-30 select-none">“</span>
+          <p class="md:text-xl leading-relaxed">
+            Luxury is the absence of friction. If your hair routine feels heavy, it isn’t luxury—it’s labor.
+          </p>
+        </blockquote>
+        <figcaption class="mt-3 text-sm opacity-70">— SHARP Formulation Team</figcaption>
+      </figure>
+
+      <h2 id="section-routine" class="mt-12 text-2xl font-semibold">A Week That Works</h2>
+      <ul class="mt-4 list-disc pl-6 space-y-1">
+        <li><strong>Mon / Thu:</strong> Cleanse + Condition (roots → ends split).</li>
+        <li><strong>Wed:</strong> Leave-in serum, air-dry. No heat.</li>
+        <li><strong>Sat:</strong> Clarify + mask if styling-heavy week.</li>
+      </ul>
+
+      <!-- Product card (inline) -->
+      <div class="my-10 rounded-2xl border border-line bg-white p-5 md:p-6 flex flex-col md:flex-row gap-5">
+        <img src="https://images.unsplash.com/photo-1585386959984-a4155223166f?q=80&w=600"
+             alt="SHARP Essential Cleanse"
+             class="w-full md:w-40 h-40 object-cover rounded-xl border border-line">
+        <div class="flex-1">
+          <h3 class="text-lg font-semibold">Essential Cleanse</h3>
+          <p class="mt-1 text-sm opacity-80">Low-sulfate, barrier-friendly, color-safe. Built for daily discipline.</p>
+          <div class="mt-3">
+            <a href="{% url 'product_list' %}?q=essential%20cleanse"
+               class="inline-block px-4 py-2 rounded-full border border-line hover:border-[var(--sharp-gold)]">View product</a>
+          </div>
+        </div>
+      </div>
+
+      <h3 id="section-finishing" class="mt-12 text-xl font-semibold">Finishing Without the Film</h3>
+      <p class="mt-3">Heat when you must; protect always. A fine mist + cool shot > frying at max temp.</p>
+
+      <!-- Inline image w/ caption -->
+      <figure class="my-8">
+        <img src="https://images.unsplash.com/photo-1516826957135-700dedea6980?q=80&w=1400"
+             alt="Natural texture, healthy shine"
+             class="w-full rounded-2xl border border-line object-cover">
+        <figcaption class="mt-2 text-sm opacity-70">Shine is a by-product of health, not hairspray.</figcaption>
+      </figure>
+
+      <!-- CTA -->
+      <div class="my-12 text-center">
+        <a href="{% url 'product_list' %}" class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]">
+          Build My Routine
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </a>
+      </div>
+
+      <!-- Author box -->
+      <section class="mt-12 rounded-2xl border border-line bg-white p-6 flex items-center gap-4">
+        <img src="https://images.unsplash.com/photo-1544006659-f0b21884ce1d?q=80&w=240"
+             alt="" class="w-12 h-12 rounded-full object-cover border border-line">
+        <div>
+          <p class="font-medium">SHARP Editorial</p>
+          <p class="text-sm opacity-70">Research-led writing on hair biology and ritual design.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+</article>
+
+<!-- Tiny TOC builder -->
+<script>
+  (function(){
+    const toc = document.getElementById('toc');
+    if (!toc) return;
+    const headings = document.querySelectorAll('h2[id], h3[id]');
+    headings.forEach(h => {
+      const a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent;
+      a.className = (h.tagName === 'H2') ? 'block py-1 hover:text-gold' : 'block pl-3 py-1 opacity-80 hover:text-gold';
+      toc.appendChild(a);
+    });
+  })();
+</script>
+{% endblock %}
