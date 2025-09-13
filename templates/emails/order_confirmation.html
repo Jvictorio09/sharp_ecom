@@ -1,4 +1,4 @@
- 
+{% load money %}
 <!doctype html>
 <html lang="en">
   <body style="margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f7f7f7;padding:24px">
@@ -42,6 +42,7 @@
               <td style="padding:6px 0;color:#555">Subtotal</td>
               <td align="right" style="padding:6px 0;color:#111">{{ order.subtotal|default_if_none:0|money:request }}</td>
             </tr>
+
             <tr>
               <td style="padding:6px 0;color:#555">Shipping</td>
               <td align="right" style="padding:6px 0;color:#111">
@@ -52,12 +53,19 @@
                 {% endif %}
               </td>
             </tr>
+
             {% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
             <tr>
-              <td style="padding:6px 0;color:#555">Discount</td>
+              <td style="padding:6px 0;color:#555">
+                Discount
+                {% if order.promo_label or order.promo_code %}
+                  <span style="color:#888">({{ order.promo_label|default:order.promo_code }})</span>
+                {% endif %}
+              </td>
               <td align="right" style="padding:6px 0;color:#111">-{{ order.discount_total|money:request }}</td>
             </tr>
             {% endif %}
+
             <tr>
               <td style="padding:10px 0;border-top:1px solid #eee;"><strong>Total</strong></td>
               <td align="right" style="padding:10px 0;border-top:1px solid #eee;"><strong>{{ order.grand_total|default_if_none:0|money:request }}</strong></td>
@@ -69,9 +77,33 @@
       <!-- Address + note -->
       <tr>
         <td style="padding:0 24px 24px;color:#555">
-          <p style="margin:12px 0 0">
-            Ship to: {{ order.full_name }}, {{ order.address_line1 }}{% if order.city %}, {{ order.city }}{% endif %}{% if order.province %}, {{ order.province }}{% endif %}{% if order.zip_code %}, {{ order.zip_code }}{% endif %}
-          </p>
+          {% comment %}
+            Prefer the normalized text if your view writes it, else try dict,
+            else fall back to legacy individual fields.
+          {% endcomment %}
+          {% if order.shipping_address_text %}
+            <p style="margin:12px 0 0">Ship to: {{ order.full_name }}, {{ order.shipping_address_text }}</p>
+          {% elif order.shipping_address %}
+            {% with a=order.shipping_address %}
+              <p style="margin:12px 0 0">
+                Ship to: {{ order.full_name }}
+                {% if a.address_line1 %}, {{ a.address_line1 }}{% endif %}
+                {% if a.address_line2 %}, {{ a.address_line2 }}{% endif %}
+                {% if a.barangay %}, Brgy. {{ a.barangay }}{% endif %}
+                {% if a.area %}, {{ a.area }}{% endif %}
+                {% if a.city %}, {{ a.city }}{% endif %}
+                {% if a.province %}, {{ a.province }}{% endif %}
+                {% if a.state %}, {{ a.state }}{% endif %}
+                {% if a.emirate %}, {{ a.emirate }}{% endif %}
+                {% if a.postal_code %}, {{ a.postal_code }}{% endif %}
+              </p>
+            {% endwith %}
+          {% else %}
+            <p style="margin:12px 0 0">
+              Ship to: {{ order.full_name }}, {{ order.address_line1 }}{% if order.city %}, {{ order.city }}{% endif %}{% if order.province %}, {{ order.province }}{% endif %}{% if order.zip_code %}, {{ order.zip_code }}{% endif %}
+            </p>
+          {% endif %}
+
           <p style="margin:12px 0 0;font-size:13px;color:#777">
             If you don’t see this email, please check your <strong>Spam</strong> or <strong>Promotions</strong> tab and mark it as “Not spam”.
           </p>
@@ -81,7 +113,11 @@
 
     <p style="max-width:640px;margin:12px auto 0;color:#888;font-size:12px;text-align:center">
       Track your order anytime:
-      <a href="{{ request.scheme }}://{{ request.get_host }}{% url 'order_status' %}" style="color:#111">Order Status</a>
+      {% if order_status_url %}
+        <a href="{{ order_status_url }}" style="color:#111">Order Status</a>
+      {% else %}
+        <a href="{{ request.scheme }}://{{ request.get_host }}{% url 'order_status' %}" style="color:#111">Order Status</a>
+      {% endif %}
     </p>
   </body>
 </html>

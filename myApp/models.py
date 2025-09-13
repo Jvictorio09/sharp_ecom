@@ -259,3 +259,57 @@ class Subscriber(models.Model):
 
     def __str__(self):
         return self.email
+
+
+from django.db import models
+from django.utils import timezone
+from decimal import Decimal
+
+class PromoCode(models.Model):
+    TYPE_CHOICES = (
+        ("percent", "Percent (%)"),
+        ("flat", "Flat amount"),
+    )
+
+    code = models.CharField(max_length=40, unique=True)           # e.g. "SHARP10"
+    type = models.CharField(max_length=10, choices=TYPE_CHOICES, default="percent")
+    value = models.DecimalField(max_digits=10, decimal_places=2, help_text="If percent, 10 = 10%")
+    description = models.CharField(max_length=255, blank=True)    # shown in dashboard / emails
+    min_subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    max_discount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    countries_csv = models.CharField(
+        max_length=400, blank=True,
+        help_text="Optional allow-list of ISO-2 codes, comma-separated (e.g. JO,AE,US). Leave blank for all."
+    )
+    starts_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True)
+    active = models.BooleanField(default=True)
+
+    usage_limit = models.PositiveIntegerField(null=True, blank=True, help_text="Optional total usage cap")
+    used_count = models.PositiveIntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.code
+
+    def countries(self):
+        if not self.countries_csv.strip():
+            return []
+        return [c.strip().upper() for c in self.countries_csv.split(",") if c.strip()]
+
+    def is_live(self):
+        now = timezone.now()
+        if not self.active:
+            return False
+        if self.starts_at and now < self.starts_at:
+            return False
+        if self.ends_at and now > self.ends_at:
+            return False
+        if self.usage_limit is not None and self.used_count >= self.usage_limit:
+            return False
+        return True

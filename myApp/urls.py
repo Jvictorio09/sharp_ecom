@@ -64,5 +64,14 @@ urlpatterns = [
     path("blog/<slug:slug>/", views.blog_detail, name="blog_detail"),
 
     path("api/subscribe/", views.subscribe_create, name="subscribe_create"),
-     
+    
+        # ======================
+    # Dashboard → Promos
+    # ======================
+    path("dashboard/promos/",                 dash.promo_list,   name="dashboard_promo_list"),
+    path("dashboard/promos/new/",             dash.promo_upsert, name="dashboard_promo_new"),
+    path("dashboard/promos/<int:pk>/",        dash.promo_upsert, name="dashboard_promo_edit"),
+    path("dashboard/promos/<int:pk>/toggle/", dash.promo_toggle, name="dashboard_promo_toggle"),
+    path("dashboard/promos/<int:pk>/delete/", dash.promo_delete, name="dashboard_promo_delete"),
+    path("api/promo/apply", views.apply_promo_json, name="promo_apply_json"),
 ]

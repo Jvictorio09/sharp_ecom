@@ -261,63 +261,67 @@
     </div>
 
     <!-- Cards -->
-    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-      {% for p in bundles %}
-      <div class="group will-reveal delay-[{{ forloop.counter|add:1 }}00ms] rounded-2xl overflow-hidden border border-line bg-white hover:shadow-xl transition" data-animate-card>
-        <!-- Media -->
-        <div class="relative aspect-[4/3] bg-ivory overflow-hidden">
-          <img src="{{ p.image_url }}" alt="{{ p.name }}" class="w-full h-full object-cover transition group-hover:scale-[1.03]">
-          <div class="absolute left-3 top-3 flex flex-wrap gap-2">
-            <span class="px-2 py-1 rounded-full text-[11px] font-medium border border-line bg-white/90">Set</span>
-            {% if p.free_delivery %}
-              <span class="px-2 py-1 rounded-full text-[11px] font-medium border border-line bg-white/90">Complimentary delivery</span>
-            {% endif %}
-          </div>
-        </div>
-
-        <!-- Body -->
-        <div class="p-5">
-          <h3 class="text-base font-semibold">
-            <a href="{% url 'product_detail' p.slug %}" class="hover:underline">{{ p.name }}</a>
-          </h3>
-
-          <!-- What’s inside -->
-          <p class="mt-2 text-xs text-ink/70">
-            {% with links=p.component_links.all %}
-              {% if links %}
-                What’s inside:
-                {% for link in links|slice:":3" %}
-                  {{ link.quantity }}× {{ link.component.name }}{% if not forloop.last %}, {% endif %}
-                {% endfor %}
-                {% with total=links|length %}
-                  {% if total|add:"-3" > 0 %}&nbsp;+{{ total|add:"-3" }} more{% endif %}
-                {% endwith %}
-              {% endif %}
-            {% endwith %}
-          </p>
-
-          <!-- Price / CTA -->
-          <div class="mt-4 flex items-center justify-between">
-            <div class="text-lg font-semibold tabular-nums">{{ p.price|money:request }}</div>
-
-            <a href="{% url 'product_detail' p.slug %}"
-               class="px-4 py-2 rounded-full border border-line bg-cream hover:border-[var(--sharp-gold)] text-sm">
-              Shop set
-            </a>
-          </div>
-
-          <!-- Trust microcopy -->
-          <p class="mt-2 text-[11px] text-ink/60">Save more vs. buying items separately.</p>
-        </div>
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+  {% for p in bundles %}
+  <div class="group will-reveal delay-[{{ forloop.counter|add:1 }}00ms] flex flex-col rounded-2xl overflow-hidden border border-line bg-white hover:shadow-xl transition" data-animate-card>
+    
+    <!-- Media -->
+    <div class="relative aspect-[4/3] bg-ivory overflow-hidden">
+      <img src="{{ p.image_url }}" alt="{{ p.name }}" class="w-full h-full object-cover transition group-hover:scale-[1.03]">
+      <div class="absolute left-3 top-3 flex flex-wrap gap-2">
+        <span class="px-2 py-1 rounded-full text-[11px] font-medium border border-line bg-white/90">Set</span>
+        {% if p.free_delivery %}
+          <span class="px-2 py-1 rounded-full text-[11px] font-medium border border-line bg-white/90">Complimentary delivery</span>
+        {% endif %}
       </div>
-      {% empty %}
-      <div class="col-span-full">
-        <div class="rounded-2xl border border-line bg-white p-8 text-center will-reveal">
-          <p class="text-ink/80">No sets available yet — new drops coming soon.</p>
-        </div>
-      </div>
-      {% endfor %}
     </div>
+
+    <!-- Body -->
+    <div class="flex flex-col flex-1 p-5">
+      <!-- Title -->
+      <h3 class="text-lg md:text-xl font-bold tracking-tight text-ink mb-2">
+        <a href="{% url 'product_detail' p.slug %}" class="hover:underline">
+          {{ p.name|smart_name }}
+        </a>
+      </h3>
+
+      <!-- Inclusions -->
+      {% with links=p.component_links.all %}
+        {% if links %}
+          <div class="mt-1 text-xs text-ink/70 text-left">
+            <p class="font-medium text-ink text-sm">Inclusions</p>
+            <ul class="mt-1 space-y-0.5">
+              {% for link in links %}
+                <li>{{ link.quantity }}× {{ link.component.name }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <!-- Spacer pushes price/CTA down -->
+      <div class="mt-auto pt-4">
+        <div class="flex items-center justify-between">
+          <div class="text-lg font-semibold tabular-nums">{{ p.price|money:request }}</div>
+          <a href="{% url 'product_detail' p.slug %}"
+             class="px-4 py-2 rounded-full border border-line bg-cream hover:border-[var(--sharp-gold)] text-sm">
+            Shop set
+          </a>
+        </div>
+        <p class="mt-2 text-[11px] text-ink/60">Save more vs. buying items separately.</p>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="col-span-full">
+    <div class="rounded-2xl border border-line bg-white p-8 text-center will-reveal">
+      <p class="text-ink/80">No sets available yet — new drops coming soon.</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+
   </div>
 </section>
 

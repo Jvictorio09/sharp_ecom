@@ -18,6 +18,26 @@ from django.core.mail import get_connection, EmailMultiAlternatives
 
 logger = logging.getLogger(__name__)
 
+from decimal import Decimal
+from django.http import JsonResponse
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.db import transaction
+from django.views.decorators.http import require_GET
+
+from .models import Order, OrderItem, PromoCode
+
+# If you already have money_filter, we'll call it; else fall back.
+def _money(val, request=None):
+    try:
+        # existing helper in your project
+        return money_filter(val, request)  # type: ignore[name-defined]
+    except Exception:
+        try:
+            return f"{Decimal(str(val or '0')):,.2f}"
+        except Exception:
+            return "0.00"
+
 # --- Resend sender (HTTP) ---
 import requests
 
@@ -513,12 +533,34 @@ def _send_emails_async(request, order):
 # -----------------------------
 # Checkout view
 # -----------------------------
+from decimal import Decimal
+from django.db import transaction
+from django.contrib import messages
+from django.shortcuts import redirect, render
+# If _promo_valid_for_db lives in this module, you're set.
+# If you put it elsewhere, import it: from .promos import _promo_valid_for_db
+# Also make sure money_filter exists as shown earlier.
+# views.py
+from decimal import Decimal
+from django.contrib import messages
+from django.db import transaction
+from django.shortcuts import render, redirect
+
+from .models import Order, OrderItem, PromoCode  # PromoCode only needed for usage bump
+
+# Assumes these helpers/consts already exist in your codebase:
+# _get_cart, _items_and_subtotal, _post_first, _normalize_phone,
+# _validate_address, _format_address_text, _send_emails_async,
+# _promo_valid_for_db, SHIP_TO, SHIP_TO_COUNTRIES, CART_KEY
+
+
 def checkout(request):
     """
     Checkout — creates Order + OrderItems, sends emails async, clears cart.
     - Enforces ship-to countries (Middle East + USA).
     - Validates phone strictly (E.164).
     - Country-aware address validation (PH/JO/US/AE/UK + fallback).
+    - Applies DB-configured promo codes (percent or flat), with country / dates / caps.
     - Stores a normalized address object into `Order.shipping_address` if present.
     """
     cart = _get_cart(request.session)
@@ -528,37 +570,37 @@ def checkout(request):
         # Contact
         full_name = (request.POST.get("full_name") or "").strip()
         raw_phone = _post_first(request, "phone_e164", "phone", "phone_display")
-        phone = _normalize_phone(raw_phone)
-        email = (request.POST.get("email") or "").strip()
+        phone     = _normalize_phone(raw_phone)
+        email     = (request.POST.get("email") or "").strip()
+        notes     = (request.POST.get("notes") or "").strip()
 
-        # Country (ISO code like "PH", "JO", "US", "AE", "UK")
+        # Country (ISO-2 like "PH", "JO", "US", "AE", "UK")
         country = (request.POST.get("country") or "").strip().upper()
 
-        # Short-circuit: shipping availability
+        # Shipping availability
         if country not in SHIP_TO:
             messages.error(request, "Sorry, we currently ship only to the Middle East and USA.")
             return render(request, "checkout.html", {
-                "items": items, "subtotal": subtotal,
-                "ship_to_countries": SHIP_TO_COUNTRIES,
+                "items": items, "subtotal": subtotal, "ship_to_countries": SHIP_TO_COUNTRIES,
             })
 
-        # Collect all possible address bits (schema will say which are required)
+        # Collect all possible address bits (schema defines required ones)
         addr = {
             "address_line1": request.POST.get("address_line1"),
             "address_line2": request.POST.get("address_line2"),
-            "barangay": request.POST.get("barangay"),
-            "city": request.POST.get("city"),
-            "province": request.POST.get("province"),
-            "postal_code": request.POST.get("postal_code"),
-            "area": request.POST.get("area"),
-            "area_other": request.POST.get("area_other"),
-            "state": request.POST.get("state"),
-            "county": request.POST.get("county"),
-            "emirate": request.POST.get("emirate"),
+            "barangay":      request.POST.get("barangay"),
+            "city":          request.POST.get("city"),
+            "province":      request.POST.get("province"),
+            "postal_code":   request.POST.get("postal_code"),
+            "area":          request.POST.get("area"),
+            "area_other":    request.POST.get("area_other"),
+            "state":         request.POST.get("state"),
+            "county":        request.POST.get("county"),
+            "emirate":       request.POST.get("emirate"),
         }
 
         shipping_method = (request.POST.get("shipping") or "standard").strip().lower()
-        payment_method = (request.POST.get("payment") or "cod").strip().lower()
+        payment_method  = (request.POST.get("payment")  or "cod").strip().lower()
 
         # Basic cart check
         if not items:
@@ -586,7 +628,7 @@ def checkout(request):
                 "items": items, "subtotal": subtotal, "ship_to_countries": SHIP_TO_COUNTRIES
             })
 
-        # Shipping cost
+        # Shipping cost (free/standard/express)
         if shipping_method in ("standard", "free"):
             shipping_cost = Decimal("0.00")
         elif shipping_method == "express":
@@ -594,7 +636,21 @@ def checkout(request):
         else:
             shipping_cost = Decimal("0.00")
 
-        discount_total = Decimal("0.00")  # TODO: apply promos server-side if needed
+        # ---- Promo (server truth) ------------------------------------------
+        # Accept either 'promo' (recommended) or legacy 'promo_code'
+        promo_code = (request.POST.get("promo") or request.POST.get("promo_code") or "").strip().upper()
+        discount_total = Decimal("0.00")
+        promo_label = ""
+
+        if promo_code:
+            disc, msg = _promo_valid_for_db(promo_code, subtotal=subtotal, country=country)
+            if disc is not None:
+                discount_total = (disc or Decimal("0.00")).quantize(Decimal("0.01"))
+                promo_label = msg or promo_code
+            else:
+                # UI tries to validate, but server is source of truth
+                messages.warning(request, msg or "Promo code couldn’t be applied.")
+
         grand_total = (subtotal + shipping_cost - discount_total).quantize(Decimal("0.01"))
 
         # Create the order (only set fields your model actually has)
@@ -610,23 +666,32 @@ def checkout(request):
             grand_total=grand_total,
             status="pending",
         )
-        # Optional fields if present on model
+
+        # Optional fields if present on the model
         try:
-            if hasattr(Order(), "country"):
+            probe = Order()  # lightweight instance to check attrs
+            if hasattr(probe, "country"):
                 order_kwargs["country"] = country
-            if hasattr(Order(), "shipping_address"):
+            if hasattr(probe, "shipping_address"):
                 order_kwargs["shipping_address"] = {k: (v or "").strip() for k, v in addr.items() if v}
-            if hasattr(Order(), "shipping_address_text"):
-                # Nice one-liner for emails / labels
+            if hasattr(probe, "shipping_address_text"):
                 order_kwargs["shipping_address_text"] = _format_address_text(country, addr)
+            if hasattr(probe, "notes"):
+                order_kwargs["notes"] = notes
+            if hasattr(probe, "promo_code"):
+                order_kwargs["promo_code"] = promo_code or None
+            if hasattr(probe, "promo_label"):
+                order_kwargs["promo_label"] = promo_label or ""
         except Exception:
             pass
 
         with transaction.atomic():
             order = Order.objects.create(**order_kwargs)
+
+            # Line items
             for row in items:
                 p = row["product"]
-                qty = row["qty"]
+                qty = int(row["qty"])
                 line_total = (p.price * qty).quantize(Decimal("0.01"))
                 OrderItem.objects.create(
                     order=order,
@@ -637,6 +702,20 @@ def checkout(request):
                     line_total=line_total,
                 )
 
+            # Best-effort: increment promo usage if applied
+            if promo_code and discount_total > 0:
+                try:
+                    from django.db.models import F
+                    # Support either 'used_count' or 'usage_count' field names
+                    fields = {f.name for f in PromoCode._meta.get_fields()}
+                    qs = PromoCode.objects.filter(code__iexact=promo_code)
+                    if "used_count" in fields:
+                        qs.update(used_count=F("used_count") + 1)
+                    elif "usage_count" in fields:
+                        qs.update(usage_count=F("usage_count") + 1)
+                except Exception:
+                    pass
+
         # Clear cart ASAP
         request.session[CART_KEY] = {}
         request.session.modified = True
@@ -645,7 +724,6 @@ def checkout(request):
         transaction.on_commit(lambda: _send_emails_async(request, order))
 
         messages.success(request, "Order placed! We’ve emailed your confirmation.")
-        # Adjust thanks URL if you use a named url; here we keep your original redirect
         return redirect(f"/thanks/?o={order.order_number}")
 
     # GET
@@ -654,6 +732,7 @@ def checkout(request):
         "subtotal": subtotal,
         "ship_to_countries": SHIP_TO_COUNTRIES,
     })
+
 
 # -----------------------------
 # Pretty label for shipping_address_text
@@ -914,19 +993,25 @@ def contact_thanks(request):
     """
     return render(request, "contact_thanks.html")
 
-
 # =======================
 # Email helpers
 # =======================
 def _email_order_confirmation(request, order):
     if not order.email:
         return
+
     context = {
         "order": order,
-        "items": list(order.items.all()),
+        "items": list(order.items.all()),   # or order.orderitem_set.all()
         "request": request,
+        "order_status_url": request.build_absolute_uri(
+            getattr(getattr(settings, "ORDER_STATUS_URL", None), "strip", lambda: "")()
+        ) if getattr(settings, "ORDER_STATUS_URL", None) else request.build_absolute_uri(
+            "/order-status/"
+        ),
     }
-    subject = f"Your SHARP Order {order.order_number}"
+
+    subject   = f"Your SHARP Order {order.order_number}"
     text_body = render_to_string("emails/order_confirmation.txt", context)
     html_body = render_to_string("emails/order_confirmation.html", context)
 
@@ -936,15 +1021,18 @@ def _email_order_confirmation(request, order):
         from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
         to_list=[order.email],
         html_body=html_body,
-        extra_headers={"Reply-To": getattr(settings, "CONTACT_RECEIVER_EMAIL", "") or getattr(settings, "DEFAULT_FROM_EMAIL", "")},
+        extra_headers={
+            "Reply-To": getattr(settings, "CONTACT_RECEIVER_EMAIL", "") or getattr(settings, "DEFAULT_FROM_EMAIL", "")
+        },
     )
     if not ok:
-        # Don’t block UX—just let the user know softly.
-        messages.warning(request, "Order placed, but we couldn’t send your confirmation email. We’ll resend shortly.")
+        messages.warning(
+            request,
+            "Order placed, but we couldn’t send your confirmation email. We’ll resend shortly."
+        )
 
 
 def _email_admin_new_order(request, order: Order):
-    """Notify admin of a new order (non-blocking)."""
     admin_email = getattr(settings, "ADMIN_ORDER_EMAIL", None)
     if not admin_email:
         return
@@ -956,7 +1044,7 @@ def _email_admin_new_order(request, order: Order):
 
     context = {"order": order, "items": items_qs, "request": request}
 
-    subject = f"New Order: {order.order_number}"
+    subject   = f"New Order: {order.order_number}"
     text_body = render_to_string("emails/admin_new_order.txt", context)
 
     _safe_send_mail(
@@ -964,9 +1052,7 @@ def _email_admin_new_order(request, order: Order):
         text_body=text_body,
         from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
         to_list=[admin_email],
-        # If you add an HTML template later, pass html_body=...
     )
-
 
 
 
@@ -1179,89 +1265,6 @@ def cart_summary_json(request):
     """Return JSON summary for drawer refresh."""
     return JsonResponse({"ok": True, "cart": _cart_json(request.session, request)})  # ← pass request
 
-
-def checkout(request):
-    """
-    Checkout — creates Order + OrderItems, sends emails, clears cart.
-    Supports both the old address field name `address` and new `address_line1`.
-    """
-    cart = _get_cart(request.session)
-    items, subtotal = _items_and_subtotal(cart)
-
-    if request.method == "POST":
-        # Contact
-        full_name = request.POST.get("full_name", "").strip()
-        phone = request.POST.get("phone", "").strip()
-        email = request.POST.get("email", "").strip()
-
-        # Address (new preferred; fallback to `address`)
-        address_line1 = request.POST.get("address_line1", "").strip() or request.POST.get("address", "").strip()
-        city = request.POST.get("city", "").strip()
-        province = request.POST.get("province", "").strip()
-        zip_code = request.POST.get("zip", "").strip()
-        notes = request.POST.get("notes", "").strip()
-
-        # Choices
-        shipping_method = request.POST.get("shipping", "standard")
-        payment_method = request.POST.get("payment", "cod")
-
-        if not items:
-            messages.error(request, "Your cart is empty.")
-            return redirect("cart")
-        if not (full_name and phone and address_line1):
-            messages.error(request, "Please fill in Full Name, Phone, and Address.")
-            return render(request, "checkout.html", {"items": items, "subtotal": subtotal})
-
-        # Shipping cost
-        shipping_cost = Decimal("0.00") if shipping_method == "standard" else Decimal("0.00")
-        discount_total = Decimal("0.00")  # Add server-side promo calc later
-        grand_total = (subtotal + shipping_cost - discount_total).quantize(Decimal("0.01"))
-
-        # Create Order
-        order = Order.objects.create(
-            full_name=full_name,
-            phone=phone,
-            email=email,
-            address_line1=address_line1,
-            city=city,
-            province=province,
-            zip_code=zip_code,
-            notes=notes,
-            shipping_method=shipping_method,
-            payment_method=payment_method,
-            subtotal=subtotal,
-            shipping_cost=shipping_cost,
-            discount_total=discount_total,
-            grand_total=grand_total,
-            status="pending",
-        )
-
-        # Items
-        for row in items:
-            p = row["product"]
-            qty = row["qty"]
-            line_total = (p.price * qty).quantize(Decimal("0.01"))
-            OrderItem.objects.create(
-                order=order,
-                product=p,
-                name=p.name,
-                unit_price=p.price,
-                quantity=qty,
-                line_total=line_total,
-            )
-
-        # Clear cart
-        request.session[CART_KEY] = {}
-        request.session.modified = True
-
-        # Emails
-        _email_order_confirmation(request, order)
-        _email_admin_new_order(request, order)
-
-        messages.success(request, "Order placed! We’ve emailed your confirmation.")
-        return redirect(f"/thanks/?o={order.order_number}")
-
-    return render(request, "checkout.html", {"items": items, "subtotal": subtotal})
 
 
 def thanks(request):
@@ -1553,3 +1556,102 @@ def subscribe_create(request):
             sub.save(update_fields=["unsubscribed_at", "name", "source"])
 
     return JsonResponse({"ok": True, "created": created, "email": sub.email})
+
+
+from .models import PromoCode
+# views.py
+import re
+from .models import PromoCode
+
+def _normalize_code(s: str) -> str:
+    # Uppercase and strip anything that isn't A–Z or 0–9
+    return re.sub(r'[^A-Z0-9]', '', (s or '').upper())
+
+def _promo_lookup(code):
+    c = (code or "").strip().upper()
+    if not c:
+        return None
+    return PromoCode.objects.filter(code__iexact=c).first()
+
+def _promo_valid_for_db(code, *, subtotal: Decimal, country: str | None):
+    """
+    Returns (discount_decimal, label) or (None, error_text)
+    """
+    promo = _promo_lookup(code)
+    if not promo:
+        return (None, "Promo code not recognized.")
+    if not promo.is_live():
+        return (None, "This promo is not active.")
+
+    # Country allow-list
+    allow = promo.countries()
+    if allow and (country or "").upper() not in allow:
+        return (None, "This promo doesn’t apply in your country.")
+
+    # Minimum subtotal
+    min_needed = promo.min_subtotal or Decimal("0")
+    if subtotal < min_needed:
+        return (None, f"Minimum order of {_money(min_needed)} required.")
+
+    # Compute discount
+    if promo.type == "percent":
+        # promo.value is percent e.g. 10 for 10%
+        disc = (subtotal * (promo.value or 0) / Decimal("100")).quantize(Decimal("0.01"))
+    elif promo.type == "flat":
+        disc = max(Decimal("0.00"), (promo.value or 0)).quantize(Decimal("0.01"))
+    else:
+        return (None, "Invalid promo configuration.")
+
+    # Cap
+    if promo.max_discount:
+        disc = min(disc, promo.max_discount)
+
+    if disc <= 0:
+        return (None, "This promo doesn’t apply to your cart.")
+    return (disc, promo.description or promo.code)
+
+
+# at the top of views.py (with your other imports)
+from django.views.decorators.http import require_GET
+
+@require_GET
+def apply_promo_json(request):
+    """
+    GET /api/promo/apply?code=SHARP2025&country=JO
+    Server recomputes subtotal from the *current cart* (no client math),
+    applies promo, and returns display strings already formatted in the
+    request currency via your money filter.
+    """
+    code = (request.GET.get("code") or "").strip()
+    country = (request.GET.get("country") or "").strip().upper()
+
+    # Subtotal from session cart (source currency = PRICE_SOURCE_CURRENCY)
+    cart = _get_cart(request.session)
+    _, subtotal = _items_and_subtotal(cart)
+    if subtotal < 0:
+        subtotal = Decimal("0.00")
+
+    disc, msg = _promo_valid_for_db(code, subtotal=subtotal, country=country)
+    if disc is None:
+        return JsonResponse({"ok": False, "error": msg or "Promo not valid."}, status=400)
+
+    discount = (disc or Decimal("0.00")).quantize(Decimal("0.01"))
+    grand_total = (subtotal - discount).quantize(Decimal("0.01"))
+
+    promo_obj = _promo_lookup(code)
+
+    return JsonResponse({
+        "ok": True,
+        # amounts as numbers (strings) in source currency, if you need them
+        "subtotal": str(subtotal.quantize(Decimal("0.01"))),
+        "grand_total": str(grand_total),
+        "amount": str(discount),
+
+        # pretty strings already formatted (and converted if needed)
+        "subtotal_display": _money(subtotal, request),
+        "grand_total_display": _money(grand_total, request),
+        "amount_display": _money(discount, request),
+
+        "label": msg or (promo_obj.description if promo_obj else code.upper()),
+        "code": (promo_obj.code if promo_obj else code.upper()),
+    })

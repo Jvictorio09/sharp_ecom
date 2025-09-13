@@ -758,3 +758,87 @@ def _export_pdf(rows):
     resp = HttpResponse(pdf, content_type="application/pdf")
     resp["Content-Disposition"] = 'attachment; filename="orders.pdf"'
     return resp
+
+
+
+from django import forms
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.contrib import messages
+from django.utils import timezone
+from .models import PromoCode
+
+# views_dashboard.py (or forms.py if you split it)
+from django import forms
+from .models import PromoCode
+
+class PromoForm(forms.ModelForm):
+    code = forms.CharField(help_text="e.g., SHARP10 (letters/numbers only)")
+
+    class Meta:
+        model = PromoCode
+        fields = [
+            "code","description","type","value","min_subtotal","max_discount",
+            "countries_csv","starts_at","ends_at","active","usage_limit",
+        ]
+        widgets = {
+            "starts_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "ends_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        base = "mt-1 w-full px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white"
+        for name, field in self.fields.items():
+            # Don’t style checkboxes like text inputs
+            if isinstance(field.widget, (forms.CheckboxInput,)):
+                continue
+            cls = field.widget.attrs.get("class", "")
+            field.widget.attrs["class"] = f"{cls} {base}".strip()
+
+    def clean_code(self):
+        c = (self.cleaned_data["code"] or "").strip().upper()
+        if not c.replace("-", "").isalnum():
+            raise forms.ValidationError("Use letters/numbers and optional dashes only.")
+        return c
+
+
+@dashboard_required
+def promo_list(request):
+    q = (request.GET.get("q") or "").strip()
+    promos = PromoCode.objects.all()
+    if q:
+        promos = promos.filter(code__icontains=q)
+    return render(request, "dashboard/promos/list.html", {"promos": promos, "q": q})
+
+@dashboard_required
+def promo_upsert(request, pk=None):
+    promo = get_object_or_404(PromoCode, pk=pk) if pk else None
+    if request.method == "POST":
+        form = PromoForm(request.POST, instance=promo)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            # normalize code upper
+            obj.code = obj.code.upper()
+            obj.save()
+            messages.success(request, f"Promo {obj.code} saved.")
+            return redirect("dashboard_promo_list")
+    else:
+        form = PromoForm(instance=promo)
+    return render(request, "dashboard/promos/form.html", {"form": form, "promo": promo})
+
+@dashboard_required
+def promo_toggle(request, pk):
+    promo = get_object_or_404(PromoCode, pk=pk)
+    promo.active = not promo.active
+    promo.save(update_fields=["active","updated_at"])
+    messages.info(request, f"{promo.code} is now {'active' if promo.active else 'inactive'}.")
+    return redirect("dashboard_promo_list")
+
+@dashboard_required
+def promo_delete(request, pk):
+    promo = get_object_or_404(PromoCode, pk=pk)
+    code = promo.code
+    promo.delete()
+    messages.warning(request, f"Promo {code} deleted.")
+    return redirect("dashboard_promo_list")

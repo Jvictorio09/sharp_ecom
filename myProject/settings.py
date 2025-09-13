@@ -192,7 +192,10 @@ RESEND = {
 LOGIN_URL = 'dashboard_login'
 
 
-TEMPLATES[0]['OPTIONS']['builtins'] = ['myApp.templatetags.money']
+TEMPLATES[0]['OPTIONS']['builtins'] = [
+    'myApp.templatetags.money',
+    'myApp.templatetags.shop_extras',  
+]
 
 
 PRICE_SOURCE_CURRENCY = "JOD"
