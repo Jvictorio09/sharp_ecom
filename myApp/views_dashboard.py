@@ -67,6 +67,115 @@ def _model_has_field(model, field_name):
         return True
     except Exception:
         return False
+    
+
+# --- add this helper near the top with your other helpers ---
+# views_dashboard.py (near the top, after imports)
+# views_dashboard.py (near your other helpers)
+
+def _shipping_text_for(order) -> str:
+    """
+    Returns a nice multi-line shipping string from:
+      1) order.shipping_address_text (if present)
+      2) order.shipping_address (JSON)
+      3) legacy flat fields (address_line1/city/province/zip_code)
+    """
+    # 1) nicest: what checkout already saved
+    txt = (getattr(order, "shipping_address_text", "") or "").strip()
+    if txt:
+        return txt
+
+    # 2) build from normalized JSON
+    data = getattr(order, "shipping_address", None) or {}
+    if isinstance(data, dict) and data:
+        parts = []
+
+        def add(val):
+            v = (val or "").strip()
+            if v:
+                parts.append(v)
+
+        # street lines
+        add(data.get("address_line1"))
+        add(data.get("address_line2"))
+
+        # locality cluster (PH/JO/US/AE… tolerant)
+        locality_bits = [
+            data.get("barangay"),
+            data.get("city"),
+            # for JO allow either chosen option or free text
+            data.get("area_other") or data.get("area"),
+            data.get("province") or data.get("state") or data.get("emirate") or data.get("county"),
+        ]
+        add(", ".join([b.strip() for b in locality_bits if (b or "").strip()]))
+
+        # postal
+        add(data.get("postal_code") or data.get("zip_code"))
+
+        # country (ISO-2)
+        add((getattr(order, "country", "") or "").upper())
+
+        return "\n".join([p for p in parts if p]).strip()
+
+    # 3) fallback to legacy fields
+    legacy_parts = []
+    for v in [
+        getattr(order, "address_line1", ""),
+        ", ".join(
+            [x for x in [
+                getattr(order, "city", ""),
+                getattr(order, "province", "")
+            ] if (x or "").strip()]
+        ),
+        getattr(order, "zip_code", ""),
+        (getattr(order, "country", "") or "").upper(),
+    ]:
+        v = (v or "").strip()
+        if v:
+            legacy_parts.append(v)
+
+    return "\n".join(legacy_parts).strip()
+
+
+
+
+def _shipping_address_text(order):
+    """
+    Best-effort pretty address string.
+    Prefers order.shipping_address_text, then order.shipping_address (JSON),
+    and finally the legacy flat fields (address_line1/city/province/zip_code).
+    """
+    # 1) explicit formatted text
+    txt = getattr(order, "shipping_address_text", "") or ""
+    if txt.strip():
+        return txt.strip()
+
+    # 2) JSON dict from normalized schema
+    data = getattr(order, "shipping_address", None)
+    if isinstance(data, dict) and data:
+        # show in a sensible order across supported countries
+        ordered_keys = [
+            "address_line1", "address_line2",
+            "barangay", "city", "province", "state", "county",
+            "area", "area_other", "emirate",
+            "postal_code", "zip_code",
+        ]
+        parts = [str(data.get(k, "")).strip() for k in ordered_keys if str(data.get(k, "")).strip()]
+        country = (getattr(order, "country", "") or "").strip().upper()
+        if country:
+            parts.append(country)
+        if parts:
+            return ", ".join(parts)
+
+    # 3) legacy flat columns
+    legacy = [
+        getattr(order, "address_line1", "") or "",
+        getattr(order, "city", "") or "",
+        getattr(order, "province", "") or "",
+        getattr(order, "zip_code", "") or "",
+    ]
+    legacy = [p for p in legacy if p]
+    return ", ".join(legacy)
 
 
 def _filtered_orders_queryset(request):
@@ -264,24 +373,18 @@ def order_list(request):
         return render(request, "dashboard/_orders_table.html", ctx)
     return render(request, "dashboard/orders.html", ctx)
 
-
-
+# views_dashboard.py
 @dashboard_required
 def order_detail(request, order_number):
-    """
-    Server-rendered fallback detail page.
-    Also used if the JSON modal fetch fails.
-    """
     order = get_object_or_404(Order, order_number=order_number)
 
-    # Resolve items whether related_name="items" or default
     items_mgr = getattr(order, "items", None)
     if hasattr(items_mgr, "all"):
         items_qs = items_mgr.all()
     else:
         items_qs = order.orderitem_set.all()
 
-    # Select related product if FK exists (best-effort)
+    # Best-effort select_related on product
     try:
         model = items_qs.model
         if any(getattr(f, "name", "") == "product" and getattr(f, "is_relation", False)
@@ -290,20 +393,27 @@ def order_detail(request, order_number):
     except Exception:
         pass
 
+    # ✅ supply shipping_text expected by the template
+    shipping_text = _shipping_text_for(order)
+
     return render(
         request,
         "dashboard/order_detail.html",
-        {"order": order, "items": items_qs, "order_statuses": tuple(getattr(Order, "STATUS_CHOICES", ()))},
+        {
+            "order": order,
+            "items": items_qs,
+            "order_statuses": tuple(getattr(Order, "STATUS_CHOICES", ())),
+            "shipping_text": shipping_text,   # <— add this
+        },
     )
 
-# -------------------------------------------------------------------
-# JSON for the “View Order” modal
-# -------------------------------------------------------------------
+
+
+# views_dashboard.py
 @dashboard_required
 def order_summary_json(request, order_number):
     order = get_object_or_404(Order, order_number=order_number)
 
-    # Items (agnostic to related_name)
     items_mgr = getattr(order, "items", None)
     items_qs = items_mgr.all() if hasattr(items_mgr, "all") else order.orderitem_set.all()
 
@@ -321,17 +431,21 @@ def order_summary_json(request, order_number):
     disc = order.discount_total or Decimal("0")
     disc_display = f"-{_money(disc, request)}" if disc != 0 else ""
 
-    payload = {
+    return JsonResponse({
         "ok": True,
         "order": {
             "order_number": order.order_number,
             "full_name": order.full_name or "",
             "email": order.email or "",
             "phone": order.phone or "",
+            # legacy fields kept for backwards compatibility
             "address_line1": getattr(order, "address_line1", "") or "",
             "city": getattr(order, "city", "") or "",
             "province": getattr(order, "province", "") or "",
             "zip_code": getattr(order, "zip_code", "") or "",
+            # ✅ add normalized view
+            "country": (getattr(order, "country", "") or "").upper(),
+            "shipping_text": _shipping_text_for(order),
             "status": order.status,
             "status_display": status_label,
             "tracking_number": getattr(order, "tracking_number", "") or "",
@@ -349,17 +463,14 @@ def order_summary_json(request, order_number):
             "grand_total": str(order.grand_total or Decimal("0")),
             "grand_total_display": _money(order.grand_total or 0, request),
         },
-        "items": [
-            {
-                "name": it.name,
-                "qty": it.quantity,
-                "unit_display": _money(getattr(it, "unit_price", 0) or 0, request),
-                "total_display": _money(getattr(it, "line_total", 0) or 0, request),
-            }
-            for it in items_qs
-        ],
-    }
-    return JsonResponse(payload)
+        "items": [{
+            "name": it.name,
+            "qty": it.quantity,
+            "unit_display": _money(getattr(it, "unit_price", 0) or 0, request),
+            "total_display": _money(getattr(it, "line_total", 0) or 0, request),
+        } for it in items_qs],
+    })
+
 
 # -------------------------------------------------------------------
 # Update / Delete

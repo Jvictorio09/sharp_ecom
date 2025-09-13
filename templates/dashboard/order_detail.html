@@ -62,11 +62,73 @@
           <p class="text-black/60">{{ order.phone }}</p>
         </div>
         <div class="rounded-xl border border-[#E1E1E1] p-4 bg-[#FCFCFA]">
-          <p class="font-semibold mb-1">Ship to</p>
-          <p>{{ order.address_line1 }}</p>
-          <p class="text-black/60">{{ order.city }} {{ order.province }} {{ order.zip_code }}</p>
-          <p class="text-black/60">Method: {{ order.shipping_method|title }}</p>
+  <p class="font-semibold mb-1">Ship to</p>
+
+  {% if shipping_text and shipping_text.strip %}
+    <div class="text-sm whitespace-pre-line">{{ shipping_text }}</div>
+  {% else %}
+    {# Try normalized JSON address first #}
+    {% with sa=order.shipping_address %}
+      {% if sa.address_line1 or sa.address_line2 or sa.barangay or sa.city or sa.province or sa.state or sa.emirate or sa.county or sa.area or sa.area_other or sa.postal_code or order.country %}
+        <div class="text-sm whitespace-pre-line">
+          {# Line 1: street #}
+          {% if sa.address_line1 or sa.address_line2 %}
+            {{ sa.address_line1 }}{% if sa.address_line2 %}, {{ sa.address_line2 }}{% endif %}{% if sa.address_line1 or sa.address_line2 %}<br>{% endif %}
+          {% endif %}
+
+          {# Line 2: locality #}
+          {% if sa.barangay or sa.city %}
+            {% if sa.barangay %}{{ sa.barangay }}{% if sa.city %}, {% endif %}{% endif %}{{ sa.city }}<br>
+          {% endif %}
+
+          {# Line 3: region (province/state/emirate/county/area) #}
+          {% if sa.province or sa.state or sa.emirate or sa.county or sa.area or sa.area_other %}
+            {% if sa.province %}
+              {{ sa.province }}
+            {% elif sa.state %}
+              {{ sa.state }}
+            {% elif sa.emirate %}
+              {{ sa.emirate }}
+            {% elif sa.county %}
+              {{ sa.county }}
+            {% elif sa.area %}
+              {% if sa.area == 'Other' and sa.area_other %}
+                {{ sa.area_other }}
+              {% else %}
+                {{ sa.area }}
+              {% endif %}
+            {% endif %}<br>
+          {% endif %}
+
+          {# Line 4: postal + country #}
+          {% if sa.postal_code or order.country %}
+            {{ sa.postal_code }}{% if sa.postal_code and order.country %} {% endif %}{{ order.country|upper }}
+          {% endif %}
         </div>
+      {% else %}
+        {# Fallback: legacy flat fields #}
+        {% if order.address_line1 or order.city or order.province or order.zip_code or order.country %}
+          <div class="text-sm whitespace-pre-line">
+            {% if order.address_line1 %}{{ order.address_line1 }}<br>{% endif %}
+            {% if order.city or order.province %}
+              {{ order.city }}{% if order.city and order.province %}, {% endif %}{{ order.province }}<br>
+            {% endif %}
+            {% if order.zip_code or order.country %}
+              {{ order.zip_code }}{% if order.zip_code and order.country %} {% endif %}{{ order.country|upper }}
+            {% endif %}
+          </div>
+        {% else %}
+          <div class="text-sm text-slate-500">—</div>
+        {% endif %}
+      {% endif %}
+    {% endwith %}
+  {% endif %}
+
+  <div class="mt-1 text-sm">
+    Method: {{ order.shipping_method|title }}{% if order.shipping_cost == 0 %} • Free{% endif %}
+  </div>
+</div>
+
       </div>
     </div>
 

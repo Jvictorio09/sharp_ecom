@@ -104,3 +104,133 @@ class SubscriberAdmin(admin.ModelAdmin):
     list_filter  = ("source", "is_confirmed", "created_at")
     search_fields = ("email", "name", "ua")
     ordering = ("-created_at",)
+
+
+# --- Orders admin (safe + dynamic) ------------------------------------------
+from django.contrib import admin
+from django.utils.html import format_html
+from .models import Order, OrderItem
+
+class OrderItemInline(admin.TabularInline):
+    model = OrderItem
+    extra = 0
+    fields = ("name", "quantity", "unit_price", "line_total")
+    readonly_fields = ("name", "quantity", "unit_price", "line_total")
+    can_delete = False
+    show_change_link = False
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    """
+    Dynamic, defensive admin that only shows fields your Order model actually has.
+    It won’t blow up if optional columns (e.g. promo fields) are missing.
+    """
+
+    # ---------- list page ----------
+    @admin.display(description="Order #")
+    def number(self, obj):
+        return getattr(obj, "order_number", obj.pk)
+
+    @admin.display(description="Customer")
+    def customer(self, obj):
+        return getattr(obj, "full_name", "") or "—"
+
+    @admin.display(description="Contact")
+    def contact(self, obj):
+        email = getattr(obj, "email", "") or ""
+        phone = getattr(obj, "phone", "") or ""
+        if email and phone:
+            return f"{email}  •  {phone}"
+        return email or phone or "—"
+
+    @admin.display(description="Country")
+    def country_col(self, obj):
+        return getattr(obj, "country", "") or "—"
+
+    @admin.display(description="Total")
+    def total_col(self, obj):
+        val = getattr(obj, "grand_total", None)
+        return f"{val:.2f}" if val is not None else "—"
+
+    @admin.display(description="Status")
+    def status_col(self, obj):
+        return (getattr(obj, "status", "") or "—").title()
+
+    @admin.display(description="Created")
+    def created_col(self, obj):
+        return getattr(obj, "created_at", None) or getattr(obj, "created", None)
+
+    list_display = ("number", "customer", "contact", "country_col", "total_col", "status_col", "created_col")
+    inlines = [OrderItemInline]
+
+    # ---------- detail page ----------
+    @admin.display(description="Ship to")
+    def shipping_address_pretty(self, obj):
+        txt = getattr(obj, "shipping_address_text", "") or ""
+        if txt:
+            return format_html('<div style="white-space:pre-line">{}</div>', txt.replace("<", "&lt;").replace(">", "&gt;"))
+        data = getattr(obj, "shipping_address", None)
+        if isinstance(data, dict) and data:
+            # Join non-empty values in a readable order
+            values = [str(v).strip() for v in data.values() if str(v).strip()]
+            return ", ".join(values) if values else "—"
+        return "—"
+
+    def _fieldnames(self):
+        # Actual model field names, used for dynamic decisions
+        return {f.name for f in self.model._meta.get_fields()}
+
+    def get_readonly_fields(self, request, obj=None):
+        names = self._fieldnames()
+        ro = {"shipping_address_pretty"}
+        # Totals are usually computed/immutable
+        for f in ("subtotal", "shipping_cost", "discount_total", "grand_total"):
+            if f in names:
+                ro.add(f)
+        # Don’t allow editing generated order number once created
+        if obj and "order_number" in names:
+            ro.add("order_number")
+        # Timestamps if present
+        for f in ("created_at", "updated_at", "created", "updated"):
+            if f in names:
+                ro.add(f)
+        return tuple(ro)
+
+    def get_fieldsets(self, request, obj=None):
+        names = self._fieldnames()
+        def pick(*candidates):
+            return [f for f in candidates if f in names]
+
+        general = pick("order_number", "status", "payment_method", "shipping_method", "promo_code", "promo_label", "tracking_number")
+        customer = pick("full_name", "email", "phone", "country")
+        totals   = pick("subtotal", "shipping_cost", "discount_total", "grand_total")
+        meta     = pick("created_at", "updated_at", "created", "updated")
+
+        fieldsets = []
+        if general or "shipping_address_pretty" or "notes" in names:
+            block = {
+                "fields": tuple(general + (["shipping_address_pretty"] if True else []) + pick("notes"))
+            }
+            fieldsets.append(("Order", block))
+        if customer:
+            fieldsets.append(("Customer", {"fields": tuple(customer)}))
+        if totals:
+            fieldsets.append(("Totals", {"fields": tuple(totals)}))
+        if meta:
+            fieldsets.append(("Meta", {"fields": tuple(meta)}))
+        return fieldsets
+
+    # Search / filters / ordering made dynamic so we don’t reference missing fields
+    def get_search_fields(self, request):
+        names = self._fieldnames()
+        return tuple(f for f in ("order_number", "full_name", "email", "phone") if f in names)
+
+    def get_list_filter(self, request):
+        names = self._fieldnames()
+        return tuple(f for f in ("status", "payment_method", "shipping_method", "country", "created_at") if f in names)
+
+    def get_ordering(self, request):
+        names = self._fieldnames()
+        if "created_at" in names:
+            return ("-created_at",)
+        return ("-id",)

@@ -96,6 +96,7 @@ def generate_order_number():
     return f"SH-{get_random_string(6, allowed_chars='0123456789')}"
 
 
+
 class Order(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),
@@ -106,31 +107,38 @@ class Order(models.Model):
     ]
 
     order_number = models.CharField(max_length=20, unique=True, editable=False)
-    created_at = models.DateTimeField(default=timezone.now)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at   = models.DateTimeField(default=timezone.now)
+    updated_at   = models.DateTimeField(auto_now=True)
     cancel_reason = models.TextField(blank=True, default="")
 
     # Customer
     full_name = models.CharField(max_length=120)
-    phone = models.CharField(max_length=40)
-    email = models.EmailField(blank=True)
+    phone     = models.CharField(max_length=40)
+    email     = models.EmailField(blank=True)
+
+    # ✅ Legacy flat address (kept for compatibility)
     address_line1 = models.TextField()
-    city = models.CharField(max_length=80, blank=True)
-    province = models.CharField(max_length=80, blank=True)
-    zip_code = models.CharField(max_length=20, blank=True)
+    city          = models.CharField(max_length=80, blank=True)
+    province      = models.CharField(max_length=80, blank=True)
+    zip_code      = models.CharField(max_length=20, blank=True)
+
+    # ✅ New normalized address fields (what your checkout already tries to save)
+    country = models.CharField(max_length=2, blank=True, db_index=True)
+    shipping_address = models.JSONField(blank=True, default=dict)     # stores the raw schema dict
+    shipping_address_text = models.TextField(blank=True, default="")  # nice one-line or multi-line string
 
     # Choices
-    shipping_method = models.CharField(max_length=20, default="standard")  # 'standard' | 'express' | 'outboard'
-    payment_method = models.CharField(max_length=20, default="cod")        # 'cod' (for now)
+    shipping_method = models.CharField(max_length=20, default="standard")
+    payment_method  = models.CharField(max_length=20, default="cod")
 
     # Totals
-    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
-    shipping_cost = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    subtotal       = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    shipping_cost  = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     discount_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
-    grand_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    grand_total    = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
 
     # Meta
-    notes = models.TextField(blank=True)
+    notes  = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
 
     class Meta:
@@ -144,7 +152,6 @@ class Order(models.Model):
         return f"{self.order_number} — {self.full_name}"
 
     def save(self, *args, **kwargs):
-        # Ensure unique order number (rare collision guard)
         if not self.order_number:
             candidate = generate_order_number()
             while Order.objects.filter(order_number=candidate).exists():

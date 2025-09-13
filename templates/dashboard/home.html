@@ -395,7 +395,49 @@
         if (M.vmName)    M.vmName.textContent    = data.order.full_name || '';
         if (M.vmEmail)   M.vmEmail.textContent   = data.order.email || '';
         if (M.vmPhone)   M.vmPhone.textContent   = data.order.phone || '';
-        if (M.vmAddress) M.vmAddress.textContent = [data.order.address_line1, data.order.city, data.order.province, data.order.zip_code].filter(Boolean).join(', ');
+        // NEW: prefer normalized shipping_text; fallback to legacy fields
+        // Address: prefer server-composed shipping_text; fallback to normalized object; then legacy flat
+let addrText = (data.order.shipping_text || '').trim();
+
+if (!addrText) {
+  // Try normalized object (if your JSON includes it)
+  const a = data.order.shipping_address || {};
+  const line1    = a.address_line1 || '';
+  const line2    = a.address_line2 || '';
+  const locality = [a.barangay, a.city].filter(Boolean).join(', ');
+  const region   = [
+    a.province,
+    a.state,
+    a.emirate,
+    a.county,
+    (a.area === 'Other' ? a.area_other : a.area)
+  ].filter(Boolean)[0] || '';
+  const postal   = a.postal_code || '';
+  const country  = (data.order.country || '').toUpperCase();
+
+  // Build multi-line nicely
+  addrText = [
+    [line1, line2].filter(Boolean).join(', '),
+    [locality, region].filter(Boolean).join(', '),
+    [postal, country].filter(Boolean).join(' ')
+  ].filter(s => (s || '').trim()).join('\n');
+}
+
+// Still no address? Use legacy flat fields as a final fallback
+if (!addrText) {
+  addrText = [
+    data.order.address_line1,
+    [data.order.city, data.order.province].filter(Boolean).join(', '),
+    [data.order.zip_code, (data.order.country || '').toUpperCase()].filter(Boolean).join(' ')
+  ].filter(Boolean).join('\n');
+}
+
+// Render safely with line breaks
+if (M.vmAddress) {
+  M.vmAddress.innerHTML = esc(addrText || '—').replace(/\n/g, '<br>');
+}
+
+
         if (M.vmNotes)   M.vmNotes.textContent   = data.order.notes || '';
 
         // Wire Update/Delete from view modal
