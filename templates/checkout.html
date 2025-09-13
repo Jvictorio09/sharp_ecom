@@ -49,13 +49,11 @@
                 <label class="text-sm">Phone</label>
                 <input id="phone" name="phone_display" required inputmode="tel"
                   class="mt-1 w-full px-4 py-3 rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]"
-                  placeholder="+962 7X XXX XXXX">   <!-- Jordan format -->
+                  placeholder="+962 7X XXX XXXX">
                 <p id="phoneError" class="mt-1 text-xs text-rose-600 hidden">Please enter a valid phone number.</p>
 
                 <input type="hidden" name="phone_e164" id="phone_e164">
                 <input type="hidden" name="phone_country" id="phone_country">
-
-
               </div>
               <div class="md:col-span-2">
                 <label class="text-sm">Email (optional)</label>
@@ -92,7 +90,6 @@
                           placeholder="Gate instructions, landmark, preferred delivery times…"></textarea>
               </div>
             </div>
-
           </div>
 
           <!-- Delivery Method (free only) -->
@@ -125,15 +122,37 @@
             <p class="mt-3 text-xs opacity-70">We’ll confirm your order via SMS and email (if provided).</p>
           </div>
 
+          {% if messages %}
+            <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 p-4">
+              {% for message in messages %}
+                <p class="text-sm">{{ message }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <!-- Terms (inside the form, above Actions) -->
+          <div class="flex items-start gap-2 text-xs opacity-80 mt-2">
+            <input id="tos" name="tos" type="checkbox" value="1" required
+                   class="mt-0.5 rounded border-line text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]">
+            <label for="tos">
+              I agree to the
+              <a href="{% url 'legal' %}#terms" target="_blank" rel="noopener" class="underline">Terms</a>
+              &amp;
+              <a href="{% url 'legal' %}#privacy" target="_blank" rel="noopener" class="underline">Privacy</a>.
+            </label>
+          </div>
+          <p id="tosError" class="hidden mt-1 text-xs text-rose-600">
+            Please agree to the Terms &amp; Privacy to continue.
+          </p>
+
           <!-- Actions -->
           <div class="flex flex-col sm:flex-row gap-3">
             <a href="{% url 'product_list' %}" class="btn px-6 py-3 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)] text-center">
               Continue Shopping
             </a>
-              <button id="placeOrderBtn" class="btn flex-1 px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]">
-                Place Order
-              </button>
-
+            <button id="placeOrderBtn" class="btn flex-1 px-6 py-3 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]">
+              Place Order
+            </button>
           </div>
         </form>
       </div>
@@ -153,7 +172,6 @@
                   <img src="{{ row.product.image_url }}" alt="{{ row.product.name }}" class="w-full h-full object-cover">
                 </div>
                 <div class="flex-1 min-w-0">
-                  
                   <p class="text-sm font-medium truncate">{{ row.product.name }}</p>
                   <p class="text-xs opacity-70">Qty: {{ row.qty }}</p>
                 </div>
@@ -169,40 +187,34 @@
             <div class="flex gap-2">
               <input id="promo" type="text" placeholder="Promo code"
                      class="w-full px-4 py-2.5 rounded-full border border-line bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-gold)]">
-              <button id="applyPromo" class="px-4 py-2.5 rounded-full text-white bg-ink hover:bg-[var(--sharp-hunter)]">Apply</button>
+              <button id="applyPromo" type="button" class="px-4 py-2.5 rounded-full text-white bg-ink hover:bg-[var(--sharp-hunter)]">Apply</button>
             </div>
 
             <div class="text-sm space-y-2">
-                <div class="flex items-center justify-between">
-                  <span>Subtotal</span>
-                  <span id="sumSubtotal"
-                        class="font-medium"
-                        data-subtotal="{{ subtotal }}">{{ subtotal|money:request }}</span>
-                </div>
-
-                <!-- NEW: Discount row -->
-                <div id="discountRow" class="hidden flex items-center justify-between text-ink/80">
-                  <span>
-                    Discount <span id="promoLabel" class="opacity-60"></span>
-                  </span>
-                  <span id="discountValue" class="font-medium">-</span>
-                </div>
-
-                <div class="flex items-center justify-between">
-                  <span>Shipping</span>
-                  <span id="shippingCost" class="font-medium">{{ 0|money:request }}</span>
-                </div>
-                <div class="pt-2 border-t border-line flex items-center justify-between text-base">
-                  <span class="font-semibold">Total</span>
-                  <span id="grandTotal" class="font-semibold">{{ subtotal|money:request }}</span>
-                </div>
-                <p class="text-xs opacity-70">Shipping and taxes calculated at delivery.</p>
+              <div class="flex items-center justify-between">
+                <span>Subtotal</span>
+                <span id="sumSubtotal"
+                      class="font-medium"
+                      data-subtotal="{{ subtotal }}">{{ subtotal|money:request }}</span>
               </div>
 
+              <!-- NEW: Discount row -->
+              <div id="discountRow" class="hidden flex items-center justify-between text-ink/80">
+                <span>
+                  Discount <span id="promoLabel" class="opacity-60"></span>
+                </span>
+                <span id="discountValue" class="font-medium">-</span>
+              </div>
 
-            <div class="flex items-center gap-2 text-xs opacity-80">
-              <input id="tos" type="checkbox" class="rounded border-line text-[var(--sharp-gold)] focus:ring-[var(--sharp-gold)]">
-              <label for="tos">I agree to the <a href="#" class="underline">Terms</a> & <a href="#" class="underline">Privacy</a>.</label>
+              <div class="flex items-center justify-between">
+                <span>Shipping</span>
+                <span id="shippingCost" class="font-medium">{{ 0|money:request }}</span>
+              </div>
+              <div class="pt-2 border-t border-line flex items-center justify-between text-base">
+                <span class="font-semibold">Total</span>
+                <span id="grandTotal" class="font-semibold">{{ subtotal|money:request }}</span>
+              </div>
+              <p class="text-xs opacity-70">Shipping and taxes calculated at delivery.</p>
             </div>
           </div>
         </div>
@@ -234,6 +246,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const form          = document.getElementById('checkoutForm');
   const countrySelect = document.getElementById('countrySelect');
   const placeOrderBtn = document.getElementById('placeOrderBtn');
+
+  const tos      = document.getElementById('tos');
+  const tosError = document.getElementById('tosError');
 
   // ---------- Ensure ONE hidden promo field INSIDE the form ----------
   let promoCodeHidden = document.getElementById('promo_code');
@@ -519,6 +534,20 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // Require Terms & Privacy
+    if (tos && !tos.checked) {
+      e.preventDefault();
+      tosError?.classList.remove('hidden');
+      tos.focus();
+      if (placeOrderBtn) {
+        placeOrderBtn.disabled = false;
+        placeOrderBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+        placeOrderBtn.textContent = 'Place Order';
+      }
+      return;
+    }
+    tosError?.classList.add('hidden');
+
     // Phone validity (client-side)
     if (window.intlTelInput && iti && !iti.isValidNumber()) {
       e.preventDefault();
@@ -545,13 +574,13 @@ document.addEventListener('DOMContentLoaded', () => {
       hidden.value = num || '';
       form.appendChild(hidden);
 
+      const phoneE164 = document.getElementById('phone_e164');
+      const phoneCountry = document.getElementById('phone_country');
       if (phoneE164)    phoneE164.value    = num || '';
       if (phoneCountry) phoneCountry.value = (data?.iso2 || '').toUpperCase();
     }
   });
 });
 </script>
-
-
 
 {% endblock %}

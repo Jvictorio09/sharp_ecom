@@ -553,7 +553,6 @@ from .models import Order, OrderItem, PromoCode  # PromoCode only needed for usa
 # _validate_address, _format_address_text, _send_emails_async,
 # _promo_valid_for_db, SHIP_TO, SHIP_TO_COUNTRIES, CART_KEY
 
-
 def checkout(request):
     """
     Checkout — creates Order + OrderItems, sends emails async, clears cart.
@@ -619,6 +618,14 @@ def checkout(request):
                 "items": items, "subtotal": subtotal, "ship_to_countries": SHIP_TO_COUNTRIES
             })
 
+        # ✅ Terms & Privacy must be accepted
+        agreed_tos = (request.POST.get("tos") or "").lower() in {"on", "true", "1", "yes"}
+        if not agreed_tos:
+            messages.error(request, "Please agree to the Terms & Privacy to continue.")
+            return render(request, "checkout.html", {
+                "items": items, "subtotal": subtotal, "ship_to_countries": SHIP_TO_COUNTRIES
+            })
+
         # Country-aware address validation
         try:
             _validate_address(country, addr)
@@ -637,7 +644,6 @@ def checkout(request):
             shipping_cost = Decimal("0.00")
 
         # ---- Promo (server truth) ------------------------------------------
-        # Accept either 'promo' (recommended) or legacy 'promo_code'
         promo_code = (request.POST.get("promo") or request.POST.get("promo_code") or "").strip().upper()
         discount_total = Decimal("0.00")
         promo_label = ""
@@ -648,7 +654,6 @@ def checkout(request):
                 discount_total = (disc or Decimal("0.00")).quantize(Decimal("0.01"))
                 promo_label = msg or promo_code
             else:
-                # UI tries to validate, but server is source of truth
                 messages.warning(request, msg or "Promo code couldn’t be applied.")
 
         grand_total = (subtotal + shipping_cost - discount_total).quantize(Decimal("0.01"))
@@ -706,7 +711,6 @@ def checkout(request):
             if promo_code and discount_total > 0:
                 try:
                     from django.db.models import F
-                    # Support either 'used_count' or 'usage_count' field names
                     fields = {f.name for f in PromoCode._meta.get_fields()}
                     qs = PromoCode.objects.filter(code__iexact=promo_code)
                     if "used_count" in fields:
@@ -1655,3 +1659,7 @@ def apply_promo_json(request):
         "label": msg or (promo_obj.description if promo_obj else code.upper()),
         "code": (promo_obj.code if promo_obj else code.upper()),
     })
+
+
+def legal(request):
+    return render(request, "legal/terms_privacy.html")

@@ -74,4 +74,7 @@ urlpatterns = [
     path("dashboard/promos/<int:pk>/toggle/", dash.promo_toggle, name="dashboard_promo_toggle"),
     path("dashboard/promos/<int:pk>/delete/", dash.promo_delete, name="dashboard_promo_delete"),
     path("api/promo/apply", views.apply_promo_json, name="promo_apply_json"),
+
+    path("legal/", views.legal, name="legal"),
+
 ]

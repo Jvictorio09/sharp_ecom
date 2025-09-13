@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}Terms & Privacy — SHARP{% endblock %}
+
+{% block content %}
+<section class="bg-cream">
+  <div class="max-w-5xl mx-auto px-4 md:px-6 py-12 md:py-16">
+
+    <!-- Hero -->
+    <header class="mb-8">
+      <h1 class="text-3xl md:text-4xl font-semibold">Terms & Conditions</h1>
+      <p class="mt-2 text-sm opacity-70">
+        Last updated: {% now "F j, Y" %}
+      </p>
+    </header>
+
+    <!-- Anchor Nav -->
+    <nav class="mb-10">
+      <ul class="flex flex-wrap gap-2">
+        <li><a href="#terms" class="px-3 py-1.5 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)] text-sm">Terms</a></li>
+        <li><a href="#privacy" class="px-3 py-1.5 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)] text-sm">Privacy</a></li>
+        <li><a href="#contact" class="px-3 py-1.5 rounded-full border border-line bg-white hover:border-[var(--sharp-gold)] text-sm">Contact</a></li>
+      </ul>
+    </nav>
+
+    <!-- Content -->
+    <div class="grid lg:grid-cols-4 gap-10">
+
+      <!-- Sticky Section Nav (desktop) -->
+      <aside class="lg:col-span-1 lg:sticky lg:top-24 h-max hidden lg:block">
+        <div class="p-4 rounded-xl border border-line bg-white">
+          <p class="text-sm font-semibold mb-3">On this page</p>
+          <ul class="space-y-2 text-sm">
+            <li><a href="#terms"   class="hover:text-gold">Terms & Conditions</a></li>
+            <li><a href="#privacy" class="hover:text-gold">Privacy Policy</a></li>
+            <li><a href="#contact" class="hover:text-gold">Office & Support</a></li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- Main -->
+      <div class="lg:col-span-3 space-y-12">
+
+        <!-- TERMS -->
+        <section id="terms" class="scroll-mt-24">
+          <div class="rounded-2xl border border-line bg-white p-6 md:p-8">
+            <h2 class="text-2xl font-semibold mb-4">Terms & Conditions for SHARP Website</h2>
+
+            <h3 class="mt-6 font-semibold">1. Introduction</h3>
+            <p class="mt-2 text-[15px] leading-7">
+              Welcome to <strong>SHARP</strong>. By accessing or using our website
+              (<a href="https://www.sharphair.shop/" class="underline hover:text-gold">www.sharphair.shop</a>),
+              you agree to comply with and be bound by these Terms &amp; Conditions. If you do not agree,
+              you must not use this website or purchase our products.
+            </p>
+
+            <h3 class="mt-6 font-semibold">2. Use of the Website</h3>
+            <ul class="mt-2 space-y-1 list-disc pl-5 text-[15px] leading-7">
+              <li>The content on this site is for general information only and may change without notice.</li>
+              <li>You agree not to misuse the website, attempt unauthorized access, or use it for unlawful activities.</li>
+              <li>All intellectual property (logos, text, images, product designs) belongs to SHARP and may not be copied,
+                  modified, or reproduced without prior written consent.</li>
+            </ul>
+
+            <h3 class="mt-6 font-semibold">3. Product Information</h3>
+            <ul class="mt-2 space-y-1 list-disc pl-5 text-[15px] leading-7">
+              <li>We aim for accurate product descriptions, pricing, and availability, but errors may occur.</li>
+              <li>All products are for external use only and must be stored/used as directed on packaging.</li>
+              <li>Results vary depending on individual hair and skin type; SHARP does not guarantee identical results.</li>
+            </ul>
+
+            <h3 class="mt-6 font-semibold">4. Orders &amp; Payments</h3>
+            <ul class="mt-2 space-y-1 list-disc pl-5 text-[15px] leading-7">
+              <li>By placing an order, you confirm you are legally capable of entering into binding contracts.</li>
+              <li>All payments must be made in full before products are dispatched.</li>
+              <li>We may refuse or cancel an order if fraud, abuse, or misuse is suspected.</li>
+            </ul>
+
+            <h3 class="mt-6 font-semibold">5. Shipping &amp; Delivery</h3>
+            <ul class="mt-2 space-y-1 list-disc pl-5 text-[15px] leading-7">
+              <li>Delivery times are estimates and may vary due to courier delays or customs checks.</li>
+              <li>Risk of loss passes to you once the product has been delivered to the shipping address provided.</li>
+            </ul>
+
+            <h3 class="mt-6 font-semibold">6. Returns &amp; Refunds</h3>
+            <ul class="mt-2 space-y-1 list-disc pl-5 text-[15px] leading-7">
+              <li>Returns are accepted within <strong>30 days</strong> of purchase for unused, sealed items in
+                  original packaging.</li>
+              <li>For hygiene reasons, opened or used hair products cannot be returned or refunded unless defective.</li>
+              <li>Approved refunds are processed to the original payment method within <strong>7–10 business days</strong>.</li>
+            </ul>
+
+            <h3 class="mt-6 font-semibold">7. Disclaimer &amp; Limitation of Liability</h3>
+            <ul class="mt-2 space-y-1 list-disc pl-5 text-[15px] leading-7">
+              <li>Our products contain natural ingredients, but SHARP is not responsible for allergic reactions,
+                  sensitivities, or misuse. Perform a patch test before use.</li>
+              <li>Consult a medical professional if you have scalp conditions, are pregnant, or undergoing treatment.</li>
+              <li>To the maximum extent permitted by law, SHARP will not be liable for indirect, incidental,
+                  or consequential damages.</li>
+            </ul>
+
+            <h3 class="mt-6 font-semibold">8. Privacy &amp; Data Protection</h3>
+            <p class="mt-2 text-[15px] leading-7">
+              By using our site, you consent to the collection and use of your information in line with our
+              <a href="#privacy" class="underline hover:text-gold">Privacy Policy</a>.
+              We do not share personal details with third parties except as required to process orders or comply with law.
+            </p>
+
+            <h3 class="mt-6 font-semibold">9. Governing Law</h3>
+            <p class="mt-2 text-[15px] leading-7">
+              These Terms &amp; Conditions are governed by the laws of <strong>Jordan</strong>.
+              Any disputes shall be subject to the exclusive jurisdiction of the courts in <strong>Amman</strong>.
+            </p>
+
+            <h3 class="mt-6 font-semibold">10. Amendments</h3>
+            <p class="mt-2 text-[15px] leading-7">
+              We may update these Terms at any time without prior notice. Continued use of the website after updates
+              constitutes acceptance of the revised terms.
+            </p>
+          </div>
+        </section>
+
+        <!-- PRIVACY -->
+        <section id="privacy" class="scroll-mt-24">
+          <div class="rounded-2xl border border-line bg-white p-6 md:p-8">
+            <h2 class="text-2xl font-semibold mb-4">Privacy Policy</h2>
+
+            <h3 class="mt-6 font-semibold">1. Introduction</h3>
+            <p class="mt-2 text-[15px] leading-7">
+              At SHARP, your privacy matters. This Policy explains how we collect, use, and safeguard your information
+              when you use our website and purchase our products.
+            </p>
+
+            <h3 class="mt-6 font-semibold">2. Information We Collect</h3>
+            <ul class="mt-2 space-y-1 list-disc pl-5 text-[15px] leading-7">
+              <li>Personal details (name, email, phone number, billing/shipping address) when you place an order.</li>
+              <li>Payment details processed securely via third-party gateways (we do not store card data).</li>
+              <li>Website usage data (cookies, IP address, browser type) to improve user experience.</li>
+            </ul>
+
+            <h3 class="mt-6 font-semibold">3. How We Use Your Information</h3>
+            <ul class="mt-2 space-y-1 list-disc pl-5 text-[15px] leading-7">
+              <li>To process and deliver orders and provide customer support.</li>
+              <li>To communicate about orders, service updates, or promotions (you can opt out anytime).</li>
+              <li>To improve our website, services, and product offerings.</li>
+              <li>To comply with legal obligations.</li>
+            </ul>
+
+            <h3 class="mt-6 font-semibold">4. Cookies</h3>
+            <p class="mt-2 text-[15px] leading-7">
+              We use cookies to enhance performance, personalize your experience, and analyze traffic.
+              You may disable cookies in your browser, but some features may not function properly.
+            </p>
+
+            <h3 class="mt-6 font-semibold">5. Sharing Your Information</h3>
+            <p class="mt-2 text-[15px] leading-7">
+              We do not sell or rent your personal data. We may share it with:
+            </p>
+            <ul class="mt-2 space-y-1 list-disc pl-5 text-[15px] leading-7">
+              <li>Logistics/shipping companies (to deliver products).</li>
+              <li>Payment processors (to complete transactions).</li>
+              <li>Legal authorities (if required by law).</li>
+            </ul>
+
+            <h3 class="mt-6 font-semibold">6. Data Security</h3>
+            <p class="mt-2 text-[15px] leading-7">
+              We implement security measures to protect your personal data from unauthorized access, alteration, or disclosure.
+              However, no method of transmission over the internet is 100% secure.
+            </p>
+
+            <h3 class="mt-6 font-semibold">7. Your Rights</h3>
+            <ul class="mt-2 space-y-1 list-disc pl-5 text-[15px] leading-7">
+              <li>Request access, correction, or deletion of your personal data.</li>
+              <li>Opt out of marketing emails at any time by clicking “unsubscribe” or contacting us.</li>
+            </ul>
+
+            <h3 class="mt-6 font-semibold">8. International Users</h3>
+            <p class="mt-2 text-[15px] leading-7">
+              If you access our site from outside Jordan, you consent to the transfer and processing of your information
+              in accordance with this Policy.
+            </p>
+
+            <h3 class="mt-6 font-semibold">9. Changes to this Policy</h3>
+            <p class="mt-2 text-[15px] leading-7">
+              We may update this Privacy Policy periodically. Any changes will be posted here with a revised “Last updated” date.
+            </p>
+
+            <h3 class="mt-6 font-semibold">10. Contact Us</h3>
+            <p class="mt-2 text-[15px] leading-7">
+              Have questions about privacy? Reach us anytime:
+            </p>
+            <ul class="mt-2 space-y-1 list-none pl-0 text-[15px] leading-7">
+              <li>📧 <a href="mailto:sales@sharphair.shop" class="underline hover:text-gold">sales@sharphair.shop</a></li>
+              <li>📍 Amman, Jordan</li>
+              <li>📞 <a href="tel:+962793507777" class="underline hover:text-gold">+962 7 9350 7777</a></li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- CONTACT / OFFICE -->
+        <section id="contact" class="scroll-mt-24">
+          <div class="rounded-2xl border border-line bg-white p-6 md:p-8">
+            <h2 class="text-2xl font-semibold mb-4">Our Office</h2>
+            <div class="grid sm:grid-cols-2 gap-6">
+              <div>
+                <p class="text-sm opacity-70">Location</p>
+                <p class="font-medium">Amman, Jordan</p>
+              </div>
+              <div>
+                <p class="text-sm opacity-70">Website</p>
+                <a class="font-medium underline hover:text-gold" href="https://www.sharphair.shop/">www.sharphair.shop</a>
+              </div>
+              <div>
+                <p class="text-sm opacity-70">Email</p>
+                <a class="font-medium underline hover:text-gold" href="mailto:sales@sharphair.shop">sales@sharphair.shop</a>
+              </div>
+              <div>
+                <p class="text-sm opacity-70">Phone</p>
+                <a class="font-medium underline hover:text-gold" href="tel:+962793507777">+962 7 9350 7777</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Minimal JSON-LD to help search engines understand the page -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "SHARP",
+  "url": "https://www.sharphair.shop/",
+  "publisher": {
+    "@type": "Organization",
+    "name": "SHARP",
+    "url": "https://www.sharphair.shop/",
+    "contactPoint": [{
+      "@type": "ContactPoint",
+      "contactType": "customer support",
+      "email": "sales@sharphair.shop",
+      "telephone": "+962793507777",
+      "areaServed": "Worldwide"
+    }],
+    "sameAs": [
+      "https://www.instagram.com/sharp.jor"
+    ]
+  }
+}
+</script>
+{% endblock %}
