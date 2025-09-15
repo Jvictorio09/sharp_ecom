@@ -385,16 +385,16 @@ ADDRESS_RULES = {
         ],
         "example": "406 Diamond Lane, Cristimar Village, Brgy. San Roque, Antipolo City",
     },
-    "JO": {
+     "JO": {
         "fields": [
-            {"key": "address_line1", "label": "Building / Street", "required": True},
             {"key": "area", "label": "Area", "required": True, "type": "select",
              "options": ["Amman","Zarqa","Irbid","Balqa","Mafraq","Madaba","Karak","Tafilah","Ma'an","Aqaba","Jerash","Ajloun","Other"]},
             {"key": "area_other", "label": "If Other, specify",
              "requiredIf": {"field": "area", "equals": "Other"}},
-            # intentionally **no** city/district and **no** postal_code for JO
+            {"key": "address_line1", "label": "Building / Street", "required": True},
+            # ✅ no city/district, no postal_code for JO
         ],
-        "example": "Building 12, Queen Rania St., Amman",
+        "example": "Amman — Building 12, Queen Rania St.",
     },
     "US": {
         "fields": [
