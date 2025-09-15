@@ -1,5 +1,12 @@
-<article class="group rounded-2xl bg-white border border-line overflow-hidden elevate">
-  <!-- Media -->
+<article
+  class="group product-card will-reveal flex flex-col rounded-2xl bg-white border border-line overflow-hidden hover:shadow-xl transition elevate"
+  data-name="{{ p.name|lower }}"
+  data-price="{{ p.price }}"
+  data-bundle="{% if p.is_bundle %}1{% else %}0{% endif %}"
+  data-badge="{{ p.badge|default_if_none:''|lower }}"
+  data-sale="{% if p.compare_price and p.compare_price > p.price %}1{% else %}0{% endif %}"
+>
+
   <div class="relative">
     <a href="{% url 'product_detail' slug=p.slug %}" class="block aspect-[4/5] bg-ivory overflow-hidden">
       <img

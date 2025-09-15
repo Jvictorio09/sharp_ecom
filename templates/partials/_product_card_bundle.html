@@ -1,0 +1,60 @@
+<div
+  class="group product-card will-reveal flex flex-col rounded-2xl overflow-hidden border border-line bg-white hover:shadow-xl transition"
+  data-name="{{ p.name|lower }}"
+  data-price="{{ p.price }}"
+  data-bundle="1"
+  data-badge="{{ p.badge|default_if_none:''|lower }}"
+  data-sale="{% if p.compare_price and p.compare_price > p.price %}1{% else %}0{% endif %}"
+>
+  <!-- Media -->
+  <div class="relative aspect-[4/3] bg-ivory overflow-hidden">
+   <img
+  src="{{ p.image_url }}"
+  alt="{{ p.name }}"
+  class="w-full h-full object-cover transform-gpu transition-transform duration-700 ease-out origin-center
+         group-hover:scale-[1.35] md:group-hover:scale-[1.5]"
+>
+
+
+    <div class="absolute left-3 top-3 flex flex-wrap gap-2">
+      <span class="px-2 py-1 rounded-full text-[11px] font-medium border border-line bg-white/90">Set</span>
+      {% if p.free_delivery %}
+        <span class="px-2 py-1 rounded-full text-[11px] font-medium border border-line bg-white/90">Complimentary delivery</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Body "sheet" -->
+  <div class="p-3">
+    <div class="rounded-2xl border border-line bg-white p-5">
+      <h3 class="text-lg md:text-xl font-bold tracking-tight text-ink">
+  <a href="{% url 'product_detail' p.slug %}" class="hover:underline">
+    {{ p.name|smart_name }}
+  </a>
+</h3>
+
+
+      {% with links=p.component_links.all %}
+        {% if links %}
+          <div class="mt-2 text-xs text-ink/70">
+            <p class="font-medium text-ink text-sm">Inclusions</p>
+            <ul class="mt-1 space-y-0.5">
+              {% for link in links %}
+                <li>{{ link.quantity }}× {{ link.component.name }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <div class="mt-5 flex items-center justify-between">
+        <div class="text-lg font-semibold tabular-nums">{{ p.price|money:request }}</div>
+        <a href="{% url 'product_detail' p.slug %}"
+           class="px-4 py-2 rounded-full border border-line bg-cream hover:border-[var(--sharp-gold)] text-sm">
+          Shop set
+        </a>
+      </div>
+      <p class="mt-2 text-[11px] text-ink/60">Save more vs. buying items separately.</p>
+    </div>
+  </div>
+</div>

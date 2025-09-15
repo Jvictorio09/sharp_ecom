@@ -392,8 +392,7 @@ ADDRESS_RULES = {
              "options": ["Amman","Zarqa","Irbid","Balqa","Mafraq","Madaba","Karak","Tafilah","Ma'an","Aqaba","Jerash","Ajloun","Other"]},
             {"key": "area_other", "label": "If Other, specify",
              "requiredIf": {"field": "area", "equals": "Other"}},
-            {"key": "city", "label": "City / District", "required": True},
-            {"key": "postal_code", "label": "Postal Code (optional)", "required": False, "pattern": r"^[0-9]{5}$"},
+            # intentionally **no** city/district and **no** postal_code for JO
         ],
         "example": "Building 12, Queen Rania St., Amman",
     },

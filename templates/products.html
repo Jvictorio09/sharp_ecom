@@ -57,28 +57,29 @@
   }
 </style>
 
-<section 
-  class="pt-6 md:pt-12 pb-12 md:pb-16 border-t border-line bg-cream" 
-  data-animate-section
->
+<section class="relative pt-28 md:pt-32 pb-12 md:pb-16 border-t border-line bg-ivory z-10" data-animate-section>
+  <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--sharp-gold)]/40 to-transparent"></div>
   <div class="max-w-7xl mx-auto px-4 md:px-8">
     <!-- Header -->
-    <div class="mb-4 md:mb-8">
-      <p class="uppercase tracking-[0.18em] text-xs text-ink/60 ">Catalog</p>
-      <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-2 md:gap-4">
-        <div>
-          <h1 class="text-2xl sm:text-3xl md:text-5xl font-extrabold">
-            The Essentials
-          </h1>
-          <p class="mt-1 md:mt-2 text-ink/70 max-w-2xl text-sm sm:text-base">
-            Considered materials. Built to last. Designed for real life.
-          </p>
-        </div>
-        <div class="text-xs sm:text-sm text-ink/60 ">
-          <span id="countVisible">—</span> products
-        </div>
+    <div class="flex items-end justify-between gap-6 mb-8 md:mb-12">
+      <div>
+        <p class="uppercase tracking-[0.18em] text-xs text-ink/60 will-reveal">Catalog</p>
+        <h1 class="text-2xl sm:text-3xl md:text-5xl font-extrabold will-reveal delay-100">The Essentials</h1>
+        <p class="mt-2 text-ink/70 max-w-2xl will-reveal delay-200">
+          Considered materials. Built to last. Designed for real life.
+        </p>
       </div>
+
+      <!-- Optional quick CTA to bundles -->
+      <a href="{% url 'product_list' %}?type=bundle"
+         class="hidden md:inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] focus-ring will-reveal delay-300">
+        Shop bundles
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
     </div>
+
 
     <!-- Toolbar (sticky on mobile under header) -->
 <!-- Toolbar -->
@@ -245,36 +246,26 @@
 
     <!-- Grid -->
     <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-      {% for p in products %}
-      <div class="product-card will-reveal"
-           data-name="{{ p.name|lower }}"
-           data-price="{{ p.price }}"
-           data-bundle="{% if p.is_bundle %}1{% else %}0{% endif %}"
-           data-badge="{{ p.badge|default_if_none:''|lower }}"
-           data-sale="{% if p.compare_price and p.compare_price > p.price %}1{% else %}0{% endif %}">
-        {% include "partials/_product_card.html" with p=p %}
-
-        {% if p.is_bundle %}
-          <p class="mt-2 text-[12px] text-ink/70">
-            {% for link in p.component_links.all %}
-              {{ link.quantity }}× {{ link.component.name }}{% if not forloop.last %}, {% endif %}
-            {% endfor %}
-            {% if p.free_delivery %} • 🚚 Free delivery{% endif %}
-          </p>
-        {% endif %}
+  {% for p in products %}
+    {% if p.is_bundle %}
+      {% include "partials/_product_card_bundle.html" with p=p %}
+    {% else %}
+      {% include "partials/_product_card.html" with p=p %}
+    {% endif %}
+  {% empty %}
+    <!-- unchanged empty state -->
+    <div class="col-span-full">
+      <div class="rounded-2xl border border-line bg-white p-8 text-center">
+        <p class="text-ink/80">No products available.</p>
+        <a href="{% url 'home' %}"
+           class="inline-flex mt-4 items-center gap-2 px-5 py-2.5 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)]">
+          Back to home
+        </a>
       </div>
-      {% empty %}
-      <div class="col-span-full">
-        <div class="rounded-2xl border border-line bg-white p-8 text-center">
-          <p class="text-ink/80">No products available.</p>
-          <a href="{% url 'home' %}"
-             class="inline-flex mt-4 items-center gap-2 px-5 py-2.5 rounded-full text-white bg-[var(--sharp-gold)] hover:bg-[var(--sharp-hunter)] focus-ring">
-            Back to home
-          </a>
-        </div>
-      </div>
-      {% endfor %}
     </div>
+  {% endfor %}
+</div>
+
 
     <!-- Load more (progressive reveal purely cosmetic) -->
     <div class="mt-10 flex justify-center">
