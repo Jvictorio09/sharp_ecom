@@ -953,3 +953,49 @@ def promo_delete(request, pk):
     promo.delete()
     messages.warning(request, f"Promo {code} deleted.")
     return redirect("dashboard_promo_list")
+
+
+from django.shortcuts import get_object_or_404, render
+from django.contrib.admin.views.decorators import staff_member_required
+from django.utils.safestring import mark_safe
+import json
+
+# at top
+from myApp.views import _physical_items_for_order, WASSEL_CODE_LABELS
+
+@dashboard_required
+def wasselexpress_preview(request, order_number):
+    order = get_object_or_404(Order, order_number=order_number)
+    addr = dict(order.shipping_address or {})
+    car  = dict(addr.get("_carrier") or {})
+    hist = list(car.get("history") or [])
+    last = hist[-1] if hist else None
+    carrier = dict(addr.get("_carrier") or {}) 
+    code = (car.get("last_update") or str(order.status) or "").strip()
+    label = WASSEL_CODE_LABELS.get(int(code)) if code.isdigit() else code or "—"
+
+    picklist = list(_physical_items_for_order(order).items())  # [(name, qty), ...]
+
+    ctx = {
+        "order": order,
+        "carrier": {
+            "awb": car.get("awb"),
+            "status_code": code or "0",
+            "status_label": label or "Created",
+            "companyStoreID": getattr(settings, "WASSEL", {}).get("COMPANY_STORE_ID", 13),
+            "recipientCity": addr.get("city") or addr.get("area") or addr.get("emirate") or "",
+            "recipientArea": addr.get("area") or addr.get("barangay") or "",
+            "addressDescription": ", ".join([str(addr.get(k) or "") for k in
+                ("address_line1","address_line2","area","barangay","city","province","state","postal_code") if addr.get(k)]),
+            "recipientName": order.full_name,
+            "recipientEmail": order.email,
+            "recipientPhoneNumber": order.phone,
+            "codAmount": ("0" if (order.payment_method or "").lower() != "cod" else str(order.grand_total)),
+            "referenceID": order.order_number,
+            "history": hist,
+        },
+        "picklist": picklist,
+        "raw_response": json.dumps(car.get("raw") or {}, indent=2, ensure_ascii=False),
+        "payload": carrier.get("last_payload"),
+    }
+    return render(request, "dashboard/wsl_preview.html", ctx)

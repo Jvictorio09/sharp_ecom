@@ -1,0 +1,68 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block content %}
+<h1 class="text-xl font-semibold mb-4">Wassel Shipment Preview — {{ order.order_number }}</h1>
+
+<div class="grid gap-4 md:grid-cols-2">
+  <div class="p-4 rounded-xl border">
+    <h2 class="font-semibold mb-2">Shipment</h2>
+    <p><b>AWB:</b> {{ carrier.awb|default:"—" }}</p>
+    <p><b>Reference:</b> {{ carrier.referenceID }}</p>
+    <p><b>Status:</b> {{ carrier.status_label }} <small>(code {{ carrier.status_code }})</small></p>
+    <p><b>Store ID:</b> {{ carrier.companyStoreID }}</p>
+    <p><b>COD:</b> {{ carrier.codAmount }}</p>
+  </div>
+
+  <div class="p-4 rounded-xl border">
+    <h2 class="font-semibold mb-2">Recipient</h2>
+    <p><b>Name:</b> {{ carrier.recipientName }}</p>
+    <p><b>Phone:</b> {{ carrier.recipientPhoneNumber }}</p>
+    <p><b>Email:</b> {{ carrier.recipientEmail|default:"—" }}</p>
+    <p><b>City/Area:</b> {{ carrier.recipientCity }} / {{ carrier.recipientArea }}</p>
+    <p><b>Address:</b> {{ carrier.addressDescription }}</p>
+    <div class="p-4 rounded-xl border mt-4">
+  <h2 class="font-semibold mb-2">Items to Ship</h2>
+  {% if picklist %}
+    <ul class="list-disc ml-6">
+      {% for name, qty in picklist %}
+        <li><b>{{ qty }}×</b> {{ name }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No items found on this order.</p>
+  {% endif %}
+</div>
+
+  </div>
+</div>
+
+<div class="p-4 rounded-xl border mt-4">
+  <h2 class="font-semibold mb-2">Payload Sent</h2>
+  {% if payload %}
+    <pre class="text-sm overflow-auto">{{ payload|safe }}</pre>
+  {% else %}
+    <p>No payload recorded for this order.</p>
+  {% endif %}
+</div>
+
+
+<div class="p-4 rounded-xl border mt-4">
+  <h2 class="font-semibold mb-2">Status History</h2>
+  {% if carrier.history %}
+    <ol class="list-decimal ml-6">
+    {% for h in carrier.history %}
+      <li>
+        <b>{{ h.label }}</b> <small>(code {{ h.code }})</small>
+        <div class="text-gray-500 text-sm">{{ h.at }}</div>
+      </li>
+    {% endfor %}
+    </ol>
+  {% else %}
+    <p>No events yet — waiting for courier webhooks.</p>
+  {% endif %}
+</div>
+
+<div class="p-4 rounded-xl border mt-4">
+  <h2 class="font-semibold mb-2">Raw (latest response)</h2>
+  <pre class="text-sm overflow-auto">{{ raw_response }}</pre>
+</div>
+{% endblock %}

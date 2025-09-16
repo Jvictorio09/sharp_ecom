@@ -27,6 +27,543 @@ from django.views.decorators.http import require_GET
 
 from .models import Order, OrderItem, PromoCode
 
+
+# --- ADD THESE IMPORTS ---
+import base64, os, json, logging, requests
+from django.conf import settings
+from django.core.cache import cache
+from django.core.files.base import ContentFile
+from django.http import JsonResponse, HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+
+log = logging.getLogger(__name__)
+# ---- replace WASSEL + auth/submit helpers in views.py ----
+import base64, os, json, logging, requests
+from django.conf import settings
+from django.core.cache import cache
+
+log = logging.getLogger(__name__)
+
+# Try both demo stacks they sent you:
+WASSEL_HOSTS = [
+    {  # put this FIRST
+      "BASE": "https://demo.wasselexpress.com",
+      "LOGIN_PATH": "/web-api/api/account/Login",
+      "SUBMIT_PATH": "/API/Integration/SubmitShippingRequests",
+      "SUBMIT_PATH_ALT": "/web-api/api/Integration/SubmitShippingRequests",
+      "AUTH_SHAPES": [
+          lambda u,p: {"email": u, "password": p, "rememberMe": True},
+          lambda u,p: {"username": u, "password": p},
+      ],
+    },
+    {
+      "BASE": "http://demoapi.wasselexpress.com",
+      "LOGIN_PATH": "/API/Account/Login",
+      "SUBMIT_PATH": "/API/Integration/SubmitShippingRequests",
+      "AUTH_SHAPES": [
+          lambda u,p: {"email": u, "password": p, "rememberMe": True},
+          lambda u,p: {"username": u, "password": p},
+      ],
+    },
+]
+
+
+from django.conf import settings
+
+WASSEL = settings.WASSEL
+WASSEL_EMAIL = WASSEL["EMAIL"]
+WASSEL_PASSWORD = WASSEL["PASSWORD"]
+WASSEL_COMPANY_STORE_ID = int(WASSEL["COMPANY_STORE_ID"])
+WASSEL_TIMEOUT = WASSEL["TIMEOUT"]
+WASSEL_WEBHOOK_SECRET = WASSEL["WEBHOOK_SHARED_SECRET"]
+
+def _wsl_token():
+    # Cache per-base so we can keep tokens separated.
+    for host in WASSEL_HOSTS:
+        base = host["BASE"].rstrip("/")
+        cache_key = f"wsl_token::{base}"
+        tk = cache.get(cache_key)
+        if tk:
+            return (base, tk)
+        login_url = f"{base}{host['LOGIN_PATH']}"
+        for shape in host["AUTH_SHAPES"]:
+            payload = shape(WASSEL_EMAIL, WASSEL_PASSWORD)
+            try:
+                r = requests.post(login_url, json=payload, timeout=WASSEL_TIMEOUT)
+                r.raise_for_status()
+                try:
+                    data = r.json()
+                    token = data if isinstance(data, str) else data.get("token") or r.text.strip('"')
+                except Exception:
+                    token = r.text.strip('"')
+                if token:
+                    cache.set(cache_key, token, 60 * 30)
+                    return (base, token)
+            except requests.RequestException as e:
+                log.warning("Login attempt failed (%s): %s", login_url, e)
+                continue
+    raise RuntimeError("All Wassel login endpoints failed")
+
+
+# --- Lookup existing shipment by reference -----------------------------------
+def _extract_awb_from_lookup(res: dict, ref: str):
+    """Best-effort extractor for AWB from various response shapes."""
+    data = res.get("data", res)
+    # Normalize ref for comparisons
+    want = (ref or "").strip().upper()
+
+    def get_ref(x):
+        return str(
+            x.get("referenceNumber")
+            or x.get("referenceID")
+            or x.get("reference")
+            or ""
+        ).strip().upper()
+
+    def get_awb(x):
+        return (
+            x.get("awb")
+            or x.get("AWB")
+            or x.get("Awb")
+            or x.get("AwB")
+            or x.get("ShipmentAWB")
+            or None
+        )
+
+    if isinstance(data, list):
+        for x in data:
+            if get_ref(x) == want:
+                awb = get_awb(x)
+                if awb:
+                    return str(awb), x
+    elif isinstance(data, dict):
+        # Some APIs return a single object
+        if get_ref(data) in (want, "", None):
+            awb = get_awb(data)
+            if awb:
+                return str(awb), data
+    return None, None
+
+
+def _wsl_lookup_awb_by_reference(ref: str):
+    """
+    Try several GET/POST shapes across both demo hosts to fetch an AWB by reference.
+    Returns (awb, raw_response) or (None, None).
+    """
+    bases = []
+    base, token = _wsl_token()
+    bases.append(base)
+    # Try the sibling demo host too (your login fallback pattern)
+    if "demoapi.wasselexpress.com" in base:
+        bases.append("https://demo.wasselexpress.com")
+    else:
+        bases.append("http://demoapi.wasselexpress.com")
+
+    auth_header = lambda tk: {"Authorization": f"Bearer {tk}"}
+
+    # Endpoint/shape guesses (these match common patterns in their docs/stacks)
+    attempts = [
+        # GET with query
+        ("GET", "/API/Integration/GetShippingRequestsByRef",   {"params": [{"referenceID": ref}, {"ReferenceID": ref}]}),
+        ("GET", "/web-api/api/Integration/GetShippingRequestsByRef", {"params": [{"referenceID": ref}, {"ReferenceID": ref}]}),
+        # POST with body
+        ("POST", "/API/Integration/GetShippingRequestsByRef",       {"jsons": [{"referenceID": ref}, {"ReferenceID": ref}, {"ReferenceIDs": [ref]}]}),
+        ("POST", "/web-api/api/Integration/GetShippingRequestsByRef", {"jsons": [{"referenceID": ref}, {"ReferenceID": ref}, {"ReferenceIDs": [ref]}]}),
+    ]
+
+    for b in bases:
+        b = b.rstrip("/")
+        tk = token
+        headers = auth_header(tk)
+        for method, path, shapes in attempts:
+            url = f"{b}{path}"
+            try:
+                if method == "GET":
+                    for params in shapes.get("params", []):
+                        r = requests.get(url, headers=headers, params=params, timeout=WASSEL_TIMEOUT)
+                        if r.status_code == 401:
+                            cache.delete(f"wsl_token::{b}")
+                            _, tk = _wsl_token()
+                            headers = auth_header(tk)
+                            r = requests.get(url, headers=headers, params=params, timeout=WASSEL_TIMEOUT)
+                        r.raise_for_status()
+                        res = r.json()
+                        awb, raw = _extract_awb_from_lookup(res, ref)
+                        if awb:
+                            return awb, (res or raw or {})
+                else:
+                    for body in shapes.get("jsons", []):
+                        r = requests.post(url, headers=headers, json=body, timeout=WASSEL_TIMEOUT)
+                        if r.status_code == 401:
+                            cache.delete(f"wsl_token::{b}")
+                            _, tk = _wsl_token()
+                            headers = auth_header(tk)
+                            r = requests.post(url, headers=headers, json=body, timeout=WASSEL_TIMEOUT)
+                        r.raise_for_status()
+                        res = r.json()
+                        awb, raw = _extract_awb_from_lookup(res, ref)
+                        if awb:
+                            return awb, (res or raw or {})
+            except requests.RequestException as e:
+                log.warning("Lookup attempt failed %s %s: %s", method, url, e)
+                continue
+            except Exception as e:
+                log.exception("Lookup parse error on %s %s: %s", method, url, e)
+                continue
+
+    return None, None
+
+
+# add near top with imports
+from collections import Counter
+
+def _physical_items_for_order(order) -> Counter:
+    """
+    Returns a Counter mapping 'Product Name' -> total qty to ship.
+    Expands bundles into their components.
+    """
+    try:
+        items_qs = order.items.all()
+    except Exception:
+        items_qs = order.orderitem_set.all()
+
+    lines = Counter()
+    for it in items_qs:
+        qty = int(getattr(it, "quantity", 1) or 1)
+        prod = getattr(it, "product", None)
+
+        # Expand bundles -> components
+        if prod is not None and getattr(prod, "is_bundle", False):
+            for link in prod.component_rows():   # uses your Product.component_rows()
+                comp = link.component
+                lines[(comp.name or "").strip()] += qty * int(link.quantity or 1)
+        else:
+            name = (getattr(it, "name", None) or getattr(prod, "name", "") or "").strip()
+            if name:
+                lines[name] += qty
+    return lines
+
+def _items_summary_for_carrier(order, max_len: int = 230) -> str:
+    """
+    Human-readable summary for carrier (fits inside API limits).
+    e.g., '2× Alpha Serum; 1× Hydra Cream; 3× Mask'
+    Trims and adds '+N more' if too long.
+    """
+    lines = _physical_items_for_order(order)
+    parts = [f"{qty}× {name}" for name, qty in lines.items()]
+    txt = "; ".join(parts)
+    if len(txt) > max_len:
+        # keep as many as fit, then append '+N more'
+        kept, used = [], 0
+        for p in parts:
+            if used + (2 if kept else 0) + len(p) > max_len:
+                break
+            kept.append(p)
+            used += (2 if kept else 0) + len(p)
+        more = max(0, len(parts) - len(kept))
+        txt = "; ".join(kept) + (f" +{more} more" if more else "")
+    return txt or "Online order"
+
+
+
+def _wsl_submit(payload_list: list[dict]):
+    base, token = _wsl_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    # primary submit path
+    submit_url = f"{base}{WASSEL_HOSTS[0]['SUBMIT_PATH']}" if "demoapi.wasselexpress.com" in base else f"{base}{WASSEL_HOSTS[1]['SUBMIT_PATH']}"
+    try:
+        resp = requests.post(submit_url, json=payload_list, headers=headers, timeout=WASSEL_TIMEOUT)
+        if resp.status_code == 401:
+            # refresh token for this base
+            cache.delete(f"wsl_token::{base}")
+            base, token = _wsl_token()
+            headers["Authorization"] = f"Bearer {token}"
+            resp = requests.post(submit_url, json=payload_list, headers=headers, timeout=WASSEL_TIMEOUT)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as e:
+        # try alternate submit path on the /web-api host
+        if "demo.wasselexpress.com" in base:
+            alt = f"{base}{WASSEL_HOSTS[1]['SUBMIT_PATH_ALT']}"
+            log.warning("Primary submit failed on %s, trying %s", submit_url, alt)
+            resp = requests.post(alt, json=payload_list, headers=headers, timeout=WASSEL_TIMEOUT)
+            resp.raise_for_status()
+            return resp.json()
+        raise
+
+
+def _addr_desc(addr: dict) -> str:
+    """
+    Concise, single-line address for carrier. Normalizes whitespace, caps at 250 chars.
+    """
+    parts = []
+    for k in ("address_line1","address_line2","area","area_other","barangay","city","province","state","postal_code","zip_code"):
+        v = (addr or {}).get(k)
+        if v:
+            parts.append(str(v).strip())
+    # collapse double spaces and commas
+    text = ", ".join([p for p in parts if p])
+    text = " ".join(text.split())
+    return (text[:250] or "N/A")
+
+
+def _recipient_city(addr: dict, order) -> str:
+    """
+    Carrier wants a city-like field. Prefer country-specific fields first.
+    - JO: use `area` or `area_other`
+    - AE: prefer `emirate`
+    - Otherwise: fallback to common keys, then legacy model fields, then 'Amman'
+    """
+    # Jordan
+    area = (addr or {}).get("area")
+    if (getattr(order, "country", "") or "").upper() == "JO":
+        if area and area != "Other":
+            return str(area)
+        ao = (addr or {}).get("area_other")
+        if ao:
+            return str(ao)
+
+    # UAE
+    emirate = (addr or {}).get("emirate")
+    if emirate:
+        return str(emirate)
+
+    # Common candidates
+    for k in ("city","province","state","county","area","barangay"):
+        v = (addr or {}).get(k)
+        if v:
+            return str(v)
+
+    # Legacy flat fields (model)
+    for v in (getattr(order, "city", None), getattr(order, "province", None)):
+        if v:
+            return str(v)
+
+    return "Amman"  # last-resort to avoid API validation failure
+
+
+def _order_to_submit_payload(order) -> list[dict]:
+    addr = (order.shipping_address or {}) if hasattr(order, "shipping_address") else {}
+    is_cod = (order.payment_method or "").lower() == "cod"
+    cod_amount = str(order.grand_total) if is_cod else "0"
+
+    return [{
+        "pieceId": None,
+        "lat": None, "lng": None,
+        "companyStoreID": WASSEL_COMPANY_STORE_ID,
+        "recipientCity": _recipient_city(addr, order),
+        "recipientArea": addr.get("area") or addr.get("barangay"),
+        "remark": (order.notes or "") or None,
+        "addressDescription": _addr_desc(addr),
+        "recipientName": (order.full_name or "Customer").strip(),
+        "recipientEmail": (order.email or None),
+        "recipientPhoneNumber": (order.phone or "").strip(),
+        "recipientSecondPhoneNumber": None,
+        "codAmount": cod_amount,
+        
+        "itemDetails": _items_summary_for_carrier(order),
+        "referenceID": str(order.order_number),
+        "companyID": None,
+        "itemWeight": None,
+        "itemDimension": None,
+        "productType": None,
+    }]
+
+
+from django.utils import timezone
+def _persist_carrier_meta_on_order(order, *, awb: str, label_path: str | None, raw_response: dict):
+    addr = dict(order.shipping_address or {})
+    car  = dict(addr.get("_carrier") or {})
+
+    car["name"] = "wasselexpress"
+    car["awb"]  = awb
+    car.pop("label_pdf", None)
+
+    hist = list(car.get("history") or [])
+    hist.append({
+        "code": "0",
+        "label": "Created (awaiting courier)",
+        "at": timezone.now().isoformat(),
+        "raw": raw_response,
+    })
+    car["history"] = hist[-100:]
+    car["last_update"] = "0"
+    car["raw"] = raw_response
+
+    addr["_carrier"] = car
+    addr.pop("_carrier_error", None)  # 👈 clear any previous error
+    order.shipping_address = addr
+
+    # Don’t touch order.status here; webhook will advance it.
+    order.save(update_fields=["shipping_address", "updated_at"])
+
+def _create_wassel_shipment_for_order(order):
+    # Idempotency: if we already have an AWB, do nothing.
+    addr = dict(order.shipping_address or {})
+    car  = dict(addr.get("_carrier") or {})
+    if car.get("awb"):
+        # 🔧 clear any past error, since we’re good now
+        if "_carrier_error" in addr:
+            addr.pop("_carrier_error", None)
+            order.shipping_address = addr
+            order.save(update_fields=["shipping_address"])
+        return (True, f"AWB {car['awb']} already exists")
+
+    try:
+        payload = _order_to_submit_payload(order)
+
+        # 👇 Save the payload snapshot before sending
+        car["last_payload"] = payload
+        addr["_carrier"] = car
+        order.shipping_address = addr
+        order.save(update_fields=["shipping_address"])
+
+        res = _wsl_submit(payload)
+
+        if res and res.get("isSuccess"):
+            rec = (res.get("data") or [{}])[0]
+            awb = rec.get("awb")
+            if not awb:
+                msg = f"No AWB in success response: {res}"
+                addr["_carrier_error"] = msg
+                order.shipping_address = addr
+                order.save(update_fields=["shipping_address"])
+                return (False, msg)
+
+            _persist_carrier_meta_on_order(order, awb=awb, label_path=None, raw_response=res)
+            # clean previous error if any
+            addr = dict(order.shipping_address or {})
+            addr.pop("_carrier_error", None)
+            order.shipping_address = addr
+            order.save(update_fields=["shipping_address"])
+            return (True, f"AWB {awb} created")
+
+        # Not success → see if it's the duplicate-ref case; try to recover
+        message_texts = [v.get("message","") for v in (res.get("validations") or [])] if res else []
+        combined = " ".join(message_texts).lower()
+        if "already reserved" in combined or "already exists" in combined:
+            # Fetch the existing AWB by reference
+            awb, raw = _wsl_lookup_awb_by_reference(str(order.order_number))
+            if awb:
+                _persist_carrier_meta_on_order(order, awb=awb, label_path=None, raw_response=raw or res or {})
+                addr = dict(order.shipping_address or {})
+                addr.pop("_carrier_error", None)
+                order.shipping_address = addr
+                order.save(update_fields=["shipping_address"])
+                return (True, f"AWB {awb} linked (existing)")
+            # If lookup failed, surface the validation
+            msg = f"Wassel says reference already reserved, but lookup failed. Response={res}"
+            addr = dict(order.shipping_address or {})
+            addr["_carrier_error"] = msg
+            order.shipping_address = addr
+            order.save(update_fields=["shipping_address"])
+            return (False, msg)
+
+        # Generic failure
+        msg = f"Wassel validation failed: {res}"
+        addr = dict(order.shipping_address or {})
+        addr["_carrier_error"] = msg
+        order.shipping_address = addr
+        order.save(update_fields=["shipping_address"])
+        return (False, msg)
+
+    except Exception as e:
+        msg = f"{e}"
+        addr = dict(order.shipping_address or {})
+        addr["_carrier_error"] = msg
+        order.shipping_address = addr
+        order.save(update_fields=["shipping_address"])
+        return (False, msg)
+
+
+# --- WEBHOOK: Wassel → us (status updates) ---
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
+from django.utils import timezone
+import json
+
+# nice labels for UI/logs
+WASSEL_CODE_LABELS = {
+    60:"Assign driver to pick up", 100:"Picked up by driver", 120:"Stored in warehouse",
+    130:"Out for delivery", 170:"Delivered to customer", 180:"Returned from customer",
+    190:"Item returned to returned shelf", 210:"Returned to shipper (RTO)",
+    121:"Departed to airport", 123:"Departed from origin – Outgoing",
+    51:"Departed from origin – Incoming", 56:"Arrival to gateway – Incoming",
+    57:"Under clearance – Incoming", 58:"Customs released – Incoming",
+}
+
+def _ok(data=None): return JsonResponse({"ok": True, "data": data or {}}, status=200)
+
+@csrf_exempt
+def wasselexpress_webhook(request):
+    if request.method != "POST":
+        return HttpResponseForbidden("POST only")
+
+    secret = request.headers.get("X-Webhook-Secret")
+    # use the same var you already load from settings
+    if secret != WASSEL_WEBHOOK_SECRET:
+        return HttpResponse("forbidden", status=403)
+
+    try:
+        body = json.loads(request.body.decode("utf-8") or "{}")
+    except Exception:
+        return HttpResponse("bad json", status=400)
+
+    ref = (body.get("ItemReferenceNo") or "").strip()
+    status_code = body.get("Status")
+    if not ref or status_code is None:
+        return HttpResponse("missing fields", status=400)
+
+    order = Order.objects.filter(order_number__iexact=ref).first()
+    if not order:
+        # optional: be lenient if they ever send your numeric PK
+        try:
+            order = Order.objects.get(pk=int(ref))
+        except Exception:
+            log.warning("Webhook for unknown order ref=%s", ref)
+            return _ok({"note": "unknown order"})
+
+    # normalize to your stored format (string code like "130")
+    new_code = str(int(status_code))
+    old_code = (order.status or "").strip()
+
+    # ---- persist carrier meta + history
+    addr = dict(order.shipping_address or {})
+    carrier = dict(addr.get("_carrier") or {})
+    hist = list(carrier.get("history") or [])
+    hist.append({
+        "code": new_code,
+        "label": WASSEL_CODE_LABELS.get(int(status_code), f"Code {status_code}"),
+        "at": timezone.now().isoformat(),
+        "raw": body,
+    })
+    carrier["history"] = hist[-100:]            # cap growth
+    carrier["last_update"] = new_code
+    carrier["last_webhook"] = body
+    addr["_carrier"] = carrier
+    order.shipping_address = addr
+
+    status_changed = (new_code != old_code)
+    if status_changed:
+        order.status = new_code
+
+    order.save(update_fields=["shipping_address", "status", "updated_at"])
+
+    # optional: notify only on status change
+    try:
+        if status_changed and order.email:
+            from .views_dashboard import _email_order_status_update
+            _email_order_status_update(request, order, status_changed=True)
+    except Exception:
+        pass
+
+    return _ok({
+        "order": order.order_number,
+        "status": order.status,
+        "status_label": order.get_status_display(),  # uses your STATUS_CHOICES label
+    })
+
+
 # If you already have money_filter, we'll call it; else fall back.
 def _money(val, request=None):
     try:
@@ -668,7 +1205,8 @@ def checkout(request):
             shipping_cost=shipping_cost,
             discount_total=discount_total,
             grand_total=grand_total,
-            status="pending",
+            status="0",
+
         )
 
         # Optional fields if present on the model
@@ -718,6 +1256,13 @@ def checkout(request):
                         qs.update(usage_count=F("usage_count") + 1)
                 except Exception:
                     pass
+            # ... after creating Order and OrderItems, before clearing the cart:
+        ok, msg = _create_wassel_shipment_for_order(order)
+        if not ok:
+            messages.warning(request, "Order received — we’re arranging your shipment. You’ll get an update soon.")
+        else:
+            messages.info(request, msg)
+
 
         # Clear cart ASAP
         request.session[CART_KEY] = {}

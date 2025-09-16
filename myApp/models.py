@@ -96,14 +96,26 @@ def generate_order_number():
     return f"SH-{get_random_string(6, allowed_chars='0123456789')}"
 
 
-
 class Order(models.Model):
     STATUS_CHOICES = [
-        ("pending", "Pending"),
-        ("confirmed", "Confirmed"),
-        ("shipped", "Shipped"),
-        ("delivered", "Delivered"),
-        ("canceled", "Canceled"),
+        # Common checkpoints
+        ("0",   "Created (awaiting courier)"), 
+        ("60",  "Assign driver to pick up"),
+        ("100", "Picked up by driver"),
+        ("120", "Stored in warehouse"),
+        ("130", "Out for delivery"),
+        ("170", "Delivered to customer"),
+        ("180", "Returned from customer"),
+        ("190", "Item returned to returned shelf"),
+        ("210", "Returned to shipper (RTO)"),
+
+        # Special outbound / inbound
+        ("121", "Departed to airport"),
+        ("123", "Departed from origin – Outgoing"),
+        ("51",  "Departed from origin – Incoming"),
+        ("56",  "Arrival to gateway – Incoming"),
+        ("57",  "Under clearance – Incoming"),
+        ("58",  "Customs released – Incoming"),
     ]
 
     order_number = models.CharField(max_length=20, unique=True, editable=False)
@@ -111,35 +123,31 @@ class Order(models.Model):
     updated_at   = models.DateTimeField(auto_now=True)
     cancel_reason = models.TextField(blank=True, default="")
 
-    # Customer
+    # Customer info...
     full_name = models.CharField(max_length=120)
     phone     = models.CharField(max_length=40)
     email     = models.EmailField(blank=True)
 
-    # ✅ Legacy flat address (kept for compatibility)
+    # Address + shipping fields...
     address_line1 = models.TextField()
     city          = models.CharField(max_length=80, blank=True)
     province      = models.CharField(max_length=80, blank=True)
     zip_code      = models.CharField(max_length=20, blank=True)
 
-    # ✅ New normalized address fields (what your checkout already tries to save)
     country = models.CharField(max_length=2, blank=True, db_index=True)
-    shipping_address = models.JSONField(blank=True, default=dict)     # stores the raw schema dict
-    shipping_address_text = models.TextField(blank=True, default="")  # nice one-line or multi-line string
+    shipping_address = models.JSONField(blank=True, default=dict)
+    shipping_address_text = models.TextField(blank=True, default="")
 
-    # Choices
     shipping_method = models.CharField(max_length=20, default="standard")
     payment_method  = models.CharField(max_length=20, default="cod")
 
-    # Totals
     subtotal       = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     shipping_cost  = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     discount_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     grand_total    = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
 
-    # Meta
     notes  = models.TextField(blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="0")
 
     class Meta:
         indexes = [
@@ -158,6 +166,7 @@ class Order(models.Model):
                 candidate = generate_order_number()
             self.order_number = candidate
         super().save(*args, **kwargs)
+
 
 
 class OrderItem(models.Model):

@@ -200,3 +200,12 @@ TEMPLATES[0]['OPTIONS']['builtins'] = [
 
 PRICE_SOURCE_CURRENCY = "JOD"
 
+import os
+
+WASSEL = {
+    "EMAIL": os.getenv("WASSEL_EMAIL", ""),
+    "PASSWORD": os.getenv("WASSEL_PASSWORD", ""),
+    "COMPANY_STORE_ID": os.getenv("WASSEL_COMPANY_STORE_ID", "13"),
+    "TIMEOUT": int(os.getenv("WASSEL_TIMEOUT", 20)),
+    "WEBHOOK_SHARED_SECRET": os.getenv("WASSEL_WEBHOOK_SHARED_SECRET", ""),
+}

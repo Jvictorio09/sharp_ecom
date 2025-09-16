@@ -77,4 +77,8 @@ urlpatterns = [
 
     path("legal/", views.legal, name="legal"),
 
+    path("dashboard/wsl/<str:order_number>/", dash.wasselexpress_preview, name="dashboard_wsl_preview"),
+
+
+    path("wasselexpress/webhook/", views.wasselexpress_webhook, name="wasselexpress_webhook"),
 ]
