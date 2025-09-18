@@ -76,33 +76,54 @@ WASSEL_PASSWORD = WASSEL["PASSWORD"]
 WASSEL_COMPANY_STORE_ID = int(WASSEL["COMPANY_STORE_ID"])
 WASSEL_TIMEOUT = WASSEL["TIMEOUT"]
 WASSEL_WEBHOOK_SECRET = WASSEL["WEBHOOK_SHARED_SECRET"]
-
 def _wsl_token():
-    # Cache per-base so we can keep tokens separated.
-    for host in WASSEL_HOSTS:
-        base = host["BASE"].rstrip("/")
-        cache_key = f"wsl_token::{base}"
-        tk = cache.get(cache_key)
-        if tk:
-            return (base, tk)
-        login_url = f"{base}{host['LOGIN_PATH']}"
-        for shape in host["AUTH_SHAPES"]:
-            payload = shape(WASSEL_EMAIL, WASSEL_PASSWORD)
+    """
+    Login to Wassel demo and cache the JWT for 30 minutes.
+    Uses JSON body (required) and the same endpoint that worked in PS.
+    """
+    base = "https://demo.wasselexpress.com"           # demo host that works
+    login_url = f"{base}/web-api/api/account/Login"    # same path as your PS test
+    cache_key = f"wsl_token::{base}"
+
+    tk = cache.get(cache_key)
+    if tk:
+        return (base, tk)
+
+    payload = {
+        "email": WASSEL_EMAIL,         # "dlx test"
+        "password": WASSEL_PASSWORD,   # "123"
+        "rememberMe": True,
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    try:
+        r = requests.post(login_url, json=payload, headers=headers, timeout=WASSEL_TIMEOUT)
+        r.raise_for_status()
+        # API returns the token as plain text
+        token = (r.text or "").strip().strip('"')
+        if not token:
+            # sometimes it’s JSON-wrapped
             try:
-                r = requests.post(login_url, json=payload, timeout=WASSEL_TIMEOUT)
-                r.raise_for_status()
-                try:
-                    data = r.json()
-                    token = data if isinstance(data, str) else data.get("token") or r.text.strip('"')
-                except Exception:
-                    token = r.text.strip('"')
-                if token:
-                    cache.set(cache_key, token, 60 * 30)
-                    return (base, token)
-            except requests.RequestException as e:
-                log.warning("Login attempt failed (%s): %s", login_url, e)
-                continue
-    raise RuntimeError("All Wassel login endpoints failed")
+                data = r.json()
+                token = data if isinstance(data, str) else data.get("token") or ""
+            except Exception:
+                pass
+        if not token:
+            raise RuntimeError(f"Login succeeded but token missing: {r.text[:300]}")
+        cache.set(cache_key, token, 60 * 30)
+        return (base, token)
+    except requests.RequestException as e:
+        body = ""
+        try:
+            body = (e.response.text or "")[:600]
+        except Exception:
+            pass
+        log.error("Wassel login failed: %s | body=%s", e, body)
+        raise
+
 
 
 # --- Lookup existing shipment by reference -----------------------------------
@@ -267,29 +288,71 @@ def _items_summary_for_carrier(order, max_len: int = 230) -> str:
 
 
 def _wsl_submit(payload_list: list[dict]):
+    """
+    Submit shipments to Wassel.
+    - Prefers the /web-api/api path (the one that worked in manual test).
+    - Sends JSON with explicit Content-Type + Accept.
+    - Auto-refreshes token on 401.
+    - Falls back to legacy /API path on 404/405/500.
+    - Logs response body snippet on failures to help debugging.
+    """
     base, token = _wsl_token()
-    headers = {"Authorization": f"Bearer {token}"}
-    # primary submit path
-    submit_url = f"{base}{WASSEL_HOSTS[0]['SUBMIT_PATH']}" if "demoapi.wasselexpress.com" in base else f"{base}{WASSEL_HOSTS[1]['SUBMIT_PATH']}"
-    try:
-        resp = requests.post(submit_url, json=payload_list, headers=headers, timeout=WASSEL_TIMEOUT)
-        if resp.status_code == 401:
-            # refresh token for this base
-            cache.delete(f"wsl_token::{base}")
-            base, token = _wsl_token()
-            headers["Authorization"] = f"Bearer {token}"
-            resp = requests.post(submit_url, json=payload_list, headers=headers, timeout=WASSEL_TIMEOUT)
-        resp.raise_for_status()
-        return resp.json()
-    except requests.RequestException as e:
-        # try alternate submit path on the /web-api host
-        if "demo.wasselexpress.com" in base:
-            alt = f"{base}{WASSEL_HOSTS[1]['SUBMIT_PATH_ALT']}"
-            log.warning("Primary submit failed on %s, trying %s", submit_url, alt)
-            resp = requests.post(alt, json=payload_list, headers=headers, timeout=WASSEL_TIMEOUT)
+
+    def _headers(tk: str) -> dict:
+        return {
+            "Authorization": f"Bearer {tk}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+
+    # Prefer the working path first
+    paths = [
+        "/web-api/api/Integration/SubmitShippingRequests",
+        "/API/Integration/SubmitShippingRequests",
+    ]
+
+    last_err = None
+    for path in paths:
+        url = f"{base.rstrip('/')}{path}"
+        try:
+            resp = requests.post(url, json=payload_list, headers=_headers(token), timeout=WASSEL_TIMEOUT)
+
+            # If token expired → refresh once and retry same URL
+            if resp.status_code == 401:
+                cache.delete(f"wsl_token::{base.rstrip('/')}")
+                base, token = _wsl_token()
+                url = f"{base.rstrip('/')}{path}"
+                resp = requests.post(url, json=payload_list, headers=_headers(token), timeout=WASSEL_TIMEOUT)
+
+            # Some stacks route only one of the paths; on 404/405 try next
+            if resp.status_code in (404, 405):
+                log.warning("Wassel submit not available on %s (HTTP %s); trying next path", url, resp.status_code)
+                continue
+
+            # Raise for other non-2xx
             resp.raise_for_status()
-            return resp.json()
-        raise
+
+            # Success → parse JSON
+            try:
+                return resp.json()
+            except ValueError:
+                # Unexpected non-JSON; return text so caller can log/store it
+                log.warning("Wassel submit returned non-JSON on %s: %s", url, (resp.text or "")[:500])
+                return {"raw": resp.text, "status_code": resp.status_code}
+
+        except requests.RequestException as e:
+            # Capture server error body if present to speed up debugging
+            body = ""
+            try:
+                body = (e.response.text or "")[:800] if getattr(e, "response", None) else ""
+            except Exception:
+                pass
+            last_err = e
+            log.warning("Submit attempt failed on %s: %s%s",
+                        url, e, f" | body={body}" if body else "")
+
+    # All paths failed
+    raise last_err or RuntimeError("All Wassel submit paths failed")
 
 
 def _addr_desc(addr: dict) -> str:
@@ -341,33 +404,34 @@ def _recipient_city(addr: dict, order) -> str:
 
     return "Amman"  # last-resort to avoid API validation failure
 
-
 def _order_to_submit_payload(order) -> list[dict]:
-    addr = (order.shipping_address or {}) if hasattr(order, "shipping_address") else {}
-    is_cod = (order.payment_method or "").lower() == "cod"
-    cod_amount = str(order.grand_total) if is_cod else "0"
+    addr = getattr(order, "shipping_address", {}) or {}
+    is_cod = (getattr(order, "payment_method","") or "").lower() == "cod"
+    cod_amount = float(order.grand_total) if is_cod else 0.0
+
+    phone = (order.phone or "").strip()
+    if phone.startswith("+962"):
+        phone = "962" + phone[4:]  # numeric JO format that demo accepted
 
     return [{
         "pieceId": None,
         "lat": None, "lng": None,
-        "companyStoreID": WASSEL_COMPANY_STORE_ID,
-        "recipientCity": _recipient_city(addr, order),
-        "recipientArea": addr.get("area") or addr.get("barangay"),
-        "remark": (order.notes or "") or None,
+        # companyID optional in sandbox; omit since working request omitted it
+        "companyStoreID": WASSEL_COMPANY_STORE_ID,   # 13
+        "recipientCity": "Amman",
+        "recipientArea": addr.get("area") or "Amman",
+        "remark": (getattr(order, "notes","") or None),
         "addressDescription": _addr_desc(addr),
-        "recipientName": (order.full_name or "Customer").strip(),
-        "recipientEmail": (order.email or None),
-        "recipientPhoneNumber": (order.phone or "").strip(),
+        "recipientName": (getattr(order,"full_name","Customer") or "Customer").strip(),
+        "recipientEmail": getattr(order, "email", None) or None,
+        "recipientPhoneNumber": phone,
         "recipientSecondPhoneNumber": None,
-        "codAmount": cod_amount,
-        
+        "codAmount": cod_amount,                    # numeric ✔
         "itemDetails": _items_summary_for_carrier(order),
-        "referenceID": str(order.order_number),
-        "companyID": None,
-        "itemWeight": None,
-        "itemDimension": None,
-        "productType": None,
+        "ReferenceID": str(order.order_number),     # PascalCase ✔
+        "itemWeight": None, "itemDimension": None, "productType": None,
     }]
+
 
 
 from django.utils import timezone
@@ -499,10 +563,23 @@ def wasselexpress_webhook(request):
     if request.method != "POST":
         return HttpResponseForbidden("POST only")
 
-    secret = request.headers.get("X-Webhook-Secret")
-    # use the same var you already load from settings
-    if secret != WASSEL_WEBHOOK_SECRET:
+    raw = request.body or b""
+    sig_header = request.headers.get("X-Wassel-Signature")
+    secret_header = request.headers.get("X-Webhook-Secret")
+
+    ok = False
+    if sig_header:
+        import hmac, hashlib
+        mac = hmac.new(WASSEL_WEBHOOK_SECRET.encode("utf-8"), raw, hashlib.sha256).hexdigest()
+        if hmac.compare_digest(mac, sig_header.strip()):
+            ok = True
+    elif secret_header and secret_header.strip() == WASSEL_WEBHOOK_SECRET:
+        log.warning("Accepted legacy X-Webhook-Secret header — please migrate to X-Wassel-Signature")
+        ok = True
+
+    if not ok:
         return HttpResponse("forbidden", status=403)
+
 
     try:
         body = json.loads(request.body.decode("utf-8") or "{}")
