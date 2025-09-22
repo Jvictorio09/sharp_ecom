@@ -47,7 +47,7 @@ log = logging.getLogger(__name__)
 # Try both demo stacks they sent you:
 WASSEL_HOSTS = [
     {  # put this FIRST
-      "BASE": "https://demo.wasselexpress.com",
+      "BASE": "https://dlx.wasselexpress.com",
       "LOGIN_PATH": "/web-api/api/account/Login",
       "SUBMIT_PATH": "/API/Integration/SubmitShippingRequests",
       "SUBMIT_PATH_ALT": "/web-api/api/Integration/SubmitShippingRequests",
@@ -78,11 +78,12 @@ WASSEL_TIMEOUT = WASSEL["TIMEOUT"]
 WASSEL_WEBHOOK_SECRET = WASSEL["WEBHOOK_SHARED_SECRET"]
 def _wsl_token():
     """
-    Login to Wassel demo and cache the JWT for 30 minutes.
-    Uses JSON body (required) and the same endpoint that worked in PS.
+    Login to Wassel LIVE and cache the JWT for 30 minutes.
+    Live expects: {email, password, rememberMe: true}
+    Response: plain text token (sometimes quoted JSON string).
     """
-    base = "https://demo.wasselexpress.com"           # demo host that works
-    login_url = f"{base}/web-api/api/account/Login"    # same path as your PS test
+    base = "https://dlx.wasselexpress.com"
+    login_url = f"{base}/web-api/api/account/Login"
     cache_key = f"wsl_token::{base}"
 
     tk = cache.get(cache_key)
@@ -90,8 +91,8 @@ def _wsl_token():
         return (base, tk)
 
     payload = {
-        "email": WASSEL_EMAIL,         # "dlx test"
-        "password": WASSEL_PASSWORD,   # "123"
+        "email": WASSEL_EMAIL,
+        "password": WASSEL_PASSWORD,
         "rememberMe": True,
     }
     headers = {
@@ -99,30 +100,26 @@ def _wsl_token():
         "Accept": "application/json",
     }
 
-    try:
-        r = requests.post(login_url, json=payload, headers=headers, timeout=WASSEL_TIMEOUT)
-        r.raise_for_status()
-        # API returns the token as plain text
-        token = (r.text or "").strip().strip('"')
-        if not token:
-            # sometimes it’s JSON-wrapped
-            try:
-                data = r.json()
-                token = data if isinstance(data, str) else data.get("token") or ""
-            except Exception:
-                pass
-        if not token:
-            raise RuntimeError(f"Login succeeded but token missing: {r.text[:300]}")
-        cache.set(cache_key, token, 60 * 30)
-        return (base, token)
-    except requests.RequestException as e:
-        body = ""
+    r = requests.post(login_url, json=payload, headers=headers, timeout=WASSEL_TIMEOUT)
+    r.raise_for_status()
+
+    # Token is plain text; sometimes it's a JSON string like: "eyJhbGciOi..."
+    token = (r.text or "").strip().strip('"')
+    if not token:
+        # Safety: if they ever switch to JSON {token: "..."}
         try:
-            body = (e.response.text or "")[:600]
+            data = r.json()
+            token = (
+                data if isinstance(data, str)
+                else data.get("token") or data.get("access_token") or ""
+            )
         except Exception:
-            pass
-        log.error("Wassel login failed: %s | body=%s", e, body)
-        raise
+            token = ""
+    if not token:
+        raise RuntimeError(f"Login succeeded but token missing: {(r.text or '')[:300]}")
+
+    cache.set(cache_key, token, 60 * 30)  # 30 minutes
+    return (base, token)
 
 
 
@@ -176,7 +173,7 @@ def _wsl_lookup_awb_by_reference(ref: str):
     bases.append(base)
     # Try the sibling demo host too (your login fallback pattern)
     if "demoapi.wasselexpress.com" in base:
-        bases.append("https://demo.wasselexpress.com")
+        bases.append("https://dlx.wasselexpress.com")
     else:
         bases.append("http://demoapi.wasselexpress.com")
 
@@ -286,29 +283,20 @@ def _items_summary_for_carrier(order, max_len: int = 230) -> str:
     return txt or "Online order"
 
 
-
 def _wsl_submit(payload_list: list[dict]):
-    """
-    Submit shipments to Wassel.
-    - Prefers the /web-api/api path (the one that worked in manual test).
-    - Sends JSON with explicit Content-Type + Accept.
-    - Auto-refreshes token on 401.
-    - Falls back to legacy /API path on 404/405/500.
-    - Logs response body snippet on failures to help debugging.
-    """
     base, token = _wsl_token()
 
     def _headers(tk: str) -> dict:
-        return {
-            "Authorization": f"Bearer {tk}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        }
+     return {
+        "Authorization": f"Bearer {tk}",
+        "Content-Type": "application/json",   # <- no charset
+        "Accept": "application/json",
+    }
 
-    # Prefer the working path first
+
     paths = [
-        "/web-api/api/Integration/SubmitShippingRequests",
-        "/API/Integration/SubmitShippingRequests",
+        "/web-api/api/Integration/SubmitShippingRequests",  # per docs
+        "/API/Integration/SubmitShippingRequests",          # legacy fallback
     ]
 
     last_err = None
@@ -316,42 +304,32 @@ def _wsl_submit(payload_list: list[dict]):
         url = f"{base.rstrip('/')}{path}"
         try:
             resp = requests.post(url, json=payload_list, headers=_headers(token), timeout=WASSEL_TIMEOUT)
-
-            # If token expired → refresh once and retry same URL
             if resp.status_code == 401:
                 cache.delete(f"wsl_token::{base.rstrip('/')}")
                 base, token = _wsl_token()
                 url = f"{base.rstrip('/')}{path}"
                 resp = requests.post(url, json=payload_list, headers=_headers(token), timeout=WASSEL_TIMEOUT)
 
-            # Some stacks route only one of the paths; on 404/405 try next
             if resp.status_code in (404, 405):
-                log.warning("Wassel submit not available on %s (HTTP %s); trying next path", url, resp.status_code)
+                log.warning("Submit path not available: %s (%s); trying next", url, resp.status_code)
                 continue
 
-            # Raise for other non-2xx
             resp.raise_for_status()
-
-            # Success → parse JSON
             try:
                 return resp.json()
             except ValueError:
-                # Unexpected non-JSON; return text so caller can log/store it
-                log.warning("Wassel submit returned non-JSON on %s: %s", url, (resp.text or "")[:500])
+                # return raw text if non-JSON
                 return {"raw": resp.text, "status_code": resp.status_code}
 
         except requests.RequestException as e:
-            # Capture server error body if present to speed up debugging
             body = ""
             try:
                 body = (e.response.text or "")[:800] if getattr(e, "response", None) else ""
             except Exception:
                 pass
             last_err = e
-            log.warning("Submit attempt failed on %s: %s%s",
-                        url, e, f" | body={body}" if body else "")
+            log.warning("Submit failed on %s: %s%s", url, e, f" | body={body}" if body else "")
 
-    # All paths failed
     raise last_err or RuntimeError("All Wassel submit paths failed")
 
 
@@ -404,33 +382,60 @@ def _recipient_city(addr: dict, order) -> str:
 
     return "Amman"  # last-resort to avoid API validation failure
 
+import re
+
+_ASCII_ONLY = re.compile(r"[^\x20-\x7E]+")
+
+def _ascii(s: str) -> str:
+    if s is None:
+        return ""
+    # replace fancy chars with safe equivalents
+    s = s.replace("×", "x").replace("–", "-").replace("—", "-").replace("“", '"').replace("”", '"').replace("’", "'")
+    return _ASCII_ONLY.sub("", s)
+
+def _strip_nulls(obj):
+    if isinstance(obj, dict):
+        return {k: _strip_nulls(v) for k, v in obj.items() if v is not None}
+    if isinstance(obj, list):
+        return [_strip_nulls(v) for v in obj]
+    return obj
+
 def _order_to_submit_payload(order) -> list[dict]:
     addr = getattr(order, "shipping_address", {}) or {}
+
     is_cod = (getattr(order, "payment_method","") or "").lower() == "cod"
     cod_amount = float(order.grand_total) if is_cod else 0.0
 
     phone = (order.phone or "").strip()
-    if phone.startswith("+962"):
-        phone = "962" + phone[4:]  # numeric JO format that demo accepted
+    if phone.startswith("+"):
+        phone = phone[1:]
+    if phone.startswith("9620"):
+        phone = "962" + phone[4:]
 
-    return [{
-        "pieceId": None,
-        "lat": None, "lng": None,
-        # companyID optional in sandbox; omit since working request omitted it
-        "companyStoreID": WASSEL_COMPANY_STORE_ID,   # 13
-        "recipientCity": "Amman",
-        "recipientArea": addr.get("area") or "Amman",
-        "remark": (getattr(order, "notes","") or None),
-        "addressDescription": _addr_desc(addr),
-        "recipientName": (getattr(order,"full_name","Customer") or "Customer").strip(),
+    item_details = _ascii(_items_summary_for_carrier(order))
+    address_desc = _ascii(_addr_desc(addr))
+    recip_name = _ascii((getattr(order,"full_name","Customer") or "Customer").strip())
+
+    # 👇 Prefer Arabic / IDs if present; otherwise fall back
+    city_val = addr.get("city_ar") or addr.get("city") or addr.get("area") or "عمان"
+    area_val = addr.get("area_ar") or addr.get("district") or addr.get("area") or None
+    city_id  = addr.get("recipientCityId")   # optional future support
+    area_id  = addr.get("recipientAreaId")   # optional future support
+
+    body = [{
+        "companyStoreID": WASSEL_COMPANY_STORE_ID,
+        **({"recipientCityId": city_id} if city_id else {"recipientCity": city_val}),
+        **({"recipientAreaId": area_id} if area_id else ({"recipientArea": area_val} if area_val else {})),
+        "remark": _ascii(getattr(order, "notes", "") or None) or None,
+        "addressDescription": address_desc,
+        "recipientName": recip_name,
         "recipientEmail": getattr(order, "email", None) or None,
         "recipientPhoneNumber": phone,
-        "recipientSecondPhoneNumber": None,
-        "codAmount": cod_amount,                    # numeric ✔
-        "itemDetails": _items_summary_for_carrier(order),
-        "ReferenceID": str(order.order_number),     # PascalCase ✔
-        "itemWeight": None, "itemDimension": None, "productType": None,
+        "codAmount": cod_amount or None,
+        "itemDetails": item_details or None,
+        "referenceID": str(order.order_number),  # lower-camel ✔
     }]
+    return _strip_nulls(body)
 
 
 
@@ -985,6 +990,42 @@ SHIP_TO = [
 ]
 SHIP_TO_COUNTRIES = [(code, dict(countries)[code]) for code in SHIP_TO]
 
+
+
+# --- JO Arabic mappings (minimal seed; extend as you see real data) ---
+AR_GOV_MAP = {
+    "amman": "عمان",
+    "zarqa": "الزرقاء",
+    "irbid": "إربد",
+    "balqa": "البلقاء",
+    "mafraq": "المفرق",
+    "madaba": "مادبا",
+    "karak": "الكرك",
+    "tafilah": "الطفيلة",
+    "ma'an": "معان", "maan": "معان",
+    "aqaba": "العقبة",
+    "jerash": "جرش",
+    "ajloun": "عجلون",
+    "other": None,
+}
+
+AR_DISTRICT_MAP = {
+    # Common Amman districts — grow over time
+    "khalda": "خلدا",
+    "abdoun": "عبدون",
+    "sweifieh": "الصويفية", "swaifyeh": "الصويفية",
+    "tla' al-ali": "تلاع العلي", "tlaa al ali": "تلاع العلي",
+    "shmaisani": "الشميساني", "shmesani": "الشميساني",
+    "dabouq": "دابوق", "dabooq": "دابوق",
+    "jubeiha": "الجبيهة",
+}
+
+def _to_ar(val: str | None, mapping: dict) -> str | None:
+    if not val:
+        return None
+    key = (val or "").strip().lower()
+    return mapping.get(key, val)  # if already Arabic (or unknown), keep as-is
+
 # -----------------------------
 # Address schemas (client + server mirror)
 # -----------------------------
@@ -999,17 +1040,20 @@ ADDRESS_RULES = {
         ],
         "example": "406 Diamond Lane, Cristimar Village, Brgy. San Roque, Antipolo City",
     },
-     "JO": {
+    "JO": {
         "fields": [
-            {"key": "area", "label": "Area", "required": True, "type": "select",
-             "options": ["Amman","Zarqa","Irbid","Balqa","Mafraq","Madaba","Karak","Tafilah","Ma'an","Aqaba","Jerash","Ajloun","Other"]},
-            {"key": "area_other", "label": "If Other, specify",
-             "requiredIf": {"field": "area", "equals": "Other"}},
+            {
+                "key": "area", "label": "Governorate", "required": True, "type": "select",
+                "options": ["Amman","Zarqa","Irbid","Balqa","Mafraq","Madaba","Karak","Tafilah","Ma'an","Aqaba","Jerash","Ajloun","Other"]
+            },
+            {"key": "area_other", "label": "If Other, specify", "requiredIf": {"field": "area", "equals": "Other"}},
+            # NEW: district / neighborhood (free text or dependent select)
+            {"key": "district", "label": "District / Neighborhood", "required": True, "placeholder": "e.g. Khalda / Abdoun / Sweifieh"},
             {"key": "address_line1", "label": "Building / Street", "required": True},
-            # ✅ no city/district, no postal_code for JO
         ],
-        "example": "Amman — Building 12, Queen Rania St.",
+        "example": "Amman — Khalda — Building 12, Queen Rania St.",
     },
+
     "US": {
         "fields": [
             {"key": "address_line1", "label": "Street address", "required": True},
@@ -1209,6 +1253,7 @@ def checkout(request):
             "state":         request.POST.get("state"),
             "county":        request.POST.get("county"),
             "emirate":       request.POST.get("emirate"),
+            "district":      request.POST.get("district"),   
         }
 
         shipping_method = (request.POST.get("shipping") or "standard").strip().lower()
@@ -1248,11 +1293,28 @@ def checkout(request):
                 "items": items, "subtotal": subtotal, "ship_to_countries": SHIP_TO_COUNTRIES
             })
 
+        if country == "JO":
+            try:
+                gov_en      = (addr.get("area") or "").strip()
+                gov_other   = (addr.get("area_other") or "").strip()
+                district_in = (addr.get("district") or "").strip()
+
+                city_ar = _to_ar(gov_en, AR_GOV_MAP) or _to_ar(gov_other, AR_GOV_MAP) or "عمان"
+                area_ar = _to_ar(district_in, AR_DISTRICT_MAP) if district_in else None
+
+                # Stash alongside originals (non-breaking)
+                addr["city_ar"] = city_ar
+                if area_ar:
+                    addr["area_ar"] = area_ar
+            except Exception:
+                # Never block checkout if mapping hiccups
+                pass
+
         # Shipping cost (free/standard/express)
         if shipping_method in ("standard", "free"):
             shipping_cost = Decimal("0.00")
         elif shipping_method == "express":
-            shipping_cost = Decimal("299.00")
+            shipping_cost = Decimal("0.00")
         else:
             shipping_cost = Decimal("0.00")
 
@@ -1374,8 +1436,10 @@ def _format_address_text(country: str, a: dict) -> str:
             "Philippines",
         ]
     elif country == "JO":
-        area = a.get("area_other") if (a.get("area") == "Other") else a.get("area")
-        parts = [a.get("address_line1"), area, a.get("city"), a.get("postal_code"), "Jordan"]
+        city_label = a.get("city_ar") or (a.get("area_other") if (a.get("area") == "Other") else a.get("area"))
+        district   = a.get("district") or a.get("area_ar")
+        parts = [a.get("address_line1"), district, city_label, "Jordan"]
+
     elif country == "US":
         parts = [a.get("address_line1"), a.get("address_line2"),
                  f"{a.get('city')}, {a.get('state')} {a.get('postal_code')}", "United States"]

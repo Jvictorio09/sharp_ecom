@@ -1,0 +1,14 @@
+[
+  {
+    "companyStoreID": 737,
+    "recipientCity": "عمان",
+    "recipientArea": "خلدا",
+    "remark": "Live smoke test",
+    "addressDescription": "شارع اختبار 123، عمان",
+    "recipientName": "عميل تجريبي",
+    "recipientPhoneNumber": "962799999999",
+    "codAmount": 0,
+    "itemDetails": "1x Test Item",
+    "referenceID": "LIVE-20250922144550"
+  }
+]
