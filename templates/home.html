@@ -48,6 +48,13 @@
           Discover Our Science
         </a>
       </div>
+
+      <!-- Perks row -->
+<p class="mt-4 text-xs md:text-sm text-white/85">
+  <span class="font-semibold text-white">🎁 Free delivery in Jordan</span>
+  
+</p>
+
     </div>
   </div>
 </section>
@@ -248,7 +255,7 @@
         <p class="uppercase tracking-[0.18em] text-xs text-ink/60 will-reveal">Signature Sets</p>
         <h2 class="text-2xl md:text-4xl font-extrabold will-reveal delay-100">Routines that work better together</h2>
         <p class="mt-2 text-ink/70 max-w-2xl will-reveal delay-200">
-          Curated pairings of our best-sellers—real results, better value. Complimentary delivery on every set.
+          Curated pairings of our best-sellers—real results, better value. Free delivery in Jordan on every set.
         </p>
       </div>
       <a href="{% url 'product_list' %}?type=bundle"
@@ -271,7 +278,7 @@
       <div class="absolute left-3 top-3 flex flex-wrap gap-2">
         <span class="px-2 py-1 rounded-full text-[11px] font-medium border border-line bg-white/90">Set</span>
         {% if p.free_delivery %}
-          <span class="px-2 py-1 rounded-full text-[11px] font-medium border border-line bg-white/90">Complimentary delivery</span>
+          <span class="px-2 py-1 rounded-full text-[11px] font-medium border border-line bg-white/90">Free delivery in Jordan</span>
         {% endif %}
       </div>
     </div>
