@@ -209,3 +209,14 @@ WASSEL = {
     "TIMEOUT": int(os.getenv("WASSEL_TIMEOUT", 20)),
     "WEBHOOK_SHARED_SECRET": os.getenv("WASSEL_WEBHOOK_SHARED_SECRET", ""),
 }
+
+
+# settings.py
+import os
+ZOHO = {
+    "CLIENT_ID": os.getenv("ZOHO_CLIENT_ID"),
+    "CLIENT_SECRET": os.getenv("ZOHO_CLIENT_SECRET"),
+    "REFRESH_TOKEN": os.getenv("ZOHO_REFRESH_TOKEN"),
+    "ORG_ID": os.getenv("ZOHO_ORG_ID"),
+    "BASE": os.getenv("ZOHO_BASE", "https://www.zohoapis.com"),
+}

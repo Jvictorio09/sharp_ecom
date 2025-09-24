@@ -11,6 +11,7 @@ from django.core.validators import MinValueValidator
 # -----------------------------
 class Product(models.Model):
     name = models.CharField(max_length=150, unique=True)
+    sku = models.CharField(max_length=64, blank=True, null=True, db_index=True) 
     slug = models.SlugField(max_length=160, unique=True, blank=True, db_index=True)
     short_description = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
