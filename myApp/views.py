@@ -631,6 +631,7 @@ def wasselexpress_webhook(request):
 
     order.save(update_fields=["shipping_address", "status", "updated_at"])
 
+    """
     if status_changed:
         if new_code in {"130", "170"} and (order.payment_method or "").lower() == "cod":
             try:
@@ -638,6 +639,7 @@ def wasselexpress_webhook(request):
                 mark_shipped(order)
             except Exception:
                 log.exception("Zoho invoice conversion failed for COD order %s", order.order_number)
+    """
 
     # optional: notify only on status change
     try:
@@ -1210,7 +1212,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.db import transaction
 from django.shortcuts import render, redirect
-from myApp.integrations.zoho_inventory import create_invoice_for_order
+from myApp.integrations.zoho_inventory import push_order_to_zoho
 
 from .models import Order, OrderItem, PromoCode  # PromoCode only needed for usage bump
 
@@ -1414,7 +1416,7 @@ def checkout(request):
 
         # Send emails AFTER commit, in background
         transaction.on_commit(lambda: _send_emails_async(request, order))
-        transaction.on_commit(lambda: create_invoice_for_order(order))
+        transaction.on_commit(lambda: push_order_to_zoho(order))
 
         messages.success(request, "Order placed! We’ve emailed your confirmation.")
         return redirect(f"/thanks/?o={order.order_number}")
