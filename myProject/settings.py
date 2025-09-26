@@ -85,6 +85,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'myApp.context_processors.dashboard_counts',
             ],
         },
     },
@@ -169,7 +170,7 @@ TEMPLATES[0]['OPTIONS']['context_processors'] += [
 import os
 
 # If you still use Django's send_mail elsewhere, keep it from tripping in prod:
-DEBUG = os.environ.get("DEBUG", "False").lower() in ("1","true","yes")
+
 
 # Not strictly required for Resend (we’ll call the HTTP API), but safe defaults:
 EMAIL_BACKEND = (
@@ -195,6 +196,7 @@ LOGIN_URL = 'dashboard_login'
 TEMPLATES[0]['OPTIONS']['builtins'] = [
     'myApp.templatetags.money',
     'myApp.templatetags.shop_extras',  
+    'myApp.templatetags.form_extras',
 ]
 
 
@@ -219,4 +221,16 @@ ZOHO = {
     "REFRESH_TOKEN": os.getenv("ZOHO_REFRESH_TOKEN"),
     "ORG_ID": os.getenv("ZOHO_ORG_ID"),
     "BASE": os.getenv("ZOHO_BASE", "https://www.zohoapis.com"),
+}
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "loggers": {
+        "django": {"handlers": ["console"], "level": "INFO"},
+        "django.request": {"handlers": ["console"], "level": "ERROR"},
+        "django.template": {"handlers": ["console"], "level": "ERROR"},
+    },
 }

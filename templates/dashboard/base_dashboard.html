@@ -14,21 +14,83 @@
   </style>
 </head>
 <body class="bg-[#F4EFE7] text-[var(--sharp-charcoal)]">
-  <header class="border-b border-[#E1E1E1] bg-white/80 backdrop-blur">
-    <div class="max-w-7xl mx-auto h-16 px-4 md:px-8 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <span class="font-extrabold tracking-wide text-lg">SHARP</span>
-        <span class="text-xs px-2 py-1 rounded-full bg-[var(--sharp-mineral)] text-white">Dashboard</span>
-      </div>
-      <nav class="flex items-center gap-4 text-sm">
-        <a class="hover:text-[var(--sharp-mineral)]" href="{% url 'dashboard_home' %}">Home</a>
-        <a class="hover:text-[var(--sharp-mineral)]" href="{% url 'dashboard_order_list' %}">Orders</a>
-         <a class="hover:text-[var(--sharp-mineral)]" href="{% url 'dashboard_promo_list' %}">Promos</a>
-        <a class="hover:text-[var(--sharp-mineral)]" href="{% url 'dashboard_logout' %}">Logout</a>
-      </nav>
-    </div>
-  </header>
 
+  <!-- Header -->
+  <header class="sticky top-0 z-40 border-b border-[#E1E1E1] bg-white/80 backdrop-blur">
+  <div class="max-w-7xl mx-auto h-16 px-4 md:px-8 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <a href="{% url 'dashboard_home' %}" class="font-extrabold tracking-wide text-lg text-[#263128]">SHARP</a>
+      <span class="text-xs px-2 py-1 rounded-full bg-[var(--sharp-mineral)] text-white">Dashboard</span>
+    </div>
+
+    <nav class="hidden md:flex items-center gap-5 text-sm">
+      <a class="hover:text-[var(--sharp-mineral)] {% if nav_state.is_home %}text-[var(--sharp-mineral)]{% endif %}"
+         href="{% url 'dashboard_home' %}">Home</a>
+
+      <a class="hover:text-[var(--sharp-mineral)] flex items-center gap-2 {% if nav_state.is_orders %}text-[var(--sharp-mineral)]{% endif %}"
+         href="{% url 'dashboard_order_list' %}">
+        Orders
+        {% if nav_counts.orders_pending %}
+          <span class="text-[10px] leading-none px-1.5 py-1 rounded-full bg-[#263128] text-white">
+            {{ nav_counts.orders_pending }}
+          </span>
+        {% endif %}
+      </a>
+
+      <a class="hover:text-[var(--sharp-mineral)] flex items-center gap-2 {% if nav_state.is_products %}text-[var(--sharp-mineral)]{% endif %}"
+         href="{% url 'dashboard_product_list' %}">
+        Products
+        {% if nav_counts.products_inactive %}
+          <span class="text-[10px] leading-none px-1.5 py-1 rounded-full bg-amber-500 text-white" title="Inactive products">
+            {{ nav_counts.products_inactive }}
+          </span>
+        {% endif %}
+      </a>
+
+      <a class="hover:text-[var(--sharp-mineral)] {% if nav_state.is_promos %}text-[var(--sharp-mineral)]{% endif %}"
+         href="{% url 'dashboard_promo_list' %}">Promos</a>
+
+      <a class="hover:text-[var(--sharp-mineral)]" href="{% url 'dashboard_logout' %}">Logout</a>
+    </nav>
+
+    <button id="nav-toggle" class="md:hidden p-2 rounded-lg border border-[#E1E1E1]" aria-label="Open menu">☰</button>
+  </div>
+
+  <div id="nav-drawer" class="md:hidden hidden border-t border-[#E1E1E1] bg-white">
+    <nav class="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-2 text-sm">
+      <a class="py-2 {% if nav_state.is_home %}text-[var(--sharp-mineral)]{% endif %}"
+         href="{% url 'dashboard_home' %}">Home</a>
+
+      <a class="py-2 flex items-center gap-2 {% if nav_state.is_orders %}text-[var(--sharp-mineral)]{% endif %}"
+         href="{% url 'dashboard_order_list' %}">
+        Orders
+        {% if nav_counts.orders_pending %}
+          <span class="text-[10px] leading-none px-1.5 py-1 rounded-full bg-[#263128] text-white">
+            {{ nav_counts.orders_pending }}
+          </span>
+        {% endif %}
+      </a>
+
+      <a class="py-2 flex items-center gap-2 {% if nav_state.is_products %}text-[var(--sharp-mineral)]{% endif %}"
+         href="{% url 'dashboard_product_list' %}">
+        Products
+        {% if nav_counts.products_inactive %}
+          <span class="text-[10px] leading-none px-1.5 py-1 rounded-full bg-amber-500 text-white">
+            {{ nav_counts.products_inactive }}
+          </span>
+        {% endif %}
+      </a>
+
+      <a class="py-2 {% if nav_state.is_promos %}text-[var(--sharp-mineral)]{% endif %}"
+         href="{% url 'dashboard_promo_list' %}">Promos</a>
+
+      <a class="py-2" href="{% url 'dashboard_logout' %}">Logout</a>
+    </nav>
+  </div>
+</header>
+
+
+  <!-- Flash messages -->
   {% if messages %}
   <div class="max-w-5xl mx-auto mt-4 px-4">
     {% for m in messages %}
@@ -37,8 +99,18 @@
   </div>
   {% endif %}
 
+  <!-- Page content -->
   <main class="max-w-7xl mx-auto p-4 md:p-8">
     {% block content %}{% endblock %}
   </main>
+
+  <script>
+    (function(){
+      const btn = document.getElementById('nav-toggle');
+      const drawer = document.getElementById('nav-drawer');
+      if(!btn || !drawer) return;
+      btn.addEventListener('click', ()=> drawer.classList.toggle('hidden'));
+    })();
+  </script>
 </body>
 </html>

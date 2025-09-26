@@ -1,0 +1,216 @@
+<div id="product-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+  <div class="w-[92%] max-w-3xl rounded-2xl bg-white shadow-2xl border border-[#E1E1E1] overflow-hidden
+              max-h-[90vh] flex flex-col">
+    <!-- Header -->
+    <div class="px-6 py-4 border-b border-[#E1E1E1] flex items-center justify-between bg-white/70 backdrop-blur shrink-0">
+      <div class="flex items-center gap-2">
+        <span class="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--sharp-mineral)] text-white text-sm">P</span>
+        <h3 class="text-lg font-semibold tracking-tight">
+          {% if product %}Edit Product{% else %}New Product{% endif %}
+        </h3>
+      </div>
+      <button type="button"
+              data-close
+              class="w-9 h-9 rounded-full border border-[#E1E1E1] hover:bg-gray-50"
+              aria-label="Close">✕</button>
+    </div>
+
+
+    <!-- Body -->
+    <div class="p-6 overflow-y-auto">
+      {% if form.non_field_errors %}
+        <div class="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      <form id="product-modal-form" action="{{ request.path }}" method="post" novalidate>
+        {% csrf_token %}
+
+        <!-- BASIC INFO -->
+        <div class="rounded-2xl border border-[#E1E1E1] bg-[#FAFAF8] p-4">
+          <p class="text-xs font-semibold uppercase tracking-wider text-black/60 mb-3">Basic info</p>
+
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label class="text-xs text-black/70">Name</label>
+              {{ form.name }}
+              {% if form.name.errors %}<p class="text-xs text-red-600 mt-1">{{ form.name.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div>
+              <label class="text-xs text-black/70">SKU</label>
+              {{ form.sku }}
+              {% if form.sku.errors %}<p class="text-xs text-red-600 mt-1">{{ form.sku.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="text-xs text-black/70">Short description</label>
+              {{ form.short_description }}
+              {% if form.short_description.errors %}<p class="text-xs text-red-600 mt-1">{{ form.short_description.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="text-xs text-black/70">Description</label>
+              {{ form.description }}
+              {% if form.description.errors %}<p class="text-xs text-red-600 mt-1">{{ form.description.errors|join:", " }}</p>{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- PRICING / MEDIA -->
+        <div class="mt-4 grid md:grid-cols-2 gap-4">
+          <div class="rounded-2xl border border-[#E1E1E1] bg-white p-4">
+            <p class="text-xs font-semibold uppercase tracking-wider text-black/60 mb-3">Pricing</p>
+            <label class="text-xs text-black/70">Price</label>
+            {{ form.price }}
+            {% if form.price.errors %}<p class="text-xs text-red-600 mt-1">{{ form.price.errors|join:", " }}</p>{% endif %}
+          </div>
+
+          <div class="rounded-2xl border border-[#E1E1E1] bg-white p-4">
+            <p class="text-xs font-semibold uppercase tracking-wider text-black/60 mb-3">Media</p>
+            <label class="text-xs text-black/70">Image URL</label>
+            {{ form.image_url }}
+            {% if form.image_url.errors %}<p class="text-xs text-red-600 mt-1">{{ form.image_url.errors|join:", " }}</p>{% endif %}
+          </div>
+        </div>
+
+        <!-- GALLERY -->
+        <div class="mt-4 rounded-2xl border border-[#E1E1E1] bg-white p-4">
+          <p class="text-xs font-semibold uppercase tracking-wider text-black/60 mb-3">Gallery</p>
+          <label class="text-xs text-black/70">Gallery CSV</label>
+          {{ form.gallery_csv }}
+          <p class="text-xs text-black/50 mt-1">Comma-separated image URLs for gallery.</p>
+          {% if form.gallery_csv.errors %}<p class="text-xs text-red-600 mt-1">{{ form.gallery_csv.errors|join:", " }}</p>{% endif %}
+        </div>
+
+        <!-- FLAGS -->
+        <div class="mt-4 rounded-2xl border border-[#E1E1E1] bg-white p-4">
+          <p class="text-xs font-semibold uppercase tracking-wider text-black/60 mb-3">Flags</p>
+          <div class="grid sm:grid-cols-3 gap-3">
+            <label class="flex items-center gap-2 text-sm">
+              {{ form.is_active }} <span>Active</span>
+            </label>
+            <label class="flex items-center gap-2 text-sm">
+              {{ form.free_delivery }} <span>Free delivery</span>
+            </label>
+            <label class="flex items-center gap-2 text-sm">
+              {{ form.is_bundle }} <span>Is bundle</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- BUNDLE -->
+        <div class="mt-4 rounded-2xl border border-[#E1E1E1] bg-white p-4">
+          <p class="text-xs font-semibold uppercase tracking-wider text-black/60 mb-3">Bundle components</p>
+          {% if bundle_form and bundle_form.components %}
+            {{ bundle_form.components }}
+          {% else %}
+            <textarea class="mt-1 w-full px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white" disabled>Bundle input not provided by view.</textarea>
+          {% endif %}
+          <p class="text-xs text-black/50 mt-1">One per line. Example: <code>SKU-128 x2</code> or <code>Shampoo 250ml x1</code></p>
+        </div>
+
+        <!-- Actions -->
+        <div class="mt-6 flex items-center justify-end gap-2">
+          <button type="button"
+                  data-close
+                  class="px-4 py-2 rounded-full border border-[#E1E1E1] bg-white hover:bg-gray-50">
+            Cancel
+          </button>
+          <button class="px-5 py-2 rounded-full text-white bg-[var(--sharp-mineral)] hover:bg-[var(--sharp-hunter)]">
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  const root  = document.getElementById('modal-root');
+  const modal = document.getElementById('product-modal');
+  if (!modal) return;
+
+  const close = () => { if (root) root.innerHTML = ''; else modal.remove(); };
+
+  // ✅ Robust event delegation (handles Text nodes too)
+  modal.addEventListener('click', (e) => {
+    // Normalize to an Element (Text nodes don't have .closest)
+    const target = (e.target instanceof Element) ? e.target : e.target?.parentElement;
+
+    // Backdrop click closes (only when clicking the overlay itself)
+    if (e.target === modal) return close();
+
+    // Any element inside with [data-close] closes
+    const closer = target ? target.closest('[data-close]') : null;
+    if (closer && modal.contains(closer)) {
+      e.preventDefault();
+      return close();
+    }
+  });
+
+  // Esc key
+  const escHandler = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', escHandler);
+
+  // Style widgets, AJAX submit (unchanged from your version) …
+  const form = document.getElementById('product-modal-form');
+  if (form) {
+    const txt = "mt-1 w-full px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-mineral)]/20";
+    const ta  = txt + " min-h-[100px]";
+    const sel = txt;
+    const chk = "rounded border-[#E1E1E1] text-[var(--sharp-mineral)] focus:ring-[var(--sharp-mineral)]";
+
+    form.querySelectorAll('input[type="text"], input[type="url"], input[type="number"], input[type="email"]')
+        .forEach(el => el.classList.add(...txt.split(' ')));
+    form.querySelectorAll('textarea')
+        .forEach(el => el.classList.add(...ta.split(' ')));
+    form.querySelectorAll('select')
+        .forEach(el => el.classList.add(...sel.split(' ')));
+    form.querySelectorAll('input[type="checkbox"]')
+        .forEach(el => el.classList.add(...chk.split(' ')));
+
+    const csrftoken =
+      (document.querySelector('input[name=csrfmiddlewaretoken]')||{}).value ||
+      ((document.cookie.split('; ').find(r=>r.startsWith('csrftoken='))||'').split('=')[1] || '');
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const resp = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {'X-Requested-With':'XMLHttpRequest','X-CSRFToken': csrftoken}
+      });
+
+      const ct = (resp.headers.get('content-type') || '');
+      if (!ct.includes('application/json')) {
+        const html = await resp.text();
+        if (root) root.innerHTML = html;
+        return;
+      }
+
+      const js = await resp.json();
+      if (js.ok) {
+        const tableResp = await fetch(location.pathname + location.search, {headers:{'X-Requested-With':'XMLHttpRequest'}});
+        const tableHtml = await tableResp.text();
+        const mount = document.getElementById('products-table');
+        if (mount) mount.innerHTML = tableHtml;
+        if (typeof window.bindRowActions === 'function') window.bindRowActions(document.getElementById('products-table'));
+        close();
+      } else {
+        alert(js.error || 'Please fix the highlighted errors.');
+      }
+    };
+  }
+
+  // Cleanup Esc when modal is removed
+  const obs = new MutationObserver(() => {
+    if (!document.body.contains(modal)) {
+      document.removeEventListener('keydown', escHandler);
+      obs.disconnect();
+    }
+  });
+  obs.observe(document.body, { childList: true, subtree: true });
+})();
+</script>

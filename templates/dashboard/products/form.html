@@ -1,0 +1,51 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <h1 class="text-2xl font-bold mb-4">{% if product %}Edit: {{ product.name }}{% else %}New Product{% endif %}</h1>
+
+  {% if form.non_field_errors %}
+    <div class="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+      {{ form.non_field_errors }}
+    </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <div>{{ form.name.label_tag }}{{ form.name }}</div>
+      <div>{{ form.sku.label_tag }}{{ form.sku }}</div>
+
+      <div class="md:col-span-2">{{ form.short_description.label_tag }}{{ form.short_description }}</div>
+      <div class="md:col-span-2">{{ form.description.label_tag }}{{ form.description }}</div>
+
+      <div>{{ form.price.label_tag }}{{ form.price }}</div>
+      <div>{{ form.image_url.label_tag }}{{ form.image_url }}</div>
+
+      <div class="md:col-span-2">
+        {{ form.gallery_csv.label_tag }}{{ form.gallery_csv }}
+        <p class="text-xs text-gray-500 mt-1">Comma-separated image URLs for gallery.</p>
+      </div>
+
+      <div class="flex items-center gap-3">{{ form.is_active }} <label for="{{ form.is_active.id_for_label }}">Active</label></div>
+      <div class="flex items-center gap-3">{{ form.free_delivery }} <label for="{{ form.free_delivery.id_for_label }}">Free delivery</label></div>
+      <div class="flex items-center gap-3">{{ form.is_bundle }} <label for="{{ form.is_bundle.id_for_label }}">Is bundle</label></div>
+
+      <div class="md:col-span-2">
+        <label class="block text-sm font-medium">Bundle components</label>
+        {% if bundle_form and bundle_form.components %}
+          {{ bundle_form.components }}
+        {% else %}
+          <textarea class="mt-1 w-full px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white" disabled>Bundle input not provided by view.</textarea>
+        {% endif %}
+        <p class="text-xs text-gray-500 mt-1">One per line. Example: <code>SKU-123 x2</code> or <code>Shampoo 250ml x1</code></p>
+      </div>
+    </div>
+
+    <div class="mt-6 flex justify-end gap-2">
+      <a href="{% url 'dashboard_product_list' %}" class="px-4 py-2 rounded-xl border">Cancel</a>
+      <button class="px-4 py-2 rounded-xl bg-[var(--sharp-mineral)] text-white">Save</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

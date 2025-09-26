@@ -1,0 +1,14 @@
+<div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+  <div class="bg-white rounded-xl max-w-sm w-full p-6">
+    <h2 class="text-lg font-bold mb-4">Delete product?</h2>
+    <p class="mb-4">This action cannot be undone.</p>
+    <form method="post" action="{% url 'dashboard_product_delete' product.id %}">
+      {% csrf_token %}
+      <div class="flex justify-end gap-2">
+        <button type="button" onclick="document.getElementById('modal-root').innerHTML=''"
+                class="px-4 py-2 rounded-xl border">Cancel</button>
+        <button type="submit" class="px-4 py-2 rounded-xl bg-red-600 text-white">Delete</button>
+      </div>
+    </form>
+  </div>
+</div>

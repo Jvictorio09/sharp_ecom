@@ -2,6 +2,9 @@
 from django.urls import path
 from . import views
 from . import views, views_dashboard as dash
+from django.core.paginator import Paginator
+from django.db.models import Q
+
 
 urlpatterns = [
     # Catalog
@@ -81,4 +84,12 @@ urlpatterns = [
 
 
     path("wasselexpress/webhook/", views.wasselexpress_webhook, name="wasselexpress_webhook"),
+
+    path("dashboard/products/", dash.product_list, name="dashboard_product_list"),
+    path("dashboard/products/new/", dash.product_upsert, name="dashboard_product_new"),
+    path("dashboard/products/<int:pk>/", dash.product_upsert, name="dashboard_product_edit"),
+    path("dashboard/products/<int:pk>/delete/", dash.product_delete, name="dashboard_product_delete"),
+    path("dashboard/products/<int:pk>/toggle/", dash.product_toggle_active, name="dashboard_product_toggle"),
+    path("dashboard/products/<int:pk>/price/", dash.product_update_price, name="dashboard_product_update_price"),
+    path("dashboard/products/bulk/", dash.product_bulk_action, name="dashboard_product_bulk"),
 ]

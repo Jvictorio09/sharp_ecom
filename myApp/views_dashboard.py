@@ -999,3 +999,245 @@ def wasselexpress_preview(request, order_number):
         "payload": carrier.get("last_payload"),
     }
     return render(request, "dashboard/wsl_preview.html", ctx)
+
+
+
+
+# myApp/views_dashboard.py
+# --- add near other imports ---
+from django import forms
+from django.views.decorators.http import require_http_methods
+from django.db import transaction
+from django.core.paginator import Paginator
+
+from .models import Product, ProductComponent
+
+# -----------------------------
+# Forms (styled like your PromoForm)
+# -----------------------------
+class ProductForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = [
+            "name","sku","short_description","description",
+            "price","image_url","gallery_csv",
+            "is_active","is_bundle","free_delivery",
+        ]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        base = "mt-1 w-full px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white"
+        for name, field in self.fields.items():
+            if isinstance(field.widget, (forms.CheckboxInput,)):
+                continue
+            cls = field.widget.attrs.get("class","")
+            field.widget.attrs["class"] = f"{cls} {base}".strip()
+
+    def clean_price(self):
+        val = self.cleaned_data.get("price")
+        if val is None or val < 0:
+            raise forms.ValidationError("Price must be zero or higher.")
+        return val
+
+
+class BundleComponentsField(forms.CharField):
+    """
+    Accepts rows like:
+      SKU-123 x2
+      Conditioner 500ml x1
+    or CSV: "SKU-123,2" per line. Name or SKU is matched to Product.
+    """
+    def clean(self, value):
+        txt = (value or "").strip()
+        rows = []
+        for line in txt.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            # try "name xQTY"
+            qty = 1
+            if " x" in line.lower():
+                base, q = line.rsplit(" x", 1)
+                try:
+                    qty = max(1, int(q.strip()))
+                    key = base.strip()
+                except Exception:
+                    key = line
+            else:
+                # try CSV "name,qty"
+                if "," in line:
+                    base, q = line.split(",",1)
+                    key = base.strip()
+                    try:
+                        qty = max(1, int(q.strip()))
+                    except Exception:
+                        qty = 1
+                else:
+                    key = line
+            rows.append((key, qty))
+        return rows
+
+
+class BundleForm(forms.Form):
+    components = BundleComponentsField(
+        required=False,
+        help_text="One per line, e.g. 'SKU-123 x2' or 'Conditioner 500ml x1'."
+    )
+
+
+# -----------------------------
+# Product list + search
+# -----------------------------
+@dashboard_required
+def product_list(request):
+    q = (request.GET.get("q") or "").strip()
+    active = (request.GET.get("active") or "all").lower()
+    sort = (request.GET.get("sort") or "name").lower()
+
+    qs = Product.objects.all()
+    if q:
+        qs = qs.filter(
+            Q(name__icontains=q) | Q(sku__icontains=q) | Q(slug__icontains=q)
+        )
+    if active in ("1","true","yes","active"):
+        qs = qs.filter(is_active=True)
+    elif active in ("0","false","no","inactive"):
+        qs = qs.filter(is_active=False)
+
+    if sort == "price_desc":
+        qs = qs.order_by("-price","name")
+    elif sort == "price_asc":
+        qs = qs.order_by("price","name")
+    elif sort == "created_desc":
+        qs = qs.order_by("-created_at")
+    elif sort == "created_asc":
+        qs = qs.order_by("created_at")
+    else:
+        qs = qs.order_by("name")
+
+    page = Paginator(qs, 50).get_page(request.GET.get("page"))
+
+    ctx = {"page": page, "q": q, "active": active, "sort": sort}
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return render(request, "dashboard/products/_table.html", ctx)
+    return render(request, "dashboard/products/list.html", ctx)
+
+
+# -----------------------------
+# Upsert (modal form)
+# -----------------------------
+# views_dashboard.py (inside product_upsert)
+from django.http import JsonResponse
+
+@dashboard_required
+def product_upsert(request, pk=None):
+    product = get_object_or_404(Product, pk=pk) if pk else None
+
+    if request.method == "POST":
+        form = ProductForm(request.POST, instance=product)
+        bundle_form = BundleForm(request.POST)  # or however you build it
+        if form.is_valid() and (not form.cleaned_data.get("is_bundle") or bundle_form.is_valid()):
+            obj = form.save()
+            # TODO: persist bundle_form if applicable
+            if request.headers.get("x-requested-with") == "XMLHttpRequest":
+                return JsonResponse({"ok": True})
+            messages.success(request, f"Product '{obj.name}' saved.")
+            return redirect("dashboard_product_list")
+        # invalid -> fall through to render with errors
+    else:
+        form = ProductForm(instance=product)
+        bundle_form = BundleForm(initial={})  # or None, up to you
+
+    ctx = {"form": form, "bundle_form": bundle_form, "product": product}
+
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return render(request, "dashboard/products/form_modal.html", ctx)
+
+    return render(request, "dashboard/products/form.html", ctx)
+
+
+# -----------------------------
+# Quick actions (AJAX-friendly)
+# -----------------------------
+@dashboard_required
+@require_POST
+def product_toggle_active(request, pk):
+    prod = get_object_or_404(Product, pk=pk)
+    prod.is_active = not prod.is_active
+    prod.save(update_fields=["is_active"])
+    return JsonResponse({"ok": True, "is_active": prod.is_active})
+
+
+@dashboard_required
+@require_POST
+def product_update_price(request, pk):
+    prod = get_object_or_404(Product, pk=pk)
+    try:
+        new_price = Decimal((request.POST.get("price") or "").strip())
+        if new_price < 0:
+            raise ValueError
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Invalid price."}, status=400)
+    prod.price = new_price
+    prod.save(update_fields=["price"])
+    return JsonResponse({"ok": True, "price": f"{prod.price:.2f}"})
+
+
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, render, redirect
+
+def product_delete(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    if request.method == "POST":
+        product.delete()
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            return JsonResponse({"ok": True})
+        return redirect("dashboard_product_list")
+
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return render(request, "dashboard/products/_delete_confirm.html", {"product": product})
+    return redirect("dashboard_product_list")
+
+
+# -----------------------------
+# Bulk actions
+# -----------------------------
+@dashboard_required
+@require_POST
+def product_bulk_action(request):
+    """
+    POST:
+      ids: CSV of product IDs
+      action: activate|deactivate|price_percent
+      percent: optional (for price_percent, e.g. 10 or -5)
+    """
+    raw = (request.POST.get("ids") or "").strip()
+    ids = [int(x) for x in raw.split(",") if x.strip().isdigit()]
+    qs = Product.objects.filter(id__in=ids)
+    action = (request.POST.get("action") or "").strip()
+
+    if not ids:
+        return JsonResponse({"ok": False, "error": "No items selected."}, status=400)
+
+    count = 0
+    if action == "activate":
+        count = qs.update(is_active=True)
+    elif action == "deactivate":
+        count = qs.update(is_active=False)
+    elif action == "price_percent":
+        try:
+            pct = Decimal((request.POST.get("percent") or "0").strip())
+        except Exception:
+            return JsonResponse({"ok": False, "error": "Invalid percent."}, status=400)
+        with transaction.atomic():
+            for p in qs.select_for_update():
+                p.price = (p.price * (Decimal("1.00") + pct/Decimal("100"))).quantize(Decimal("0.01"))
+                p.save(update_fields=["price"])
+                count += 1
+    else:
+        return JsonResponse({"ok": False, "error": "Unknown action."}, status=400)
+
+    return JsonResponse({"ok": True, "count": count})
