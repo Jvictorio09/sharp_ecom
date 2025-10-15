@@ -892,70 +892,6 @@ def cart_view(request):
     items, subtotal = _items_and_subtotal(cart)
     return render(request, "cart.html", {"items": items, "subtotal": subtotal})
 
-
-@require_POST
-def cart_add(request, product_id):
-    """Add item to cart (supports AJAX)."""
-    product = get_object_or_404(Product, id=product_id, is_active=True)
-    qty = max(1, int(request.POST.get("qty", 1)))
-
-    cart = _get_cart(request.session)
-    cart[str(product.id)] = cart.get(str(product.id), 0) + qty
-    request.session.modified = True
-
-    if _is_ajax(request):
-        data = _cart_json(request.session)
-        return JsonResponse({"ok": True, "cart": data, "message": f"Added {escape(product.name)} x{qty}"})
-
-    messages.success(request, f"Added {product.name} (x{qty}) to cart.")
-    return redirect("cart")
-
-
-@require_POST
-def cart_update(request, product_id):
-    """
-    Update quantity for a cart line (supports AJAX).
-    POST: qty (>=1) ; if qty <=0, removes the item.
-    """
-    qty = int(request.POST.get("qty", 1))
-    cart = _get_cart(request.session)
-    key = str(product_id)
-
-    if qty <= 0:
-        cart.pop(key, None)
-    else:
-        if Product.objects.filter(id=product_id, is_active=True).exists():
-            cart[key] = qty
-        else:
-            cart.pop(key, None)
-
-    request.session.modified = True
-
-    if _is_ajax(request):
-        return JsonResponse({"ok": True, "cart": _cart_json(request.session)})
-
-    return redirect("cart")
-
-
-@require_POST
-def cart_remove(request, product_id):
-    """Remove item from cart (supports AJAX)."""
-    cart = _get_cart(request.session)
-    cart.pop(str(product_id), None)
-    request.session.modified = True
-
-    if _is_ajax(request):
-        data = _cart_json(request.session)
-        return JsonResponse({"ok": True, "cart": data})
-
-    messages.info(request, "Item removed from cart.")
-    return redirect("cart")
-
-
-def cart_summary_json(request):
-    """Return JSON summary for drawer refresh."""
-    return JsonResponse({"ok": True, "cart": _cart_json(request.session)})
-
 from decimal import Decimal
 
 def _post_first(request, *names) -> str:
@@ -1230,6 +1166,12 @@ def checkout(request):
     items, subtotal = _items_and_subtotal(cart)
 
     if request.method == "POST":
+        # 🛡️ Prevent double-submission (e.g., user clicking "Place Order" twice)
+        processing = request.session.get('processing_order')
+        if processing:
+            messages.info(request, f"Your order {processing} is already being processed.")
+            return redirect(f"/thanks/?o={processing}")
+        
         # Contact
         full_name = (request.POST.get("full_name") or "").strip()
         raw_phone = _post_first(request, "phone_e164", "phone", "phone_display")
@@ -1375,6 +1317,10 @@ def checkout(request):
 
         with transaction.atomic():
             order = Order.objects.create(**order_kwargs)
+            
+            # Mark this order as "processing" in session to prevent double-submit
+            request.session['processing_order'] = order.order_number
+            request.session.modified = True
 
             # Line items
             for row in items:
@@ -1412,11 +1358,40 @@ def checkout(request):
 
         # Clear cart ASAP
         request.session[CART_KEY] = {}
+        # Clear the processing flag so user can place another order later
+        request.session.pop('processing_order', None)
         request.session.modified = True
 
         # Send emails AFTER commit, in background
         transaction.on_commit(lambda: _send_emails_async(request, order))
-        transaction.on_commit(lambda: push_order_to_zoho(order))
+        
+        # Zoho sync with better error handling
+        def sync_to_zoho():
+            try:
+                log.info(f"🚀 Starting Zoho sync for order {order.order_number}")
+                push_order_to_zoho(order)
+                log.info(f"✅ Zoho sync SUCCESS for {order.order_number}")
+            except Exception as e:
+                # Log the full error with traceback
+                log.error(
+                    f"❌ ZOHO SYNC FAILED for {order.order_number}: {str(e)}", 
+                    exc_info=True,
+                    extra={'order_number': order.order_number, 'order_id': order.id}
+                )
+                # Store error in order's shipping_address for debugging
+                try:
+                    addr = dict(order.shipping_address or {})
+                    addr['_zoho_sync_error'] = {
+                        'error': str(e)[:500],
+                        'type': type(e).__name__,
+                        'timestamp': timezone.now().isoformat()
+                    }
+                    order.shipping_address = addr
+                    order.save(update_fields=['shipping_address'])
+                except:
+                    pass
+        
+        transaction.on_commit(sync_to_zoho)
 
         messages.success(request, "Order placed! We’ve emailed your confirmation.")
         return redirect(f"/thanks/?o={order.order_number}")

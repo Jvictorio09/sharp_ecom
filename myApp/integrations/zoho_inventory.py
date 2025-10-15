@@ -43,7 +43,7 @@ def _get_access_token() -> str:
         "client_secret": ZOHO_CLIENT_SECRET,
         "grant_type": "refresh_token",
     }
-    r = requests.post(url, data=data, timeout=30)
+    r = requests.post(url, data=data, timeout=60)  # Increased to 60 seconds
     try:
         r.raise_for_status()
     except requests.HTTPError as e:
@@ -65,15 +65,34 @@ def _headers():
         "Content-Type": "application/json",
     }
 
+def _retry_request(func, max_retries=3):
+    """Retry wrapper for API calls with exponential backoff."""
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except requests.exceptions.Timeout as e:
+            if attempt == max_retries - 1:
+                raise  # Last attempt, re-raise
+            wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+            log.warning(f"Zoho API timeout (attempt {attempt + 1}/{max_retries}), retrying in {wait_time}s...")
+            time.sleep(wait_time)
+        except requests.exceptions.RequestException as e:
+            # For other request errors, don't retry
+            raise
+
 def _zget(path, params=None):
     url = _api_url(path)
     p = {"organization_id": ZOHO_ORG_ID}
     if params: p.update(params)
-    r = requests.get(url, headers=_headers(), params=p, timeout=30)
-    r.raise_for_status()
-    return r.json()
+    
+    def make_request():
+        r = requests.get(url, headers=_headers(), params=p, timeout=60)
+        r.raise_for_status()
+        return r.json()
+    
+    return _retry_request(make_request)
 
-def _zpost(path, payload):
+def _zpost(path, payload, params_extra=None):
     url = _api_url(path)
     if DEBUG_ZOHO:
         print(f"🟢 POST {url}")
@@ -81,21 +100,49 @@ def _zpost(path, payload):
             print(json.dumps(payload, indent=2, ensure_ascii=False)[:1200])
         except Exception:
             print(str(payload)[:1200])
-    r = requests.post(url, headers=_headers(), params={"organization_id": ZOHO_ORG_ID}, json=payload, timeout=30)
-    try:
-        r.raise_for_status()
-    except requests.HTTPError as e:
-        raise RuntimeError(f"POST {url} -> {r.status_code}: {r.text[:2000]}") from e
-    return r.json()
+    
+    def make_request():
+        params = {"organization_id": ZOHO_ORG_ID}
+        if params_extra:
+            params.update(params_extra)
+        
+        r = requests.post(url, headers=_headers(), params=params, json=payload, timeout=60)
+        try:
+            r.raise_for_status()
+        except requests.HTTPError as e:
+            # Parse Zoho error code from response body
+            error_code = None
+            try:
+                error_body = r.json()
+                error_code = error_body.get('code')
+            except Exception:
+                pass
+            
+            # Include error code in exception for easier handling
+            error_msg = f"POST {url} -> {r.status_code}"
+            if error_code:
+                error_msg += f" [Zoho code: {error_code}]"
+            error_msg += f": {r.text[:2000]}"
+            
+            exc = RuntimeError(error_msg)
+            exc.zoho_error_code = error_code  # Attach for easy checking
+            raise exc from e
+        return r.json()
+    
+    return _retry_request(make_request)
 
 def _zput(path, payload):
     url = _api_url(path)
-    r = requests.put(url, headers=_headers(), params={"organization_id": ZOHO_ORG_ID}, json=payload, timeout=30)
-    try:
-        r.raise_for_status()
-    except requests.HTTPError as e:
-        raise RuntimeError(f"PUT {url} -> {r.status_code}: {r.text[:2000]}") from e
-    return r.json()
+    
+    def make_request():
+        r = requests.put(url, headers=_headers(), params={"organization_id": ZOHO_ORG_ID}, json=payload, timeout=60)
+        try:
+            r.raise_for_status()
+        except requests.HTTPError as e:
+            raise RuntimeError(f"PUT {url} -> {r.status_code}: {r.text[:2000]}") from e
+        return r.json()
+    
+    return _retry_request(make_request)
 
 # ------------ Helpers ------------
 def _clip(s, n):
@@ -239,14 +286,93 @@ def _record_cod_payment(*, customer_id: str, invoice_id: str, amount: Decimal):
     return _zpost("customerpayments", payload)
 
 # ------------ Sales Order / Invoice helpers ------------
+def _find_existing_so_by_reference(order_number: str):
+    """
+    Search Zoho for existing Sales Order by salesorder_number or reference_number.
+    Returns salesorder_id if found, None otherwise.
+    """
+    try:
+        # Try salesorder_number search (our custom number)
+        res = _zget("salesorders", params={"salesorder_number": order_number})
+        candidates = res.get("salesorders", [])
+        
+        # Filter to exact match
+        matches = [
+            so for so in candidates 
+            if so.get("salesorder_number") == order_number or so.get("reference_number") == order_number
+        ]
+        
+        if not matches:
+            # Fallback: reference_number search
+            res = _zget("salesorders", params={"reference_number": order_number})
+            candidates = res.get("salesorders", [])
+            matches = [
+                so for so in candidates 
+                if so.get("salesorder_number") == order_number or so.get("reference_number") == order_number
+            ]
+        
+        if not matches:
+            # Last resort: searchtext
+            res = _zget("salesorders", params={"searchtext": order_number})
+            candidates = res.get("salesorders", [])
+            matches = [
+                so for so in candidates 
+                if so.get("salesorder_number") == order_number or so.get("reference_number") == order_number
+            ]
+        
+        if matches:
+            so_id = matches[0].get("salesorder_id")
+            so_num = matches[0].get("salesorder_number", order_number)
+            log.info(f"Found existing SO {so_num} (ID: {so_id})")
+            return so_id
+        
+        return None
+    except Exception as e:
+        log.warning(f"Error searching for SO {order_number}: {e}")
+        return None
+
+
+def _find_existing_invoice_by_reference(reference_number: str, salesorder_id: str = None):
+    """
+    Search Zoho for existing Invoice by reference_number or salesorder_id.
+    Returns invoice_id if found, None otherwise.
+    """
+    try:
+        # Try by reference_number
+        res = _zget("invoices", params={"reference_number": reference_number})
+        candidates = res.get("invoices", [])
+        matches = [inv for inv in candidates if inv.get("reference_number") == reference_number]
+        
+        if not matches and salesorder_id:
+            # Fallback: search by SO ID
+            res = _zget("invoices", params={"salesorder_id": salesorder_id})
+            candidates = res.get("invoices", [])
+            matches = [
+                inv for inv in candidates 
+                if inv.get("salesorder_id") == salesorder_id and inv.get("reference_number") == reference_number
+            ]
+        
+        if matches:
+            inv_id = matches[0].get("invoice_id")
+            inv_num = matches[0].get("invoice_number")
+            log.info(f"Found existing Invoice for {reference_number}: {inv_num} ({inv_id})")
+            return inv_id, matches[0]
+        
+        return None, None
+    except Exception as e:
+        log.warning(f"Error searching for Invoice {reference_number}: {e}")
+        return None, None
+
+
 def _create_sales_order(*, order: Order, contact_id: str) -> dict:
-    # Prefer Zoho’s saved address IDs to avoid field-length issues
+    # Prefer Zoho's saved address IDs to avoid field-length issues
     contact = _zget(f"contacts/{contact_id}").get("contact", {}) or {}
     sa_id = (contact.get("shipping_address") or {}).get("address_id")
     ba_id = (contact.get("billing_address")  or {}).get("address_id")
     so_payload = {
         "customer_id": contact_id,
-        "reference_number": order.order_number,
+        "salesorder_number": order.order_number,  # Our custom number (e.g., SH-694204)
+        "reference_number": order.order_number,   # Also store in reference for searchability
         "date": time.strftime("%Y-%m-%d"),
         "line_items": _line_items(order),
         **({"shipping_address_id": sa_id} if sa_id else {}),
@@ -255,100 +381,249 @@ def _create_sales_order(*, order: Order, contact_id: str) -> dict:
     }
     if DEBUG_ZOHO:
         print("🟢 POST Sales Order payload:\n", json.dumps(so_payload, indent=2, ensure_ascii=False))
-    return _zpost("salesorders", so_payload)
+    
+    # Add query param to use our custom number instead of Zoho's auto-generated one
+    url = _api_url("salesorders")
+    params = {
+        "organization_id": ZOHO_ORG_ID,
+        "ignore_auto_number_generation": "true"  # ✅ Accept our custom salesorder_number
+    }
+    
+    def make_request():
+        r = requests.post(url, headers=_headers(), params=params, json=so_payload, timeout=60)
+        try:
+            r.raise_for_status()
+        except requests.HTTPError as e:
+            # Parse Zoho error code
+            error_code = None
+            try:
+                error_body = r.json()
+                error_code = error_body.get('code')
+            except Exception:
+                pass
+            
+            error_msg = f"POST {url} -> {r.status_code}"
+            if error_code:
+                error_msg += f" [Zoho code: {error_code}]"
+            error_msg += f": {r.text[:2000]}"
+            
+            exc = RuntimeError(error_msg)
+            exc.zoho_error_code = error_code
+            raise exc from e
+        return r.json()
+    
+    return _retry_request(make_request)
 
 def _confirm_sales_order(salesorder_id: str) -> None:
+    """Confirm a Sales Order (idempotent - if already confirmed, no error)."""
     _zpost(f"salesorders/{salesorder_id}/status/confirmed", {})
 
-def _fetch_salesorder(so_id: str) -> dict:
-    return _zget(f"salesorders/{so_id}").get("salesorder", {}) or {}
-
-def _so_to_invoice_payload(so: dict, *, customer_id: str) -> dict:
+def _convert_so_to_invoice(salesorder_id: str):
     """
-    Build an invoice payload using the SO's concrete line items (with item_id).
-    This avoids Zoho's 'You haven't selected any items!' error.
+    Convert a Sales Order to an Invoice using Zoho's built-in conversion.
+    
+    Pre-check: Ensures SO is confirmed before conversion.
+    Conversion: Uses query param ?salesorder_id=xxx to inherit all SO fields automatically
+                (line items, addresses, locations, custom fields, etc.)
+    
+    Reference: https://www.zoho.com/books/api/v3/invoices/#create-an-invoice-from-a-sales-order
     """
-    items = []
-    for li in (so.get("line_items") or []):
-        items.append({
-            "item_id": li.get("item_id"),
-            "name": li.get("name"),
-            "rate": float(li.get("rate") or 0),
-            "quantity": float(li.get("quantity") or 0),
-            "salesorder_item_id": li.get("line_item_id") or li.get("salesorder_item_id"),
-        })
+    # Pre-check: Get SO status
+    try:
+        so_res = _zget(f"salesorders/{salesorder_id}")
+        so = so_res.get("salesorder", {})
+        status = so.get("status", "").lower()
+        
+        # If not confirmed, confirm it first
+        if status != "confirmed":
+            if DEBUG_ZOHO:
+                print(f"🔄 SO status is '{status}', confirming before conversion...")
+            _confirm_sales_order(salesorder_id)
+    except Exception as e:
+        # If we can't check status, try to confirm anyway (idempotent)
+        log.warning(f"Could not check SO status for {salesorder_id}, attempting confirm: {e}")
+        try:
+            _confirm_sales_order(salesorder_id)
+        except Exception:
+            pass  # If confirm fails, conversion will fail with clearer error
+    
+    # Convert SO → Invoice using query param
+    return _zpost("invoices/fromsalesorder", {}, params_extra={"salesorder_id": salesorder_id})
 
-    payload = {
-        "customer_id": customer_id,
-        "reference_number": so.get("reference_number"),
-        "date": time.strftime("%Y-%m-%d"),
-        "salesorder_id": so.get("salesorder_id"),
-        "line_items": items,
-    }
-
-    # Reuse Zoho's address IDs if present on the SO
-    if so.get("shipping_address_id"):
-        payload["shipping_address_id"] = so["shipping_address_id"]
-    if so.get("billing_address_id"):
-        payload["billing_address_id"] = so["billing_address_id"]
-
-    return payload
-
-def _convert_so_to_invoice(salesorder_id: str, *, customer_id: str):
-    """
-    Convert a Sales Order to an Invoice by explicitly sending its line_items.
-    """
-    so = _fetch_salesorder(salesorder_id)
-    if not so or not (so.get("line_items") or []):
-        raise RuntimeError(f"Sales Order {salesorder_id} has no line items.")
-    payload = _so_to_invoice_payload(so, customer_id=customer_id)
-    return _zpost("invoices", payload)
-
-# ------------ Public entrypoint ------------
+# ------------ Public entrypoint (clean & idempotent) ------------
 def push_order_to_zoho(order: Order):
     """
-    Pipeline:
+    Idempotent Zoho sync pipeline:
       1) Ensure/lookup Zoho Contact
-      2) Create Sales Order (dashboard visibility)
-      3) Confirm Sales Order
-      4) Convert SO → Invoice (with items) → deducts stock
-      5) (Optional) Record payment: COD → Cash, Online → Online
+      2) Get/Create Sales Order (stored ID first, create with custom salesorder_number, handle 36004 gracefully)
+      3) Get/Create Invoice from SO (auto-confirms SO if needed, uses query param conversion)
+      4) Record payment (if AUTO_MARK_PAID)
+      
+    Key: We send salesorder_number = order.order_number (e.g., SH-694204) with 
+         ignore_auto_number_generation=true so our custom number appears in Zoho.
+         Invoice conversion handles SO confirmation automatically.
+         All duplicates are handled gracefully - no crashes, always completes.
     """
     try:
-        # 1) Ensure customer
-        contact_id = _ensure_customer(order)
+        zoho_data = dict(order.zoho_data or {})
+        
+        # 1) Ensure customer contact
+        contact_id = zoho_data.get('contact_id')
+        if not contact_id:
+            contact_id = _ensure_customer(order)
+            zoho_data['contact_id'] = contact_id
+            order.zoho_data = zoho_data
+            order.save(update_fields=['zoho_data'])
 
-        # 2) Create Sales Order
-        so_res = _create_sales_order(order=order, contact_id=contact_id)
-        salesorder = (so_res.get("salesorder") or {})
-        so_id = salesorder.get("salesorder_id")
-        if not so_id:
-            raise RuntimeError(f"No salesorder_id in response: {so_res}")
+        # 2) Get or Create Sales Order (idempotent)
+        so_id = zoho_data.get('salesorder_id')
+        
+        if so_id:
+            # Already synced - use stored ID
+            print(f"📌 Using stored SO: {so_id}")
+            log.info(f"Reusing salesorder_id for {order.order_number}: {so_id}")
+        else:
+            # Try to create new SO
+            try:
+                so_res = _create_sales_order(order=order, contact_id=contact_id)
+                so_id = (so_res.get("salesorder") or {}).get("salesorder_id")
+                
+                if not so_id:
+                    raise RuntimeError(f"No salesorder_id in response: {so_res}")
+                
+                # Success - store it
+                zoho_data['salesorder_id'] = so_id
+                zoho_data['synced_at'] = time.strftime("%Y-%m-%dT%H:%M:%SZ")
+                order.zoho_data = zoho_data
+                order.save(update_fields=['zoho_data'])
+                
+                print(f"✅ Created SO {so_id} for {order.order_number}")
+                log.info(f"Created salesorder_id {so_id} for {order.order_number}")
+                
+            except RuntimeError as e:
+                # Check for duplicate error (36004)
+                error_code = getattr(e, 'zoho_error_code', None)
+                is_duplicate = (error_code == 36004) or ("36004" in str(e)) or ("already exists" in str(e).lower())
+                
+                if is_duplicate:
+                    # Duplicate detected - find and reuse existing SO
+                    print(f"♻️  SO already exists for {order.order_number}, searching...")
+                    log.info(f"Duplicate SO detected for {order.order_number}, searching Zoho")
+                    
+                    so_id = _find_existing_so_by_reference(order.order_number)
+                    
+                    if so_id:
+                        # Found it - store and continue
+                        zoho_data['salesorder_id'] = so_id
+                        order.zoho_data = zoho_data
+                        order.save(update_fields=['zoho_data'])
+                        print(f"✅ Found & stored existing SO: {so_id}")
+                    else:
+                        # Couldn't find it even though Zoho said it exists - abort
+                        raise RuntimeError(f"SO exists for {order.order_number} but couldn't retrieve it") from e
+                else:
+                    # Different error - re-raise
+                    raise
 
-        # 3) Confirm SO
-        _confirm_sales_order(so_id)
-
-        # 4) Convert to Invoice (send SO items explicitly)
-        inv_res = _convert_so_to_invoice(so_id, customer_id=contact_id)
-        invoice = (inv_res.get("invoice") or {})
-        invoice_id = invoice.get("invoice_id")
+        # 3) Get or Create Invoice (idempotent)
+        # Note: _convert_so_to_invoice handles SO confirmation automatically
+        invoice_id = zoho_data.get('invoice_id')
+        invoice = {}
+        
+        if invoice_id:
+            # Already have invoice - fetch its details
+            print(f"📌 Using stored Invoice: {invoice_id}")
+            log.info(f"Reusing invoice_id for {order.order_number}: {invoice_id}")
+            
+            try:
+                inv_res = _zget(f"invoices/{invoice_id}")
+                invoice = (inv_res.get("invoice") or {})
+            except Exception as e:
+                log.warning(f"Stored invoice_id {invoice_id} not accessible: {e}")
+                # Clear it and try to create/find
+                invoice_id = None
+        
         if not invoice_id:
-            raise RuntimeError(f"No invoice_id in response: {inv_res}")
+            # Try to create invoice from SO (Zoho auto-copies all fields)
+            try:
+                inv_res = _convert_so_to_invoice(so_id)
+                invoice = (inv_res.get("invoice") or {})
+                invoice_id = invoice.get("invoice_id")
+                
+                if not invoice_id:
+                    raise RuntimeError(f"No invoice_id in response: {inv_res}")
+                
+                # Success - store it
+                zoho_data['invoice_id'] = invoice_id
+                order.zoho_data = zoho_data
+                order.save(update_fields=['zoho_data'])
+                
+                inv_num = invoice.get('invoice_number', 'N/A')
+                print(f"✅ Created Invoice {inv_num} ({invoice_id}) for {order.order_number}")
+                log.info(f"Created invoice {inv_num} for {order.order_number}")
+                
+            except RuntimeError as e:
+                # Check for duplicate or "contact change" errors
+                error_code = getattr(e, 'zoho_error_code', None)
+                is_duplicate = (
+                    (error_code == 36024) or 
+                    ("36024" in str(e)) or 
+                    ("not allowed to change" in str(e).lower()) or
+                    ("already exists" in str(e).lower())
+                )
+                
+                if is_duplicate:
+                    # Duplicate invoice - find and reuse
+                    print(f"♻️  Invoice already exists for {order.order_number}, searching...")
+                    log.info(f"Duplicate invoice detected for {order.order_number}, searching Zoho")
+                    
+                    invoice_id, invoice = _find_existing_invoice_by_reference(order.order_number, so_id)
+                    
+                    if invoice_id:
+                        # Found it - store and continue
+                        zoho_data['invoice_id'] = invoice_id
+                        order.zoho_data = zoho_data
+                        order.save(update_fields=['zoho_data'])
+                        
+                        inv_num = invoice.get('invoice_number', 'N/A')
+                        print(f"✅ Found & stored existing Invoice: {inv_num} ({invoice_id})")
+                    else:
+                        # Couldn't find it - abort
+                        raise RuntimeError(f"Invoice exists for {order.order_number} but couldn't retrieve it") from e
+                else:
+                    # Different error - re-raise
+                    raise
 
-        # 5) Mark as paid (optional)
+        # 5) Record payment (optional, best-effort)
         if AUTO_MARK_PAID:
-            is_cod = (order.payment_method or "").lower() == "cod"
-            pay_mode = PAYMENT_MODE_COD if is_cod else PAYMENT_MODE_ONLINE
-            # Use the invoice total to match Zoho’s tax/rounding
-            pay_amount = Decimal(str(invoice.get("total") or invoice.get("balance") or order.grand_total or "0"))
-            _zpost("customerpayments", {
-                "customer_id": contact_id,
-                "payment_mode": pay_mode,
-                "date": time.strftime("%Y-%m-%d"),
-                "amount": float(pay_amount),
-                "invoices": [{"invoice_id": invoice_id, "amount_applied": float(pay_amount)}],
-            })
+            invoice_status = invoice.get("status", "").lower()
+            
+            if invoice_status not in ["paid", "void"]:
+                is_cod = (order.payment_method or "").lower() == "cod"
+                pay_mode = PAYMENT_MODE_COD if is_cod else PAYMENT_MODE_ONLINE
+                pay_amount = Decimal(str(invoice.get("total") or invoice.get("balance") or order.grand_total or "0"))
+                
+                try:
+                    _zpost("customerpayments", {
+                        "customer_id": contact_id,
+                        "payment_mode": pay_mode,
+                        "date": time.strftime("%Y-%m-%d"),
+                        "amount": float(pay_amount),
+                        "invoices": [{"invoice_id": invoice_id, "amount_applied": float(pay_amount)}],
+                    })
+                    log.info(f"Recorded payment for {order.order_number}: {pay_mode} {pay_amount}")
+                except Exception as pay_err:
+                    # Payment recording failed - log but don't crash
+                    log.warning(f"Could not record payment for {order.order_number}: {pay_err}")
+            else:
+                log.info(f"Invoice {invoice_id} already {invoice_status}, skipping payment")
 
-        print(f"✅ Order {order.order_number}: SO {so_id} → Invoice {invoice.get('invoice_number')} {'(paid)' if AUTO_MARK_PAID else ''}")
-    except Exception:
-        log.exception("Zoho push failed for %s", order.order_number)
+        # Success summary
+        inv_num = invoice.get('invoice_number', 'N/A')
+        print(f"✅ Sync complete: {order.order_number} → SO {so_id} → Invoice {inv_num}")
+        
+    except Exception as e:
+        # Final catch-all - log but don't crash the checkout
+        log.exception(f"Zoho sync failed for {order.order_number}: {e}")
+        print(f"❌ Zoho sync failed for {order.order_number}: {e}")
+        # Don't re-raise - order is created locally, Zoho sync can be retried later

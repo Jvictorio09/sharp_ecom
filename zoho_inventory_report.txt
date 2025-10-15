@@ -1,0 +1,24 @@
+ZOHO INVENTORY - COMPLETE STOCK INFORMATION
+================================================================================
+
+NAME                                     SKU                       STOCK      REORDER   
+--------------------------------------------------------------------------------
+Conditioner + Oil Duo                    SHARP-CONDITIONERO-40     1500.0     300.0     
+Conditioner + Sea Salt Duo               SHARP-CONDITIONERS-42     1500.0     300.0     
+Full Package                             SHARP-FULLPACKAGE-23      1500.0     300.0     
+Sea Salt + Oil Duo                       SHARP-SEASALTOILDU-36     1500.0     300.0     
+Shampoo + Conditioner + Oil Trio         SHARP-SHAMPOOCONDI-37     1500.0     300.0     
+Shampoo + Conditioner + Sea Salt Trio    SHARP-SHAMPOOCONDI-38     1500.0     300.0     
+Shampoo + Conditioner Duo                SHARP-SHAMPOOCONDI-35     1500.0     300.0     
+Shampoo + Oil Duo                        SHARP-SHAMPOOOILDU-39     1500.0     300.0     
+Shampoo + Sea Salt Duo                   SHARP-SHAMPOOSEASA-41     1500.0     300.0     
+Sharp Conditioner                        SHARP-SHARPCONDITI-32     1499.0     300.0     
+Sharp Sea Salt Spray                     SHARP-SHARPSEASALT-34     1397.0     300.0     
+Sharp Shampoo                            SHARP-SHARPSHAMPOO-31     1500.0     300.0     
+Sharp Treatment Oil                      SHARP-SHARPTREATME-33     1500.0     300.0     
+================================================================================
+
+SUMMARY:
+Total items: 13
+Total stock on hand: 19396.0
+Items below reorder level: 0

@@ -149,6 +149,13 @@ class Order(models.Model):
 
     notes  = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="0")
+    
+    # Zoho integration IDs (for fast lookups, avoid searching)
+    zoho_data = models.JSONField(
+        blank=True, 
+        default=dict,
+        help_text="Stores Zoho IDs: {salesorder_id, invoice_id, contact_id, synced_at}"
+    )
 
     class Meta:
         indexes = [
