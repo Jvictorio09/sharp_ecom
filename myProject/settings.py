@@ -105,21 +105,13 @@ WSGI_APPLICATION = 'myProject.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-# Database configuration
-if os.environ.get('DATABASE_URL'):
-    # Production: Use PostgreSQL (Railway/Heroku style)
-    import dj_database_url
-    DATABASES = {
-        'default': dj_database_url.parse(os.environ['DATABASE_URL'])
+# Database configuration - Always use SQLite (local database)
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
-else:
-    # Local development: Use SQLite with a different name
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db_local.sqlite3',  # Different name for local
-        }
-    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
