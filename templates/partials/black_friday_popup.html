@@ -1,0 +1,302 @@
+<!-- Black Friday Hero Pop-up Modal -->
+<div id="blackFridayPopup" class="fixed inset-0 z-[100] hidden items-center justify-center p-4">
+  <!-- Backdrop with gradient -->
+  <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+  
+  <!-- Modal Container -->
+  <div class="relative z-10 w-full max-w-4xl rounded-2xl bg-gradient-to-br from-[#000000] via-[#111827] to-[#000000] shadow-2xl overflow-hidden">
+    <!-- Gold shimmer overlay -->
+    <div class="absolute inset-0 gold-shimmer"></div>
+    
+    <!-- Spotlight gradient behind content -->
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(234,179,8,0.15)_0%,_transparent_70%)]"></div>
+    
+    <!-- Close Button -->
+    <button 
+      id="closeBlackFridayPopup"
+      class="absolute top-4 right-4 z-20 w-10 h-10 rounded-full border-2 border-white/30 bg-black/40 backdrop-blur-sm flex items-center justify-center text-white hover:border-[#EAB308] hover:bg-[#EAB308]/20 transition-all duration-300"
+      aria-label="Close popup">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M6 6l12 12M18 6L6 18"/>
+      </svg>
+    </button>
+    
+    <!-- Content -->
+    <div class="relative z-10 p-8 md:p-12 text-center">
+      <!-- Top Section - Ribbon Tag -->
+      <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#EAB308] mb-6 animate-fadeInUp">
+        <i class="fa-solid fa-star-of-life text-white text-xs"></i>
+        <span class="text-white font-bold text-xs uppercase tracking-wider">BLACK FRIDAY SPECIAL</span>
+        <i class="fa-solid fa-star-of-life text-white text-xs"></i>
+      </div>
+      
+      <!-- Main Headline -->
+      <h2 class="text-5xl md:text-7xl lg:text-8xl font-extrabold text-white mb-4 leading-tight tracking-tight animate-fadeInUp delay-100">
+        30% OFF
+        <span class="block text-3xl md:text-4xl lg:text-5xl font-semibold text-white/90 mt-2 normal-case tracking-normal">
+          SITEWIDE
+        </span>
+      </h2>
+      
+      <!-- Gold underline gradient -->
+      <div class="h-1 w-32 md:w-48 mx-auto bg-gradient-to-r from-transparent via-[#EAB308] to-transparent mb-4 animate-fadeInUp delay-200"></div>
+      
+      <!-- Subheadline -->
+      <p class="text-lg md:text-xl text-white/85 mb-8 animate-fadeInUp delay-300">
+        This Week Only — Don't Miss Out
+      </p>
+      
+      <!-- CTA Buttons -->
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8 animate-fadeInUp delay-400">
+        <!-- Shop Now Button -->
+        <a 
+          href="{% url 'product_list' %}"
+          class="group relative px-8 py-4 rounded-full bg-[#EAB308] text-black font-bold text-lg hover:bg-[#EAB308]/90 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(234,179,8,0.5)]">
+          Shop Now
+          <span class="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></span>
+        </a>
+        
+        <!-- Learn More Button -->
+        <a 
+          href="{% url 'product_list' %}"
+          class="px-8 py-4 rounded-full border-2 border-[#EAB308] text-[#EAB308] font-semibold text-lg hover:bg-[#EAB308]/10 transition-all duration-300 hover:scale-105">
+          Learn More
+        </a>
+      </div>
+      
+      <!-- Timer Section -->
+      <div class="animate-fadeInUp delay-500">
+        <p class="text-sm text-white/70 mb-3 uppercase tracking-wider">Sale Ends In:</p>
+        <div id="countdownTimer" class="flex items-center justify-center gap-2 md:gap-3 text-xl md:text-2xl lg:text-3xl font-bold">
+          <div class="flex flex-col items-center">
+            <span class="text-[#F43F5E]" id="days">02</span>
+            <span class="text-xs text-white/60 uppercase">Days</span>
+          </div>
+          <span class="text-white/40">|</span>
+          <div class="flex flex-col items-center">
+            <span class="text-[#F43F5E]" id="hours">14</span>
+            <span class="text-xs text-white/60 uppercase">Hours</span>
+          </div>
+          <span class="text-white/40">|</span>
+          <div class="flex flex-col items-center">
+            <span class="text-[#F43F5E]" id="minutes">32</span>
+            <span class="text-xs text-white/60 uppercase">Minutes</span>
+          </div>
+          <span class="text-white/40">|</span>
+          <div class="flex flex-col items-center">
+            <span class="text-[#F43F5E]" id="seconds">45</span>
+            <span class="text-xs text-white/60 uppercase">Seconds</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Decorative elements (optional background images can be added here) -->
+    <div class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black/50 to-transparent pointer-events-none"></div>
+  </div>
+</div>
+
+<style>
+  /* Gold shimmer animation */
+  @keyframes goldShimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+  
+  .gold-shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(234, 179, 8, 0.1) 25%,
+      rgba(234, 179, 8, 0.2) 50%,
+      rgba(234, 179, 8, 0.1) 75%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: goldShimmer 4s ease-in-out infinite;
+  }
+  
+  /* Fade in animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-fadeInUp {
+    animation: fadeInUp 0.8s ease-out forwards;
+    opacity: 0;
+  }
+  
+  .delay-100 { animation-delay: 0.1s; }
+  .delay-200 { animation-delay: 0.2s; }
+  .delay-300 { animation-delay: 0.3s; }
+  .delay-400 { animation-delay: 0.4s; }
+  .delay-500 { animation-delay: 0.5s; }
+  
+  /* Modal show/hide transitions */
+  #blackFridayPopup.show {
+    display: flex;
+  }
+  
+  #blackFridayPopup.show > div:first-child {
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  #blackFridayPopup.show > div:last-child {
+    animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  /* Gold particles effect (subtle) */
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0) rotate(0deg);
+      opacity: 0.3;
+    }
+    50% {
+      transform: translateY(-20px) rotate(180deg);
+      opacity: 0.6;
+    }
+  }
+</style>
+
+<script>
+  (function() {
+    const popup = document.getElementById('blackFridayPopup');
+    const closeBtn = document.getElementById('closeBlackFridayPopup');
+    const STORAGE_KEY = 'blackFridayPopupDismissed';
+    const DISMISS_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+    
+    // Check if popup was dismissed recently
+    function wasDismissed() {
+      const dismissed = localStorage.getItem(STORAGE_KEY);
+      if (!dismissed) return false;
+      const dismissedTime = parseInt(dismissed, 10);
+      const now = Date.now();
+      return (now - dismissedTime) < DISMISS_DURATION;
+    }
+    
+    // Show popup
+    function showPopup() {
+      if (wasDismissed()) return;
+      popup.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        popup.classList.add('show');
+      });
+      startCountdown();
+    }
+    
+    // Hide popup
+    function hidePopup() {
+      popup.classList.remove('show');
+      setTimeout(() => {
+        popup.classList.add('hidden');
+      }, 400);
+      localStorage.setItem(STORAGE_KEY, Date.now().toString());
+    }
+    
+    // Countdown timer
+    function startCountdown() {
+      // Set end date to this Saturday at 23:59:59
+      const now = new Date();
+      const endDate = new Date();
+      
+      // Get current day of week (0 = Sunday, 6 = Saturday)
+      const currentDay = now.getDay();
+      
+      // Calculate days until Saturday (6)
+      // If today is Saturday, use next Saturday (7 days)
+      // Otherwise, calculate days until this Saturday
+      let daysUntilSaturday = 6 - currentDay;
+      if (daysUntilSaturday <= 0) {
+        daysUntilSaturday += 7; // Next Saturday if today is Saturday or past Saturday
+      }
+      
+      endDate.setDate(now.getDate() + daysUntilSaturday);
+      endDate.setHours(23, 59, 59, 999);
+      
+      function updateTimer() {
+        const now = new Date().getTime();
+        const distance = endDate - now;
+        
+        if (distance < 0) {
+          document.getElementById('days').textContent = '00';
+          document.getElementById('hours').textContent = '00';
+          document.getElementById('minutes').textContent = '00';
+          document.getElementById('seconds').textContent = '00';
+          return;
+        }
+        
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+        
+        // Update the display with proper padding
+        const daysEl = document.getElementById('days');
+        const hoursEl = document.getElementById('hours');
+        const minutesEl = document.getElementById('minutes');
+        const secondsEl = document.getElementById('seconds');
+        
+        if (daysEl) daysEl.textContent = String(days).padStart(2, '0');
+        if (hoursEl) hoursEl.textContent = String(hours).padStart(2, '0');
+        if (minutesEl) minutesEl.textContent = String(minutes).padStart(2, '0');
+        if (secondsEl) secondsEl.textContent = String(seconds).padStart(2, '0');
+      }
+      
+      // Update immediately and then every second
+      updateTimer();
+      setInterval(updateTimer, 1000); // Update every second for real-time countdown
+    }
+    
+    // Event listeners
+    if (closeBtn) {
+      closeBtn.addEventListener('click', hidePopup);
+    }
+    
+    // Close on backdrop click (only if clicking the backdrop itself)
+    popup.addEventListener('click', (e) => {
+      if (e.target === popup) {
+        hidePopup();
+      }
+    });
+    
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !popup.classList.contains('hidden')) {
+        hidePopup();
+      }
+    });
+    
+    // Show popup after page load (small delay for better UX)
+    window.addEventListener('load', () => {
+      setTimeout(showPopup, 500);
+    });
+  })();
+</script>
+

@@ -1,0 +1,83 @@
+<!-- Black Friday Sticky Header Promo Bar -->
+<div id="blackFridayStickyBar" class="fixed top-0 left-0 right-0 z-50 h-[50px] bg-[#111827] text-[#EAB308] flex items-center justify-center overflow-hidden">
+  <!-- Background shimmer animation -->
+  <div class="absolute inset-0 shimmer-bg"></div>
+  
+  <!-- Content -->
+  <div class="relative z-10 flex items-center justify-center gap-2 md:gap-3 px-4 w-full max-w-7xl mx-auto">
+    <!-- Left sparkle -->
+    <i class="fa-solid fa-star-of-life text-xs md:text-sm animate-sparkle"></i>
+    
+    <!-- Text -->
+    <p class="text-xs md:text-sm font-semibold md:font-medium text-center">
+      <span class="hidden md:inline">🔥 Black Friday Sale! 30% OFF — Grab it while it lasts!</span>
+      <span class="md:hidden">Black Friday: 30% OFF!</span>
+    </p>
+    
+    <!-- Right sparkle -->
+    <i class="fa-solid fa-star-of-life text-xs md:text-sm animate-sparkle delay-200"></i>
+    
+    <!-- Optional CTA Button (desktop) -->
+    <a href="{% url 'product_list' %}" 
+       class="hidden md:inline-flex items-center gap-1.5 ml-4 px-3 py-1.5 rounded-full bg-[#EAB308] text-white text-xs font-medium hover:bg-gradient-to-r hover:from-white hover:to-[#EAB308] transition-all duration-300">
+      Shop Now
+    </a>
+  </div>
+</div>
+
+<style>
+  /* Shimmer background animation */
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+  
+  .shimmer-bg {
+    background: linear-gradient(
+      90deg,
+      #111827 0%,
+      rgba(234, 179, 8, 0.1) 25%,
+      rgba(234, 179, 8, 0.15) 50%,
+      rgba(234, 179, 8, 0.1) 75%,
+      #111827 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 8s ease-in-out infinite;
+  }
+  
+  /* Sparkle rotation animation */
+  @keyframes sparkle {
+    0%, 100% {
+      transform: rotate(0deg) scale(1);
+      opacity: 0.8;
+    }
+    50% {
+      transform: rotate(180deg) scale(1.2);
+      opacity: 1;
+    }
+  }
+  
+  .animate-sparkle {
+    animation: sparkle 3s ease-in-out infinite;
+  }
+  
+  .delay-200 {
+    animation-delay: 0.2s;
+  }
+</style>
+
+<script>
+  (function() {
+    // The header is already positioned with top-[50px] in base.html
+    // This script is just for any additional adjustments if needed
+    document.addEventListener('DOMContentLoaded', function() {
+      // Ensure body has proper spacing (if needed)
+      // The sticky bar is fixed, so no body padding needed
+    });
+  })();
+</script>
+

@@ -85,6 +85,9 @@
   </head>
 
   <body class="bg-cream text-ink antialiased">
+    <!-- Black Friday Sticky Promo Bar -->
+    {% include "partials/black_friday_sticky_bar.html" %}
+    
     <!-- Trust / announcement bar -->
     <div class="w-full bg-ivory text-[13px] tracking-wide border-b border-line">
   <div class="max-w-7xl mx-auto px-4 md:px-8 py-2 flex items-center justify-between">
@@ -117,7 +120,7 @@
 
 
     <!-- Header -->
-    <header class="sticky top-0 z-40 bg-cream/90 backdrop-blur supports-[backdrop-filter]:bg-cream/70 border-b border-line">
+    <header class="sticky top-[50px] z-40 bg-cream/90 backdrop-blur supports-[backdrop-filter]:bg-cream/70 border-b border-line">
       <div class="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-6">
         <!-- Logo (auto-switch capable) -->
         <a href="{% url 'home' %}" class="flex items-center">
