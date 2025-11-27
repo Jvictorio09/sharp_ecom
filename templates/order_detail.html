@@ -74,10 +74,28 @@
               {% endif %}
             </div>
 
-            {% if order.discount_total %}
-              <div class="flex items-center justify-between">
-                <span>Discount</span>
-                <span class="font-medium tabular-nums">-{{ order.discount_total|money:request }}</span>
+            {% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
+              <div class="px-4 py-3 rounded-lg bg-green-50 border-2 border-green-500 mb-3">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-lg font-extrabold text-green-700">
+                      🎉 YOU SAVED {{ order.discount_total|money:request }}! 🎉
+                    </p>
+                    {% if order.promo_label or order.promo_code %}
+                      <p class="text-sm text-green-600 font-semibold mt-1">
+                        {{ order.promo_label|default:order.promo_code }}
+                      </p>
+                    {% endif %}
+                  </div>
+                  <div class="text-right">
+                    <p class="text-xs text-green-600 line-through opacity-60">Original: {{ order.subtotal|money:request }}</p>
+                    <p class="text-lg font-bold text-green-700">Now: {{ order.grand_total|money:request }}</p>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between border-t border-line pt-2">
+                <span class="text-green-600 font-bold">Discount</span>
+                <span class="font-bold tabular-nums text-green-600 text-lg">-{{ order.discount_total|money:request }}</span>
               </div>
             {% endif %}
 

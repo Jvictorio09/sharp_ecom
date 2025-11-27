@@ -56,13 +56,24 @@
 
             {% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
             <tr>
-              <td style="padding:6px 0;color:#555">
-                Discount
-                {% if order.promo_label or order.promo_code %}
-                  <span style="color:#888">({{ order.promo_label|default:order.promo_code }})</span>
-                {% endif %}
+              <td colspan="2" style="padding:12px 0;border-top:2px solid #16a34a;border-bottom:2px solid #16a34a;background:#f0fdf4">
+                <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                  <tr>
+                    <td style="padding:8px 0;text-align:center">
+                      <p style="margin:0;font-size:20px;font-weight:800;color:#16a34a">🎉 YOU SAVED {{ order.discount_total|money:request }}! 🎉</p>
+                      {% if order.promo_label or order.promo_code %}
+                        <p style="margin:4px 0 0;font-size:14px;color:#15803d;font-weight:600">{{ order.promo_label|default:order.promo_code }}</p>
+                      {% endif %}
+                    </td>
+                  </tr>
+                </table>
               </td>
-              <td align="right" style="padding:6px 0;color:#111">-{{ order.discount_total|money:request }}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#555">
+                <span style="color:#16a34a;font-weight:700;font-size:15px">Discount</span>
+              </td>
+              <td align="right" style="padding:6px 0;color:#16a34a;font-weight:700;font-size:15px">-{{ order.discount_total|money:request }}</td>
             </tr>
             {% endif %}
 

@@ -57,6 +57,33 @@
 
     {% if order %}
       <div class="mt-8 rounded-2xl border border-line bg-ivory p-6">
+        {% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
+          <!-- HUGE DISCOUNT BANNER - FIRST THING THEY SEE! -->
+          <div class="mb-6 px-6 py-5 rounded-xl border-3 border-green-500 bg-gradient-to-r from-green-100 via-emerald-50 to-green-100 shadow-lg">
+            <div class="text-center">
+              <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500 text-white mb-3 shadow-md">
+                <i class="fa-solid fa-tag text-2xl"></i>
+              </div>
+              <h2 class="text-2xl md:text-3xl font-black text-green-700 mb-2">
+                🎉 YOU SAVED {{ order.discount_total|money:request }}! 🎉
+              </h2>
+              <p class="text-base text-green-600 font-bold mb-2">
+                {% if order.promo_label %}
+                  {{ order.promo_label }}
+                {% elif order.promo_code %}
+                  Promo Code: {{ order.promo_code }}
+                {% else %}
+                  Special Discount Applied!
+                {% endif %}
+              </p>
+              <div class="mt-3 text-sm text-green-700">
+                <p>Original Total: <span class="line-through opacity-60 font-semibold">{{ order.subtotal|money:request }}</span></p>
+                <p class="text-xl font-black">Your Total: {{ order.grand_total|money:request }}</p>
+              </div>
+            </div>
+          </div>
+        {% endif %}
+
         <div class="flex items-center justify-between gap-4">
           <div class="space-y-1">
             <p class="text-xs uppercase tracking-widest text-ink/60">Order</p>
@@ -95,7 +122,18 @@
           <div class="space-y-2">
             <p><span class="opacity-70">Placed:</span> {{ order.created_at|date:"M j, Y g:i a" }}</p>
             <p><span class="opacity-70">Status:</span> <span class="font-medium capitalize">{{ order.status }}</span></p>
-            <p><span class="opacity-70">Total:</span> <span class="font-medium">JD{{ order.grand_total }}</span></p>
+            {% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
+              <div class="pt-2 border-t border-line">
+                <p><span class="opacity-70">Subtotal:</span> <span class="font-medium">JD{{ order.subtotal }}</span></p>
+                <p>
+                  <span class="opacity-70">Discount:</span>
+                  <span class="font-bold text-green-600 text-base">-JD{{ order.discount_total }}</span>
+                </p>
+                <p><span class="opacity-70">Total:</span> <span class="font-bold text-lg">JD{{ order.grand_total }}</span></p>
+              </div>
+            {% else %}
+              <p><span class="opacity-70">Total:</span> <span class="font-medium">JD{{ order.grand_total }}</span></p>
+            {% endif %}
             {% if order.tracking_number %}
               <p><span class="opacity-70">Tracking #:</span> <span class="font-medium">{{ order.tracking_number }}</span></p>
             {% endif %}
@@ -120,7 +158,26 @@
         </div>
 
         <div class="mt-6">
-          <p class="font-semibold mb-2">Items</p>
+          <div class="flex items-center justify-between mb-3">
+            <p class="font-semibold">Items</p>
+            {% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
+              <div class="px-3 py-1.5 rounded-full bg-green-500 text-white text-xs font-bold">
+                <i class="fa-solid fa-check-circle"></i> DISCOUNTED!
+              </div>
+            {% endif %}
+          </div>
+          {% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
+            <div class="mb-3 px-4 py-3 rounded-lg bg-green-50 border-2 border-green-400">
+              <p class="text-sm font-bold text-green-700 mb-1">
+                <i class="fa-solid fa-circle-check"></i> All items were discounted!
+              </p>
+              <p class="text-xs text-green-600">
+                Original items total: <span class="line-through opacity-60">{{ order.subtotal|money:request }}</span> 
+                → You paid: <span class="font-bold">{{ order.grand_total|money:request }}</span>
+                <span class="font-bold text-green-700">(Saved {{ order.discount_total|money:request }}!)</span>
+              </p>
+            </div>
+          {% endif %}
           <div class="divide-y divide-[var(--sharp-line)] bg-white border border-line rounded-xl">
             {% for it in order.items.all %}
               <div class="p-4 flex items-center justify-between">

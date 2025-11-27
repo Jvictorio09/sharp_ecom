@@ -175,7 +175,14 @@
                   <p class="text-sm font-medium truncate">{{ row.product.name }}</p>
                   <p class="text-xs opacity-70">Qty: {{ row.qty }}</p>
                 </div>
-                <p class="text-sm font-medium">{{ row.line_total|money:request }}</p>
+                <div class="text-right">
+                  {% if row.has_discount %}
+                    <p class="text-xs text-ink/50 line-through tabular-nums">{{ row.original_line_total|money:request }}</p>
+                    <p class="text-sm font-medium text-red-600 tabular-nums">{{ row.line_total|money:request }}</p>
+                  {% else %}
+                    <p class="text-sm font-medium tabular-nums">{{ row.line_total|money:request }}</p>
+                  {% endif %}
+                </div>
               </div>
             {% empty %}
               <p class="opacity-70">Your bag is empty.</p>

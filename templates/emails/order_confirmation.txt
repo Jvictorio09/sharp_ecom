@@ -10,8 +10,20 @@ Items:
 {% endfor %}
 
 Subtotal: JD{{ order.subtotal|floatformat:2 }}
-Shipping: JD{{ order.shipping_cost|floatformat:2 }}{% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
-Discount: -JD{{ order.discount_total|floatformat:2 }}{% endif %}
+Shipping: JD{{ order.shipping_cost|floatformat:2 }}
+
+{% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
+═══════════════════════════════════════════════════════
+🎉🎉🎉 YOU SAVED JD{{ order.discount_total|floatformat:2 }}! 🎉🎉🎉
+{% if order.promo_label or order.promo_code %}
+{{ order.promo_label|default:order.promo_code }}
+{% else %}
+Special Discount Applied!
+{% endif %}
+═══════════════════════════════════════════════════════
+
+Discount: -JD{{ order.discount_total|floatformat:2 }}
+{% endif %}
 Total: JD{{ order.grand_total|floatformat:2 }}
 
 Ship to:

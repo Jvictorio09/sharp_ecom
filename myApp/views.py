@@ -859,18 +859,25 @@ def _items_and_subtotal(cart_dict, country: str | None = None):
                     has_discount = discounted_price < original_price
         
         unit_price = discounted_price
+        original_unit_price = original_price
         
         line_total = (unit_price * qty).quantize(Decimal("0.01"))
+        original_line_total = (original_unit_price * qty).quantize(Decimal("0.01"))
         subtotal += line_total
         items.append({
             "product": product,
             "qty": qty,
             "line_total": line_total,
+            "original_line_total": original_line_total,
             "unit_price": unit_price,
             "original_price": original_price,
             "has_discount": has_discount,
         })
-    return items, subtotal
+    
+    # Calculate original subtotal (before any discounts)
+    original_subtotal = sum(item["original_line_total"] for item in items)
+    
+    return items, subtotal, original_subtotal
 
 
 
@@ -1014,7 +1021,7 @@ def cart_view(request):
     """Full-page cart view."""
     cart = request.session.get(CART_KEY, {})
     country = request.session.get('country') or None
-    items, subtotal = _items_and_subtotal(cart, country)
+    items, discounted_subtotal, original_subtotal = _items_and_subtotal(cart, country)
     
     # Get sitewide promo info for display
     sitewide_promo = None
@@ -1034,7 +1041,8 @@ def cart_view(request):
     
     return render(request, "cart.html", {
         "items": items,
-        "subtotal": subtotal,
+        "subtotal": discounted_subtotal,
+        "original_subtotal": original_subtotal,
         "sitewide_promo": sitewide_promo,
         "sitewide_discount_percent": sitewide_discount_percent,
     })
@@ -1311,7 +1319,7 @@ def checkout(request):
     """
     cart = _get_cart(request.session)
     country = request.session.get('country') or None
-    items, subtotal = _items_and_subtotal(cart, country)
+    items, discounted_subtotal, original_subtotal = _items_and_subtotal(cart, country)
 
     if request.method == "POST":
         # 🛡️ Prevent double-submission (e.g., user clicking "Place Order" twice)
@@ -1334,7 +1342,7 @@ def checkout(request):
         if country not in SHIP_TO:
             messages.error(request, "Sorry, we currently ship only to the Middle East and USA.")
             return render(request, "checkout.html", {
-                "items": items, "subtotal": subtotal, "ship_to_countries": SHIP_TO_COUNTRIES,
+                "items": items, "subtotal": discounted_subtotal, "original_subtotal": original_subtotal, "ship_to_countries": SHIP_TO_COUNTRIES,
             })
 
         # Collect all possible address bits (schema defines required ones)
@@ -1365,12 +1373,12 @@ def checkout(request):
         if not full_name:
             messages.error(request, "Please enter your full name.")
             return render(request, "checkout.html", {
-                "items": items, "subtotal": subtotal, "ship_to_countries": SHIP_TO_COUNTRIES
+                "items": items, "subtotal": discounted_subtotal, "original_subtotal": original_subtotal, "ship_to_countries": SHIP_TO_COUNTRIES
             })
         if not phone:
             messages.error(request, "Please enter a valid phone number (e.g., +962 7X XXX XXXX).")
             return render(request, "checkout.html", {
-                "items": items, "subtotal": subtotal, "ship_to_countries": SHIP_TO_COUNTRIES
+                "items": items, "subtotal": discounted_subtotal, "original_subtotal": original_subtotal, "ship_to_countries": SHIP_TO_COUNTRIES
             })
 
         # ✅ Terms & Privacy must be accepted
@@ -1378,7 +1386,7 @@ def checkout(request):
         if not agreed_tos:
             messages.error(request, "Please agree to the Terms & Privacy to continue.")
             return render(request, "checkout.html", {
-                "items": items, "subtotal": subtotal, "ship_to_countries": SHIP_TO_COUNTRIES
+                "items": items, "subtotal": discounted_subtotal, "original_subtotal": original_subtotal, "ship_to_countries": SHIP_TO_COUNTRIES
             })
 
         # Country-aware address validation
@@ -1387,7 +1395,7 @@ def checkout(request):
         except ValueError as e:
             messages.error(request, str(e))
             return render(request, "checkout.html", {
-                "items": items, "subtotal": subtotal, "ship_to_countries": SHIP_TO_COUNTRIES
+                "items": items, "subtotal": discounted_subtotal, "original_subtotal": original_subtotal, "ship_to_countries": SHIP_TO_COUNTRIES
             })
 
         if country == "JO":
@@ -1416,30 +1424,71 @@ def checkout(request):
             shipping_cost = Decimal("0.00")
 
         # ---- Promo (server truth) ------------------------------------------
+        # IMPORTANT: Sitewide discounts are already applied at item level in _items_and_subtotal
+        # So we should NOT apply them again at order level. Only apply manual promo codes here.
+        # The discounted_subtotal already reflects item-level sitewide discounts.
         promo_code = (request.POST.get("promo") or request.POST.get("promo_code") or "").strip().upper()
         discount_total = Decimal("0.00")
         promo_label = ""
+        applied_promo_code = None
 
+        # Check if sitewide discount was already applied at item level
+        sitewide_already_applied = (discounted_subtotal < original_subtotal)
+        
         if promo_code:
-            # Manual promo code entered - validate and apply
-            disc, msg = _promo_valid_for_db(promo_code, subtotal=subtotal, country=country)
+            # Manual promo code entered - validate using original subtotal
+            disc, msg = _promo_valid_for_db(promo_code, subtotal=original_subtotal, country=country)
             if disc is not None:
-                discount_total = (disc or Decimal("0.00")).quantize(Decimal("0.01"))
-                promo_label = msg or promo_code
+                # Check if manual code is better than sitewide (if sitewide was applied)
+                if sitewide_already_applied:
+                    # Calculate what sitewide discount was (for comparison)
+                    sitewide_discount_amount = original_subtotal - discounted_subtotal
+                    if disc > sitewide_discount_amount:
+                        # Manual code is better - use it instead of sitewide
+                        discount_total = (disc or Decimal("0.00")).quantize(Decimal("0.01"))
+                        promo_label = msg or promo_code
+                        applied_promo_code = promo_code
+                        # Note: We'll use original_subtotal - discount_total for grand_total
+                        # This replaces the sitewide discount with the manual code discount
+                    else:
+                        # Sitewide is better - keep it, ignore manual code
+                        discount_total = Decimal("0.00")  # Already applied at item level
+                        promo_label = ""  # Will be set from sitewide info below
+                        messages.info(request, f"Sitewide discount ({_money(sitewide_discount_amount, request)}) is better than your code.")
+                else:
+                    # No sitewide applied - use manual code
+                    discount_total = (disc or Decimal("0.00")).quantize(Decimal("0.01"))
+                    promo_label = msg or promo_code
+                    applied_promo_code = promo_code
             else:
                 messages.warning(request, msg or "Promo code couldn't be applied.")
         else:
-            # No manual code - check for sitewide promo
-            sitewide_promo, sitewide_disc, sitewide_label = _get_best_sitewide_promo(
-                subtotal=subtotal,
-                country=country
-            )
-            if sitewide_promo and sitewide_disc:
-                discount_total = sitewide_disc
-                promo_label = sitewide_label
-                promo_code = sitewide_promo.code  # Store the code for order record
+            # No manual code - if sitewide was applied at item level, track it
+            if sitewide_already_applied:
+                sitewide_discount_amount = original_subtotal - discounted_subtotal
+                # Find the sitewide promo for labeling
+                sitewide_promo, _, sitewide_label = _get_best_sitewide_promo(
+                    subtotal=original_subtotal,
+                    country=country
+                )
+                if sitewide_promo:
+                    promo_label = sitewide_label
+                    applied_promo_code = sitewide_promo.code
+                discount_total = Decimal("0.00")  # Already applied at item level
 
-        grand_total = (subtotal + shipping_cost - discount_total).quantize(Decimal("0.01"))
+        # Calculate grand total:
+        # If sitewide was applied at item level and no manual code: use discounted_subtotal
+        # If manual code is applied: use original_subtotal - discount_total
+        # If neither: use original_subtotal
+        if applied_promo_code and discount_total > 0 and not sitewide_already_applied:
+            # Manual code applied, no sitewide: use original - discount
+            grand_total = (original_subtotal + shipping_cost - discount_total).quantize(Decimal("0.01"))
+        elif applied_promo_code and discount_total > 0 and sitewide_already_applied:
+            # Manual code is better than sitewide: replace sitewide with manual code
+            grand_total = (original_subtotal + shipping_cost - discount_total).quantize(Decimal("0.01"))
+        else:
+            # Sitewide already applied at item level (or no discount): use discounted_subtotal
+            grand_total = (discounted_subtotal + shipping_cost).quantize(Decimal("0.01"))
 
         # Create the order (only set fields your model actually has)
         order_kwargs = dict(
@@ -1448,7 +1497,7 @@ def checkout(request):
             email=email,
             shipping_method=shipping_method,
             payment_method=payment_method,
-            subtotal=subtotal,
+            subtotal=original_subtotal,  # Store original subtotal in order
             shipping_cost=shipping_cost,
             discount_total=discount_total,
             grand_total=grand_total,
@@ -1468,7 +1517,7 @@ def checkout(request):
             if hasattr(probe, "notes"):
                 order_kwargs["notes"] = notes
             if hasattr(probe, "promo_code"):
-                order_kwargs["promo_code"] = promo_code or None
+                order_kwargs["promo_code"] = applied_promo_code or None
             if hasattr(probe, "promo_label"):
                 order_kwargs["promo_label"] = promo_label or ""
         except Exception:
@@ -1495,12 +1544,12 @@ def checkout(request):
                     line_total=line_total,
                 )
 
-            # Best-effort: increment promo usage if applied
-            if promo_code and discount_total > 0:
+            # Best-effort: increment promo usage if applied (once per order, not per line)
+            if applied_promo_code and discount_total > 0:
                 try:
                     from django.db.models import F
                     fields = {f.name for f in PromoCode._meta.get_fields()}
-                    qs = PromoCode.objects.filter(code__iexact=promo_code)
+                    qs = PromoCode.objects.filter(code__iexact=applied_promo_code)
                     if "used_count" in fields:
                         qs.update(used_count=F("used_count") + 1)
                     elif "usage_count" in fields:
@@ -1552,13 +1601,14 @@ def checkout(request):
         
         transaction.on_commit(sync_to_zoho)
 
-        messages.success(request, "Order placed! We’ve emailed your confirmation.")
+        messages.success(request, "Order placed! We've emailed your confirmation.")
         return redirect(f"/thanks/?o={order.order_number}")
 
-    # GET
+    # GET request - show checkout form
     return render(request, "checkout.html", {
         "items": items,
-        "subtotal": subtotal,
+        "subtotal": discounted_subtotal,
+        "original_subtotal": original_subtotal,
         "ship_to_countries": SHIP_TO_COUNTRIES,
     })
 
@@ -1598,7 +1648,13 @@ def _format_address_text(country: str, a: dict) -> str:
 
 def thanks(request):
     order_number = request.GET.get("o", "")
-    return render(request, "thanks.html", {"order_number": order_number})
+    order = None
+    if order_number:
+        try:
+            order = Order.objects.get(order_number=order_number)
+        except Order.DoesNotExist:
+            pass
+    return render(request, "thanks.html", {"order_number": order_number, "order": order})
 
 
 # =======================
@@ -2155,7 +2211,7 @@ def cart_view(request):
     """Full-page cart view."""
     cart = request.session.get(CART_KEY, {})
     country = request.session.get('country') or None
-    items, subtotal = _items_and_subtotal(cart, country)
+    items, discounted_subtotal, original_subtotal = _items_and_subtotal(cart, country)
     
     # Get sitewide promo info for display
     sitewide_promo = None
@@ -2175,7 +2231,8 @@ def cart_view(request):
     
     return render(request, "cart.html", {
         "items": items,
-        "subtotal": subtotal,
+        "subtotal": discounted_subtotal,
+        "original_subtotal": original_subtotal,
         "sitewide_promo": sitewide_promo,
         "sitewide_discount_percent": sitewide_discount_percent,
     })
@@ -2247,7 +2304,13 @@ def cart_summary_json(request):
 
 def thanks(request):
     order_number = request.GET.get("o", "")
-    return render(request, "thanks.html", {"order_number": order_number})
+    order = None
+    if order_number:
+        try:
+            order = Order.objects.get(order_number=order_number)
+        except Order.DoesNotExist:
+            pass
+    return render(request, "thanks.html", {"order_number": order_number, "order": order})
 
 
 # =======================
@@ -2587,56 +2650,40 @@ def _get_best_sitewide_promo(*, subtotal: Decimal, country: str | None):
     Returns the best active sitewide promo for the given subtotal and country.
     Returns (promo_obj, discount_decimal, label) or (None, None, None)
     If multiple sitewide promos are active, returns the one with the highest discount.
-    Uses caching to avoid repeated database queries.
+    
+    IMPORTANT: Caches candidate promos (not decisions) to avoid repeated DB queries.
+    min_subtotal is always rechecked on each call to ensure correctness.
     """
     from django.utils import timezone
     from django.core.cache import cache
-    
-    # Cache key based on country (promos are the same regardless of subtotal for lookup)
-    cache_key = f"sitewide_promo:{country or 'all'}"
-    cached = cache.get(cache_key)
-    
-    if cached is not None:
-        # Use cached promo, but still validate subtotal requirements
-        promo_obj = cached.get('promo_obj')
-        if promo_obj:
-            # Re-check minimum subtotal and calculate discount
-            min_needed = promo_obj.min_subtotal or Decimal("0")
-            if subtotal >= min_needed:
-                # Calculate discount
-                if promo_obj.type == "percent":
-                    disc = (subtotal * (promo_obj.value or 0) / Decimal("100")).quantize(Decimal("0.01"))
-                elif promo_obj.type == "flat":
-                    disc = max(Decimal("0.00"), (promo_obj.value or 0)).quantize(Decimal("0.01"))
-                else:
-                    return (None, None, None)
-                
-                # Cap by max_discount if set
-                if promo_obj.max_discount:
-                    disc = min(disc, promo_obj.max_discount)
-                disc = min(disc, subtotal)
-                
-                if disc > 0:
-                    label = promo_obj.description or f"Sitewide: {promo_obj.code}"
-                    return (promo_obj, disc, label)
-        return (None, None, None)
-    
-    now = timezone.now()
-    
-    # Find all active sitewide promos that are live
     from django.db.models import Q
-    sitewide_promos = PromoCode.objects.filter(
-        is_sitewide=True,
-        active=True
-    ).filter(
-        Q(starts_at__isnull=True) | Q(starts_at__lte=now),
-        Q(ends_at__isnull=True) | Q(ends_at__gte=now)
-    )
     
-    # Filter by country if needed
+    # Cache key: store candidate promos (not decisions based on subtotal)
+    cache_key = f"sitewide_promo_candidates:{country or 'all'}"
+    cached_promos = cache.get(cache_key)
+    
+    if cached_promos is None:
+        # Fetch all active sitewide promos from DB
+        now = timezone.now()
+        sitewide_promos = list(PromoCode.objects.filter(
+            is_sitewide=True,
+            active=True
+        ).filter(
+            Q(starts_at__isnull=True) | Q(starts_at__lte=now),
+            Q(ends_at__isnull=True) | Q(ends_at__gte=now)
+        ))
+        
+        # Cache the list of candidate promos (5 minutes)
+        cache.set(cache_key, sitewide_promos, 300)
+        cached_promos = sitewide_promos
+    else:
+        # Use cached promos, but re-validate usage limits and country restrictions
+        cached_promos = [p for p in cached_promos if p.usage_limit is None or p.used_count < p.usage_limit]
+    
+    # Filter by country and validate min_subtotal (always recheck these)
     valid_promos = []
-    for promo in sitewide_promos:
-        # Check usage limit
+    for promo in cached_promos:
+        # Check usage limit (recheck in case it changed)
         if promo.usage_limit is not None and promo.used_count >= promo.usage_limit:
             continue
         
@@ -2645,7 +2692,7 @@ def _get_best_sitewide_promo(*, subtotal: Decimal, country: str | None):
         if allow and (country or "").upper() not in allow:
             continue
         
-        # Check minimum subtotal
+        # Check minimum subtotal (ALWAYS recheck - this is critical!)
         min_needed = promo.min_subtotal or Decimal("0")
         if subtotal < min_needed:
             continue
@@ -2737,65 +2784,81 @@ def apply_promo_json(request):
     # Subtotal from session cart (source currency = PRICE_SOURCE_CURRENCY)
     cart = _get_cart(request.session)
     country = (request.GET.get("country") or "").strip().upper() or request.session.get('country') or None
-    _, subtotal = _items_and_subtotal(cart, country)
-    if subtotal < 0:
-        subtotal = Decimal("0.00")
+    _, discounted_subtotal, original_subtotal = _items_and_subtotal(cart, country)
+    if original_subtotal < 0:
+        original_subtotal = Decimal("0.00")
+    if discounted_subtotal < 0:
+        discounted_subtotal = Decimal("0.00")
 
+    # IMPORTANT: Use original_subtotal for promo calculations to avoid double-discounting
     discount = Decimal("0.00")
     msg = ""
     promo_obj = None
+    applied_code = None
 
+    # Calculate both sitewide and manual code discounts (if applicable)
+    sitewide_promo, sitewide_disc, sitewide_label = _get_best_sitewide_promo(
+        subtotal=original_subtotal,  # Use original subtotal!
+        country=country
+    )
+    
+    manual_disc = None
+    manual_msg = None
     if code:
-        # Manual promo code entered
-        disc, msg = _promo_valid_for_db(code, subtotal=subtotal, country=country)
+        # Manual promo code entered - validate using original subtotal
+        disc, msg = _promo_valid_for_db(code, subtotal=original_subtotal, country=country)
         if disc is None:
             return JsonResponse({"ok": False, "error": msg or "Promo not valid."}, status=400)
-        discount = disc
+        manual_disc = disc
+        manual_msg = msg or code.upper()
         promo_obj = _promo_lookup(code)
-        if not msg:
-            msg = promo_obj.description if promo_obj else code.upper()
+        if not manual_msg and promo_obj:
+            manual_msg = promo_obj.description or code.upper()
+    
+    # Choose the better discount (higher discount wins)
+    if manual_disc is not None and (sitewide_disc is None or manual_disc > sitewide_disc):
+        # Manual code is better (or sitewide doesn't apply)
+        discount = (manual_disc or Decimal("0.00")).quantize(Decimal("0.01"))
+        msg = manual_msg or code.upper()
+        applied_code = code.upper()
+    elif sitewide_promo and sitewide_disc:
+        # Sitewide is better (or manual code didn't apply)
+        discount = sitewide_disc
+        msg = sitewide_label
+        promo_obj = sitewide_promo
+        applied_code = sitewide_promo.code
     else:
-        # No code provided - check for sitewide promo
-        sitewide_promo, sitewide_disc, sitewide_label = _get_best_sitewide_promo(
-            subtotal=subtotal,
-            country=country
-        )
-        if sitewide_promo and sitewide_disc:
-            discount = sitewide_disc
-            msg = sitewide_label
-            promo_obj = sitewide_promo
-            code = sitewide_promo.code
-        else:
-            # No sitewide promo available
-            return JsonResponse({
-                "ok": True,
-                "subtotal": str(subtotal.quantize(Decimal("0.01"))),
-                "grand_total": str(subtotal.quantize(Decimal("0.01"))),
-                "amount": "0.00",
-                "subtotal_display": _money(subtotal, request),
-                "grand_total_display": _money(subtotal, request),
-                "amount_display": _money(Decimal("0.00"), request),
-                "label": "",
-                "code": "",
-            })
+        # No discount applies
+        return JsonResponse({
+            "ok": True,
+            "subtotal": str(discounted_subtotal.quantize(Decimal("0.01"))),
+            "grand_total": str(discounted_subtotal.quantize(Decimal("0.01"))),
+            "amount": "0.00",
+            "subtotal_display": _money(discounted_subtotal, request),
+            "grand_total_display": _money(discounted_subtotal, request),
+            "amount_display": _money(Decimal("0.00"), request),
+            "label": "",
+            "code": "",
+        })
 
     discount = (discount or Decimal("0.00")).quantize(Decimal("0.01"))
-    grand_total = (subtotal - discount).quantize(Decimal("0.01"))
+    # Grand total = original_subtotal - discount (not discounted_subtotal - discount)
+    grand_total = (original_subtotal - discount).quantize(Decimal("0.01"))
 
     return JsonResponse({
         "ok": True,
         # amounts as numbers (strings) in source currency, if you need them
-        "subtotal": str(subtotal.quantize(Decimal("0.01"))),
+        "subtotal": str(original_subtotal.quantize(Decimal("0.01"))),  # Show original for clarity
         "grand_total": str(grand_total),
         "amount": str(discount),
 
         # pretty strings already formatted (and converted if needed)
-        "subtotal_display": _money(subtotal, request),
+        "subtotal_display": _money(original_subtotal, request),
         "grand_total_display": _money(grand_total, request),
         "amount_display": _money(discount, request),
 
-        "label": msg or (promo_obj.description if promo_obj else code.upper()),
-        "code": (promo_obj.code if promo_obj else code.upper()),
+        "label": msg or (promo_obj.description if promo_obj else applied_code or ""),
+        "code": (promo_obj.code if promo_obj else applied_code or ""),
     })
 
 
