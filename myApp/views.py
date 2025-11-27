@@ -804,18 +804,72 @@ def _get_cart(session):
     return cart
 
 
-def _items_and_subtotal(cart_dict):
-    """Build item rows + subtotal for templates."""
+def _items_and_subtotal(cart_dict, country: str | None = None):
+    """Build item rows + subtotal for templates. Uses discounted prices if sitewide promo is active."""
     items = []
     subtotal = Decimal("0.00")
+    
+    # Bulk fetch all products at once to avoid N+1 queries
+    product_ids = [int(pid) for pid in cart_dict.keys()]
+    products_dict = {p.id: p for p in Product.objects.filter(id__in=product_ids, is_active=True)}
+    
+    # Get sitewide promo once for all products (if any)
+    sitewide_promo_info = None
+    if products_dict:
+        first_product = next(iter(products_dict.values()))
+        dummy_subtotal = first_product.price
+        promo_obj, promo_disc, promo_label = _get_best_sitewide_promo(
+            subtotal=dummy_subtotal,
+            country=country
+        )
+        if promo_obj:
+            sitewide_promo_info = {
+                'promo_obj': promo_obj,
+                'type': promo_obj.type,
+                'value': promo_obj.value,
+                'max_discount': promo_obj.max_discount,
+            }
+    
     for pid_str, qty in cart_dict.items():
-        product = Product.objects.filter(id=int(pid_str), is_active=True).first()
+        product = products_dict.get(int(pid_str))
         if not product:
             continue
         qty = max(1, int(qty))
-        line_total = (product.price * qty).quantize(Decimal("0.01"))
+        
+        # Calculate discount using cached promo info
+        original_price = product.price
+        discounted_price = original_price
+        has_discount = False
+        
+        if sitewide_promo_info:
+            promo_obj = sitewide_promo_info['promo_obj']
+            min_needed = promo_obj.min_subtotal or Decimal("0")
+            if original_price >= min_needed:
+                if sitewide_promo_info['type'] == "percent":
+                    disc = (original_price * (sitewide_promo_info['value'] or 0) / Decimal("100")).quantize(Decimal("0.01"))
+                else:
+                    disc = max(Decimal("0.00"), (sitewide_promo_info['value'] or 0)).quantize(Decimal("0.01"))
+                
+                if sitewide_promo_info['max_discount']:
+                    disc = min(disc, sitewide_promo_info['max_discount'])
+                disc = min(disc, original_price)
+                
+                if disc > 0:
+                    discounted_price = (original_price - disc).quantize(Decimal("0.01"))
+                    has_discount = discounted_price < original_price
+        
+        unit_price = discounted_price
+        
+        line_total = (unit_price * qty).quantize(Decimal("0.01"))
         subtotal += line_total
-        items.append({"product": product, "qty": qty, "line_total": line_total})
+        items.append({
+            "product": product,
+            "qty": qty,
+            "line_total": line_total,
+            "unit_price": unit_price,
+            "original_price": original_price,
+            "has_discount": has_discount,
+        })
     return items, subtotal
 
 
@@ -1863,19 +1917,7 @@ def _get_cart(session):
     return cart
 
 
-def _items_and_subtotal(cart_dict):
-    """Build item rows + subtotal for templates."""
-    items = []
-    subtotal = Decimal("0.00")
-    for pid_str, qty in cart_dict.items():
-        product = Product.objects.filter(id=int(pid_str), is_active=True).first()
-        if not product:
-            continue
-        qty = max(1, int(qty))
-        line_total = (product.price * qty).quantize(Decimal("0.01"))
-        subtotal += line_total
-        items.append({"product": product, "qty": qty, "line_total": line_total})
-    return items, subtotal
+# Note: _items_and_subtotal is defined above (line 807) - this is a duplicate, keeping the one above
 
 def _cart_json(session, request):
     """Serialize the cart to JSON for AJAX drawer (now with server-formatted strings and discounts)."""
@@ -2694,7 +2736,8 @@ def apply_promo_json(request):
 
     # Subtotal from session cart (source currency = PRICE_SOURCE_CURRENCY)
     cart = _get_cart(request.session)
-    _, subtotal = _items_and_subtotal(cart)
+    country = (request.GET.get("country") or "").strip().upper() or request.session.get('country') or None
+    _, subtotal = _items_and_subtotal(cart, country)
     if subtotal < 0:
         subtotal = Decimal("0.00")
 
