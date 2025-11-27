@@ -48,6 +48,18 @@
                 {{ product.badge }}
               </span>
             {% endif %}
+            <!-- Minimalist Discount Badge - Only show if sitewide promo is active -->
+            {% if sitewide_promo and product_discount.has_discount %}
+            <div class="absolute top-2 right-2 z-10">
+              <div class="px-2 py-0.5 bg-red-500/95 text-white text-[10px] font-semibold rounded-sm shadow-sm backdrop-blur-sm">
+                {% if sitewide_discount_percent %}
+                  -{{ sitewide_discount_percent|floatformat:0 }}%
+                {% else %}
+                  SALE
+                {% endif %}
+              </div>
+            </div>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -65,11 +77,31 @@
           {% endif %}
 
           <div class="flex items-center gap-3">
-            <p class="text-2xl font-semibold tabular-nums">{{ product.price|money:request }}</p>
-            {% if product.compare_price and product.compare_price > product.price %}
+            {% if product_discount.has_discount %}
+              <!-- Show original price with strikethrough and discounted price -->
+              <p class="text-sm text-ink/50 line-through tabular-nums">{{ product_discount.original_price|money:request }}</p>
+              <p class="text-2xl font-semibold text-red-600 tabular-nums">{{ product_discount.discounted_price|money:request }}</p>
+            {% elif product.compare_price and product.compare_price > product.price %}
+              <!-- Original compare price logic -->
+              <p class="text-2xl font-semibold tabular-nums">{{ product.price|money:request }}</p>
               <p class="text-sm line-through opacity-60 tabular-nums">{{ product.compare_price|money:request }}</p>
+            {% else %}
+              <!-- Regular price -->
+              <p class="text-2xl font-semibold tabular-nums">{{ product.price|money:request }}</p>
             {% endif %}
           </div>
+          
+          {% if sitewide_promo and product_discount.has_discount %}
+          <div class="mt-2">
+            <span class="inline-flex items-center px-2 py-0.5 bg-red-500/95 text-white text-[10px] font-semibold rounded-sm">
+              {% if sitewide_discount_percent %}
+                -{{ sitewide_discount_percent|floatformat:0 }}% {{ sitewide_promo.description|default:"" }}
+              {% else %}
+                SALE
+              {% endif %}
+            </span>
+          </div>
+          {% endif %}
 
           <!-- Key benefits -->
           <ul class="mt-2 space-y-2 text-sm">
@@ -156,8 +188,10 @@
           <a href="{% url 'product_list' %}" class="text-sm underline underline-offset-4 hover:text-[var(--sharp-gold)]">View all</a>
         </div>
         <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {% for p in related %}
-            {% include "partials/_product_card.html" with p=p %}
+          {% for item in related_with_discount %}
+            {% with p=item.product %}
+            {% include "partials/_product_card.html" with p=p original_price=item.original_price discounted_price=item.discounted_price has_discount=item.has_discount sitewide_promo=sitewide_promo sitewide_discount_percent=sitewide_discount_percent %}
+            {% endwith %}
           {% endfor %}
         </div>
       </div>
@@ -200,3 +234,4 @@
 </script>
 
 {% endblock %}
+

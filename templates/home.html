@@ -1,4 +1,23 @@
 {% extends "base.html" %}
+{% load static %}
+
+{% block head_extra %}
+<!-- Preload critical images -->
+{% for item in featured_with_discount|slice:":2" %}
+  {% with p=item.product %}
+  {% if p.image_url %}
+  <link rel="preload" as="image" href="{{ p.image_url }}" />
+  {% endif %}
+  {% endwith %}
+{% endfor %}
+{% for item in bundles_with_discount|slice:":2" %}
+  {% with p=item.product %}
+  {% if p.image_url %}
+  <link rel="preload" as="image" href="{{ p.image_url }}" />
+  {% endif %}
+  {% endwith %}
+{% endfor %}
+{% endblock %}
 {% block title %}SHARP — Quiet Luxury, Every Day{% endblock %}
 {% block content %}
  
@@ -203,10 +222,12 @@
 
     <!-- Grid -->
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-      {% for p in featured %}
+      {% for item in featured_with_discount %}
+        {% with p=item.product %}
         <div class="will-reveal delay-[{{ forloop.counter|add:1 }}00ms]" data-animate-card>
-          {% include "partials/_product_card.html" with p=p %}
+          {% include "partials/_product_card.html" with p=p original_price=item.original_price discounted_price=item.discounted_price has_discount=item.has_discount sitewide_promo=sitewide_promo sitewide_discount_percent=sitewide_discount_percent %}
         </div>
+        {% endwith %}
       {% empty %}
         <div class="col-span-full">
           <div class="rounded-2xl border border-line bg-white p-8 text-center will-reveal">
@@ -269,12 +290,27 @@
 
     <!-- Cards -->
 <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-  {% for p in bundles %}
+  {% for item in bundles_with_discount %}
+    {% with p=item.product %}
   <div class="group will-reveal delay-[{{ forloop.counter|add:1 }}00ms] flex flex-col rounded-2xl overflow-hidden border border-line bg-white hover:shadow-xl transition" data-animate-card>
     
     <!-- Media -->
     <div class="relative aspect-[4/3] bg-ivory overflow-hidden">
-      <img src="{{ p.image_url }}" alt="{{ p.name }}" class="w-full h-full object-cover transition group-hover:scale-[1.03]">
+      <img src="{{ p.image_url }}" alt="{{ p.name }}" class="w-full h-full object-cover transition group-hover:scale-[1.03]" loading="{% if forloop.counter <= 4 %}eager{% else %}lazy{% endif %}" decoding="async" fetchpriority="{% if forloop.counter <= 4 %}high{% else %}low{% endif %}">
+      
+      <!-- Minimalist Discount Badge - Only show if sitewide promo is active -->
+      {% if sitewide_promo and item.has_discount %}
+      <div class="absolute top-2 right-2 z-10">
+        <div class="px-2 py-0.5 bg-red-500/95 text-white text-[10px] font-semibold rounded-sm shadow-sm backdrop-blur-sm">
+          {% if sitewide_discount_percent %}
+            -{{ sitewide_discount_percent|floatformat:0 }}%
+          {% else %}
+            SALE
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+      
       <div class="absolute left-3 top-3 flex flex-wrap gap-2">
         <span class="px-2 py-1 rounded-full text-[11px] font-medium border border-line bg-white/90">Set</span>
         {% if p.free_delivery %}
@@ -309,7 +345,16 @@
       <!-- Spacer pushes price/CTA down -->
       <div class="mt-auto pt-4">
         <div class="flex items-center justify-between">
-          <div class="text-lg font-semibold tabular-nums">{{ p.price|money:request }}</div>
+          <div class="flex items-baseline gap-2">
+            {% if item.has_discount %}
+              <!-- Show original price with strikethrough and discounted price -->
+              <span class="text-sm text-ink/50 line-through tabular-nums">{{ item.original_price|money:request }}</span>
+              <span class="text-lg font-semibold text-red-600 tabular-nums">{{ item.discounted_price|money:request }}</span>
+            {% else %}
+              <!-- Show regular price -->
+              <span class="text-lg font-semibold tabular-nums">{{ item.original_price|money:request }}</span>
+            {% endif %}
+          </div>
           <a href="{% url 'product_detail' p.slug %}"
              class="px-4 py-2 rounded-full border border-line bg-cream hover:border-[var(--sharp-gold)] text-sm">
             Shop set
@@ -319,6 +364,7 @@
       </div>
     </div>
   </div>
+    {% endwith %}
   {% empty %}
   <div class="col-span-full">
     <div class="rounded-2xl border border-line bg-white p-8 text-center will-reveal">

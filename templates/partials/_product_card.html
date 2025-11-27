@@ -15,8 +15,22 @@
         class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         loading="lazy"
         decoding="async"
+        fetchpriority="{% if forloop.counter <= 4 %}high{% else %}low{% endif %}"
       />
     </a>
+
+    <!-- Minimalist Discount Badge - Only show if sitewide promo is active -->
+    {% if sitewide_promo and has_discount %}
+    <div class="absolute top-2 right-2 z-10">
+      <div class="px-2 py-0.5 bg-red-500/95 text-white text-[10px] font-semibold rounded-sm shadow-sm backdrop-blur-sm">
+        {% if sitewide_discount_percent %}
+          -{{ sitewide_discount_percent|floatformat:0 }}%
+        {% else %}
+          SALE
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Top-right actions -->
     <div class="absolute top-3 right-3 flex items-center gap-2">
@@ -83,17 +97,23 @@
 
     <div class="mt-4 flex items-center justify-between">
       <div class="flex items-baseline gap-2">
-        <!-- ✨ currency-aware price (JOD source → detected currency) -->
-        <p class="font-semibold tabular-nums">
-          {{ p.price|money:request }}
-          {# If you prefer explicit source instead of settings-based: {% money_from p.price "JOD" %} #}
-        </p>
-
-        {% if p.compare_price and p.compare_price > p.price %}
-        <!-- ✨ currency-aware compare-at price -->
-        <p class="text-sm line-through opacity-60 tabular-nums">
-          {{ p.compare_price|money:request }}
-        </p>
+        {% if has_discount %}
+          <!-- Show original price with strikethrough and discounted price -->
+          <p class="text-sm text-ink/50 line-through tabular-nums">{{ original_price|money:request }}</p>
+          <p class="font-semibold text-red-600 tabular-nums">{{ discounted_price|money:request }}</p>
+        {% elif p.compare_price and p.compare_price > p.price %}
+          <!-- Original compare price logic -->
+          <p class="font-semibold tabular-nums">
+            {{ p.price|money:request }}
+          </p>
+          <p class="text-sm line-through opacity-60 tabular-nums">
+            {{ p.compare_price|money:request }}
+          </p>
+        {% else %}
+          <!-- Regular price -->
+          <p class="font-semibold tabular-nums">
+            {{ p.price|money:request }}
+          </p>
         {% endif %}
       </div>
 

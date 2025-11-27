@@ -246,12 +246,14 @@
 
     <!-- Grid -->
     <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-  {% for p in products %}
+  {% for item in products_with_discount %}
+    {% with p=item.product %}
     {% if p.is_bundle %}
-      {% include "partials/_product_card_bundle.html" with p=p %}
+      {% include "partials/_product_card_bundle.html" with p=p original_price=item.original_price discounted_price=item.discounted_price has_discount=item.has_discount sitewide_promo=sitewide_promo sitewide_discount_percent=sitewide_discount_percent %}
     {% else %}
-      {% include "partials/_product_card.html" with p=p %}
+      {% include "partials/_product_card.html" with p=p original_price=item.original_price discounted_price=item.discounted_price has_discount=item.has_discount sitewide_promo=sitewide_promo sitewide_discount_percent=sitewide_discount_percent %}
     {% endif %}
+    {% endwith %}
   {% empty %}
     <!-- unchanged empty state -->
     <div class="col-span-full">

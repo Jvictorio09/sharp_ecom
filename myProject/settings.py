@@ -176,6 +176,25 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 # Where collectstatic puts files (mainly for prod)
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# Static file caching with WhiteNoise
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# WhiteNoise configuration for better performance
+WHITENOISE_MAX_AGE = 31536000  # 1 year cache for static files
+WHITENOISE_USE_FINDERS = True  # Use Django's static file finders
+
+# Cache configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 300,  # 5 minutes default
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000
+        }
+    }
+}
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 

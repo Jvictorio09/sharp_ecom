@@ -898,7 +898,7 @@ class PromoForm(forms.ModelForm):
         model = PromoCode
         fields = [
             "code","description","type","value","min_subtotal","max_discount",
-            "countries_csv","starts_at","ends_at","active","usage_limit",
+            "countries_csv","starts_at","ends_at","active","is_sitewide","usage_limit",
         ]
         widgets = {
             "starts_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
@@ -920,6 +920,33 @@ class PromoForm(forms.ModelForm):
         if not c.replace("-", "").isalnum():
             raise forms.ValidationError("Use letters/numbers and optional dashes only.")
         return c
+
+    def clean(self):
+        cleaned_data = super().clean()
+        is_sitewide = cleaned_data.get("is_sitewide", False)
+        active = cleaned_data.get("active", False)
+        
+        # If this promo is being set as sitewide and active, check for conflicts
+        if is_sitewide and active:
+            # Exclude current instance if editing
+            instance = self.instance
+            existing = PromoCode.objects.filter(
+                is_sitewide=True,
+                active=True
+            ).exclude(pk=instance.pk if instance.pk else None)
+            
+            # Check if any existing sitewide promos are live (considering dates/usage)
+            from django.utils import timezone
+            now = timezone.now()
+            for promo in existing:
+                if promo.is_live():
+                    raise forms.ValidationError(
+                        f"Another sitewide promo ({promo.code}) is already active. "
+                        "Only one sitewide promo can be active at a time. "
+                        "Please deactivate the other promo first."
+                    )
+        
+        return cleaned_data
 
 
 @dashboard_required

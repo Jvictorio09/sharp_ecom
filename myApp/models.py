@@ -312,6 +312,10 @@ class PromoCode(models.Model):
     starts_at = models.DateTimeField(null=True, blank=True)
     ends_at = models.DateTimeField(null=True, blank=True)
     active = models.BooleanField(default=True)
+    is_sitewide = models.BooleanField(
+        default=False,
+        help_text="If checked, this promo applies automatically to all orders (no code needed). Only one sitewide promo can be active at a time."
+    )
 
     usage_limit = models.PositiveIntegerField(null=True, blank=True, help_text="Optional total usage cap")
     used_count = models.PositiveIntegerField(default=0)

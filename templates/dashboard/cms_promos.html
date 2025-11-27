@@ -31,6 +31,7 @@
           <th class="text-left px-4 py-3">Max Discount</th>
           <th class="text-left px-4 py-3">Countries</th>
           <th class="text-left px-4 py-3">Schedule</th>
+          <th class="text-left px-4 py-3">Sitewide</th>
           <th class="text-left px-4 py-3">Active</th>
           <th class="text-right px-4 py-3">Actions</th>
         </tr>
@@ -59,6 +60,15 @@
               <div>Start: {{ p.starts_at|date:"Y-m-d H:i" | default:"—" }}</div>
               <div>End: {{ p.ends_at|date:"Y-m-d H:i" | default:"—" }}</div>
             </div>
+          </td>
+          <td class="px-4 py-3">
+            {% if p.is_sitewide %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-blue-50 text-blue-700 border border-blue-200">
+                <i class="fa-solid fa-globe"></i>Sitewide
+              </span>
+            {% else %}
+              <span class="text-xs text-gray-400">—</span>
+            {% endif %}
           </td>
           <td class="px-4 py-3">
             {% if p.active %}
@@ -95,7 +105,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td class="px-4 py-6 text-center text-gray-500" colspan="9">No promos yet.</td></tr>
+        <tr><td class="px-4 py-6 text-center text-gray-500" colspan="10">No promos yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>

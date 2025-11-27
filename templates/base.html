@@ -24,8 +24,13 @@
 
     <!-- Tailwind (prototype). Replace with your compiled build in production. -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Performance: Preconnect to external resources -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://res.cloudinary.com" />
+    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com" />
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
+    
     <link
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap"
       rel="stylesheet"
@@ -781,7 +786,12 @@
         </div>
 
         <div class="text-right">
-          <p class="font-medium">${it.line_total_display}</p>
+          ${it.has_discount ? `
+            <p class="text-xs text-ink/50 line-through">${it.original_line_total_display}</p>
+            <p class="font-medium text-red-600">${it.line_total_display}</p>
+          ` : `
+            <p class="font-medium">${it.line_total_display}</p>
+          `}
           <button class="text-sm underline opacity-70 hover:opacity-100" data-remove="${it.id}">Remove</button>
         </div>`;
 

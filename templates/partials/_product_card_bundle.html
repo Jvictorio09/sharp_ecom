@@ -15,6 +15,18 @@
          group-hover:scale-[1.35] md:group-hover:scale-[1.5]"
 >
 
+    <!-- Minimalist Discount Badge - Only show if sitewide promo is active -->
+    {% if sitewide_promo and has_discount %}
+    <div class="absolute top-2 right-2 z-10">
+      <div class="px-2 py-0.5 bg-red-500/95 text-white text-[10px] font-semibold rounded-sm shadow-sm backdrop-blur-sm">
+        {% if sitewide_discount_percent %}
+          -{{ sitewide_discount_percent|floatformat:0 }}%
+        {% else %}
+          SALE
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
 
     <div class="absolute left-3 top-3 flex flex-wrap gap-2">
       <span class="px-2 py-1 rounded-full text-[11px] font-medium border border-line bg-white/90">Set</span>
@@ -48,7 +60,16 @@
       {% endwith %}
 
       <div class="mt-5 flex items-center justify-between">
-        <div class="text-lg font-semibold tabular-nums">{{ p.price|money:request }}</div>
+        <div class="flex items-baseline gap-2">
+          {% if has_discount %}
+            <!-- Show original price with strikethrough and discounted price -->
+            <span class="text-sm text-ink/50 line-through tabular-nums">{{ original_price|money:request }}</span>
+            <span class="text-lg font-semibold text-red-600 tabular-nums">{{ discounted_price|money:request }}</span>
+          {% else %}
+            <!-- Show regular price -->
+            <span class="text-lg font-semibold tabular-nums">{{ p.price|money:request }}</span>
+          {% endif %}
+        </div>
         <a href="{% url 'product_detail' p.slug %}"
            class="px-4 py-2 rounded-full border border-line bg-cream hover:border-[var(--sharp-gold)] text-sm">
           Shop set

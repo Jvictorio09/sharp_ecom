@@ -33,8 +33,12 @@
                 </div>
               </div>
               <div class="text-right">
-                <!-- was: JD{{ row.line_total }} -->
-                <p class="font-medium">{{ row.line_total|money:request }}</p>
+                {% if row.has_discount %}
+                  <p class="text-xs text-ink/50 line-through">{{ row.original_price|money:request }}</p>
+                  <p class="font-medium text-red-600">{{ row.line_total|money:request }}</p>
+                {% else %}
+                  <p class="font-medium">{{ row.line_total|money:request }}</p>
+                {% endif %}
               </div>
             </div>
             {% endfor %}
