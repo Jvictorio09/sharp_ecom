@@ -1,0 +1,174 @@
+{% extends "dashboard/cms_base.html" %}
+
+{% block content %}
+<div>
+  <h1 class="text-3xl font-bold mb-6">Dashboard</h1>
+  
+  <!-- KPIs -->
+  <div class="grid sm:grid-cols-3 gap-6 mb-6">
+    <div class="rounded-2xl border border-[#E1E1E1] bg-white p-6 shadow">
+      <p class="text-sm text-black/60">Pending Orders</p>
+      <p class="text-3xl font-extrabold mt-1">{{ kpi.pending }}</p>
+    </div>
+    <div class="rounded-2xl border border-[#E1E1E1] bg-white p-6 shadow">
+      <p class="text-sm text-black/60">Orders Today</p>
+      <p class="text-3xl font-extrabold mt-1">{{ kpi.today }}</p>
+    </div>
+    <div class="rounded-2xl border border-[#E1E1E1] bg-white p-6 shadow">
+      <p class="text-sm text-black/60">Sales (30 days)</p>
+      <p class="text-3xl font-extrabold mt-1">{{ kpi.sales_30|default_if_none:0|money:request }}</p>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="bg-white rounded-lg p-6 shadow mb-6">
+    <h2 class="text-xl font-bold mb-4">Quick Actions</h2>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <a href="{% url 'cms_order_list' %}" class="p-4 border rounded hover:bg-gray-50 flex items-center gap-3">
+        <i class="fa-solid fa-shopping-cart text-2xl text-[var(--sharp-mineral)]"></i>
+        <div>
+          <div class="font-semibold">Orders</div>
+          <div class="text-sm text-gray-600">Manage orders</div>
+        </div>
+      </a>
+      <a href="{% url 'cms_product_list' %}" class="p-4 border rounded hover:bg-gray-50 flex items-center gap-3">
+        <i class="fa-solid fa-box text-2xl text-[var(--sharp-mineral)]"></i>
+        <div>
+          <div class="font-semibold">Products</div>
+          <div class="text-sm text-gray-600">Manage products</div>
+        </div>
+      </a>
+      <a href="{% url 'cms_promo_list' %}" class="p-4 border rounded hover:bg-gray-50 flex items-center gap-3">
+        <i class="fa-solid fa-tag text-2xl text-[var(--sharp-mineral)]"></i>
+        <div>
+          <div class="font-semibold">Promos</div>
+          <div class="text-sm text-gray-600">Manage promos</div>
+        </div>
+      </a>
+      <a href="{% url 'gallery' %}" class="p-4 border rounded hover:bg-gray-50 flex items-center gap-3">
+        <i class="fa-solid fa-images text-2xl text-[var(--sharp-mineral)]"></i>
+        <div>
+          <div class="font-semibold">Gallery</div>
+          <div class="text-sm text-gray-600">Upload images</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Recent Orders -->
+  <div class="bg-white rounded-lg p-6 shadow mb-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold">Recent Orders</h2>
+      <a href="{% url 'cms_order_list' %}" class="text-sm text-[var(--sharp-mineral)] hover:underline">View all →</a>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-[#FAFAF8]">
+          <tr>
+            <th class="text-left px-4 py-3">Order</th>
+            <th class="text-left px-4 py-3">Customer</th>
+            <th class="text-left px-4 py-3">Total</th>
+            <th class="text-left px-4 py-3">Status</th>
+            <th class="text-left px-4 py-3">Placed</th>
+            <th class="text-left px-4 py-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for o in recent %}
+          <tr class="border-t border-[#E1E1E1] hover:bg-[#FCFCFA]">
+            <td class="px-4 py-3 font-medium">{{ o.order_number }}</td>
+            <td class="px-4 py-3">{{ o.full_name }}</td>
+            <td class="px-4 py-3">{{ o.grand_total|default_if_none:0|money:request }}</td>
+            <td class="px-4 py-3">
+              <span class="inline-flex items-center px-2 py-1 rounded-full border text-xs
+                 {% if o.status == '0' %}border-amber-400 text-amber-700 bg-amber-50
+                 {% elif o.status == '170' %}border-emerald-400 text-emerald-700 bg-emerald-50
+                 {% else %}border-gray-300 text-gray-700 bg-gray-50{% endif %}">
+                {{ o.get_status_display }}
+              </span>
+            </td>
+            <td class="px-4 py-3">{{ o.created_at|date:"M d, Y H:i" }}</td>
+            <td class="px-4 py-3">
+              <a class="text-[var(--sharp-mineral)] hover:underline" href="{% url 'dashboard_order_detail' o.order_number %}">
+                <i class="fa-solid fa-eye mr-1"></i>View
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td class="px-4 py-6 text-center text-gray-500" colspan="6">No orders yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CMS Stats -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+    <div class="bg-white rounded-lg p-6 shadow">
+      <div class="text-2xl font-bold text-[var(--sharp-mineral)]">{{ product_count|default:0 }}</div>
+      <div class="text-gray-600">Active Products</div>
+      <a href="{% url 'cms_product_list' %}" class="text-[var(--sharp-mineral)] hover:underline mt-2 block text-sm">View Products →</a>
+    </div>
+    <div class="bg-white rounded-lg p-6 shadow">
+      <div class="text-2xl font-bold text-[var(--sharp-mineral)]">{{ media_count }}</div>
+      <div class="text-gray-600">Media Assets</div>
+      <a href="{% url 'gallery' %}" class="text-[var(--sharp-mineral)] hover:underline mt-2 block text-sm">View Gallery →</a>
+    </div>
+    <div class="bg-white rounded-lg p-6 shadow">
+      <div class="text-2xl font-bold text-[var(--sharp-mineral)]">{{ navigation_count }}</div>
+      <div class="text-gray-600">Navigation Items</div>
+      <a href="{% url 'navigation_edit' %}" class="text-[var(--sharp-mineral)] hover:underline mt-2 block text-sm">Edit Navigation →</a>
+    </div>
+    <div class="bg-white rounded-lg p-6 shadow">
+      <div class="text-2xl font-bold text-[var(--sharp-mineral)]">{{ services_count|default:0 }}</div>
+      <div class="text-gray-600">Active Services</div>
+      <a href="{% url 'services_list' %}" class="text-[var(--sharp-mineral)] hover:underline mt-2 block text-sm">Manage Services →</a>
+    </div>
+    <div class="bg-white rounded-lg p-6 shadow">
+      <div class="text-2xl font-bold text-[var(--sharp-mineral)]">{{ testimonials_count|default:0 }}</div>
+      <div class="text-gray-600">Active Testimonials</div>
+      <a href="{% url 'testimonials_list' %}" class="text-[var(--sharp-mineral)] hover:underline mt-2 block text-sm">Manage Testimonials →</a>
+    </div>
+  </div>
+
+  <!-- Content Management Quick Links -->
+  <div class="bg-white rounded-lg p-6 shadow">
+    <h2 class="text-xl font-bold mb-4">Content Management</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <a href="{% url 'gallery' %}" class="p-4 border rounded hover:bg-gray-50 text-center">
+        <i class="fa-solid fa-images text-2xl mb-2 text-[var(--sharp-mineral)]"></i>
+        <div class="font-semibold text-sm">Gallery</div>
+      </a>
+      <a href="{% url 'seo_edit' %}" class="p-4 border rounded hover:bg-gray-50 text-center">
+        <i class="fa-solid fa-search text-2xl mb-2 text-[var(--sharp-mineral)]"></i>
+        <div class="font-semibold text-sm">SEO Settings</div>
+      </a>
+      <a href="{% url 'hero_edit' %}" class="p-4 border rounded hover:bg-gray-50 text-center">
+        <i class="fa-solid fa-image text-2xl mb-2 text-[var(--sharp-mineral)]"></i>
+        <div class="font-semibold text-sm">Hero Section</div>
+      </a>
+      <a href="{% url 'about_edit' %}" class="p-4 border rounded hover:bg-gray-50 text-center">
+        <i class="fa-solid fa-info-circle text-2xl mb-2 text-[var(--sharp-mineral)]"></i>
+        <div class="font-semibold text-sm">About</div>
+      </a>
+      <a href="{% url 'navigation_edit' %}" class="p-4 border rounded hover:bg-gray-50 text-center">
+        <i class="fa-solid fa-bars text-2xl mb-2 text-[var(--sharp-mineral)]"></i>
+        <div class="font-semibold text-sm">Navigation</div>
+      </a>
+      <a href="{% url 'contact_edit' %}" class="p-4 border rounded hover:bg-gray-50 text-center">
+        <i class="fa-solid fa-envelope text-2xl mb-2 text-[var(--sharp-mineral)]"></i>
+        <div class="font-semibold text-sm">Contact</div>
+      </a>
+      <a href="{% url 'social_links_list' %}" class="p-4 border rounded hover:bg-gray-50 text-center">
+        <i class="fa-solid fa-share-nodes text-2xl mb-2 text-[var(--sharp-mineral)]"></i>
+        <div class="font-semibold text-sm">Social Links</div>
+      </a>
+      <a href="{% url 'footer_edit' %}" class="p-4 border rounded hover:bg-gray-50 text-center">
+        <i class="fa-solid fa-footer text-2xl mb-2 text-[var(--sharp-mineral)]"></i>
+        <div class="font-semibold text-sm">Footer</div>
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

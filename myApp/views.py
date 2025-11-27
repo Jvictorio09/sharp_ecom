@@ -2274,9 +2274,12 @@ def _promo_valid_for_db(code, *, subtotal: Decimal, country: str | None):
     else:
         return (None, "Invalid promo configuration.")
 
-    # Cap
+    # Cap by max_discount if set
     if promo.max_discount:
         disc = min(disc, promo.max_discount)
+    
+    # Never discount more than the subtotal (prevent negative totals)
+    disc = min(disc, subtotal)
 
     if disc <= 0:
         return (None, "This promo doesn’t apply to your cart.")

@@ -1,0 +1,29 @@
+{% extends "dashboard/cms_base.html" %}
+
+{% block content %}
+<div>
+  <h1 class="text-3xl font-bold mb-6">Footer</h1>
+  
+  <form method="post" class="bg-white rounded-lg p-6 shadow max-w-2xl">
+    {% csrf_token %}
+    
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-2">Copyright Text</label>
+      <input type="text" name="copyright_text" value="{{ footer.copyright_text }}" 
+             class="w-full border rounded p-2" placeholder="© 2025 Your Company">
+    </div>
+    
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-2">Additional Text</label>
+      <textarea name="additional_text" rows="4" 
+                class="w-full border rounded p-2" 
+                placeholder="Additional footer content...">{{ footer.additional_text }}</textarea>
+    </div>
+    
+    <button type="submit" class="bg-[var(--sharp-mineral)] text-white px-6 py-2 rounded hover:bg-opacity-90">
+      Save Changes
+    </button>
+  </form>
+</div>
+{% endblock %}
+

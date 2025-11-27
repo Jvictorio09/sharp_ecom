@@ -234,3 +234,137 @@ class OrderAdmin(admin.ModelAdmin):
         if "created_at" in names:
             return ("-created_at",)
         return ("-id",)
+
+
+# ============================================================================
+# CMS Models Admin
+# ============================================================================
+from .models import (
+    MediaAsset, SEO, Navigation, Hero, About, Stat, Service,
+    Portfolio, PortfolioProject, Testimonial, FAQ, FAQItem,
+    Contact, ContactInfo, ContactFormField, SocialLink, Footer
+)
+
+
+@admin.register(MediaAsset)
+class MediaAssetAdmin(admin.ModelAdmin):
+    list_display = ('title', 'folder', 'created_at')
+    list_filter = ('folder', 'created_at')
+    search_fields = ('title', 'public_id', 'original_url')
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(SEO)
+class SEOAdmin(admin.ModelAdmin):
+    list_display = ('page', 'title', 'updated_at')
+    readonly_fields = ('updated_at',)
+
+
+@admin.register(Navigation)
+class NavigationAdmin(admin.ModelAdmin):
+    list_display = ('label', 'url', 'sort_order', 'is_active', 'is_external')
+    list_filter = ('is_active', 'is_external')
+    search_fields = ('label', 'url')
+    ordering = ('sort_order',)
+
+
+@admin.register(Hero)
+class HeroAdmin(admin.ModelAdmin):
+    list_display = ('title', 'is_active', 'updated_at')
+    list_filter = ('is_active',)
+    readonly_fields = ('updated_at',)
+
+
+@admin.register(About)
+class AboutAdmin(admin.ModelAdmin):
+    list_display = ('title', 'is_active', 'updated_at')
+    list_filter = ('is_active',)
+    readonly_fields = ('updated_at',)
+
+
+@admin.register(Stat)
+class StatAdmin(admin.ModelAdmin):
+    list_display = ('label', 'value', 'icon', 'sort_order', 'is_active')
+    list_filter = ('is_active',)
+    ordering = ('sort_order',)
+
+
+@admin.register(Service)
+class ServiceAdmin(admin.ModelAdmin):
+    list_display = ('title', 'sort_order', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('title', 'description')
+    ordering = ('sort_order',)
+
+
+@admin.register(Portfolio)
+class PortfolioAdmin(admin.ModelAdmin):
+    list_display = ('title', 'is_active', 'updated_at')
+    list_filter = ('is_active',)
+    readonly_fields = ('updated_at',)
+
+
+@admin.register(PortfolioProject)
+class PortfolioProjectAdmin(admin.ModelAdmin):
+    list_display = ('title', 'portfolio', 'sort_order', 'is_active')
+    list_filter = ('is_active', 'portfolio')
+    search_fields = ('title', 'description')
+    ordering = ('sort_order',)
+
+
+@admin.register(Testimonial)
+class TestimonialAdmin(admin.ModelAdmin):
+    list_display = ('name', 'role', 'company', 'rating', 'sort_order', 'is_active')
+    list_filter = ('is_active', 'rating')
+    search_fields = ('name', 'role', 'company', 'content')
+    ordering = ('sort_order',)
+
+
+@admin.register(FAQ)
+class FAQAdmin(admin.ModelAdmin):
+    list_display = ('title', 'is_active', 'updated_at')
+    list_filter = ('is_active',)
+    readonly_fields = ('updated_at',)
+
+
+@admin.register(FAQItem)
+class FAQItemAdmin(admin.ModelAdmin):
+    list_display = ('question', 'faq', 'sort_order', 'is_active')
+    list_filter = ('is_active', 'faq')
+    search_fields = ('question', 'answer')
+    ordering = ('sort_order',)
+
+
+@admin.register(Contact)
+class ContactAdmin(admin.ModelAdmin):
+    list_display = ('title', 'is_active', 'updated_at')
+    list_filter = ('is_active',)
+    readonly_fields = ('updated_at',)
+
+
+@admin.register(ContactInfo)
+class ContactInfoAdmin(admin.ModelAdmin):
+    list_display = ('label', 'value', 'icon', 'sort_order', 'is_active')
+    list_filter = ('is_active',)
+    ordering = ('sort_order',)
+
+
+@admin.register(ContactFormField)
+class ContactFormFieldAdmin(admin.ModelAdmin):
+    list_display = ('label', 'field_type', 'name', 'required', 'sort_order', 'is_active')
+    list_filter = ('field_type', 'required', 'is_active')
+    ordering = ('sort_order',)
+
+
+@admin.register(SocialLink)
+class SocialLinkAdmin(admin.ModelAdmin):
+    list_display = ('platform', 'url', 'icon', 'sort_order', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('platform', 'url')
+    ordering = ('sort_order',)
+
+
+@admin.register(Footer)
+class FooterAdmin(admin.ModelAdmin):
+    list_display = ('copyright_text', 'updated_at')
+    readonly_fields = ('updated_at',)

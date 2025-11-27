@@ -1,0 +1,143 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>CMS Dashboard — SHARP</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root{
+      --beige: #F4EFE7;
+      --navy: #263128;
+      --charcoal: #1B1B1B;
+      --sharp-mineral: #263128;
+      --sharp-charcoal: #1B1B1B;
+      --sharp-hunter: #324036;
+      --sharp-steel: #EFEFEF;
+      --sharp-foam: #AFAFAF;
+    }
+  </style>
+</head>
+<body class="bg-[var(--beige)] text-[var(--charcoal)]">
+  <!-- Header -->
+  <header class="sticky top-0 z-40 border-b border-[#E1E1E1] bg-white/80 backdrop-blur">
+    <div class="max-w-7xl mx-auto h-16 px-4 md:px-8 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="{% url 'cms_dashboard_home' %}" class="font-extrabold tracking-wide text-lg text-[#263128]">SHARP</a>
+        <span class="text-xs px-2 py-1 rounded-full bg-[var(--sharp-mineral)] text-white">CMS Dashboard</span>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-5 text-sm">
+        <a class="hover:text-[var(--sharp-mineral)] {% if request.resolver_match.url_name == 'cms_dashboard_home' %}text-[var(--sharp-mineral)] font-semibold{% endif %}"
+           href="{% url 'cms_dashboard_home' %}">Home</a>
+        <a class="hover:text-[var(--sharp-mineral)] {% if 'order' in request.resolver_match.url_name or request.path == '/dashboard/cms/orders/' %}text-[var(--sharp-mineral)] font-semibold{% endif %}"
+           href="{% url 'cms_order_list' %}">Orders</a>
+        <a class="hover:text-[var(--sharp-mineral)] {% if 'product' in request.resolver_match.url_name or request.path == '/dashboard/cms/products/' %}text-[var(--sharp-mineral)] font-semibold{% endif %}"
+           href="{% url 'cms_product_list' %}">Products</a>
+        <a class="hover:text-[var(--sharp-mineral)] {% if 'promo' in request.resolver_match.url_name or request.path == '/dashboard/cms/promos/' %}text-[var(--sharp-mineral)] font-semibold{% endif %}"
+           href="{% url 'cms_promo_list' %}">Promos</a>
+        <a class="hover:text-[var(--sharp-mineral)]" href="{% url 'dashboard_logout' %}">Logout</a>
+      </nav>
+
+      <button id="nav-toggle" class="md:hidden p-2 rounded-lg border border-[#E1E1E1]" aria-label="Open menu">☰</button>
+    </div>
+
+    <div id="nav-drawer" class="md:hidden hidden border-t border-[#E1E1E1] bg-white">
+      <nav class="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-2 text-sm">
+        <a class="py-2 {% if request.resolver_match.url_name == 'cms_dashboard_home' %}text-[var(--sharp-mineral)] font-semibold{% endif %}"
+           href="{% url 'cms_dashboard_home' %}">Home</a>
+        <a class="py-2 {% if 'order' in request.resolver_match.url_name or request.path == '/dashboard/cms/orders/' %}text-[var(--sharp-mineral)] font-semibold{% endif %}"
+           href="{% url 'cms_order_list' %}">Orders</a>
+        <a class="py-2 {% if 'product' in request.resolver_match.url_name or request.path == '/dashboard/cms/products/' %}text-[var(--sharp-mineral)] font-semibold{% endif %}"
+           href="{% url 'cms_product_list' %}">Products</a>
+        <a class="py-2 {% if 'promo' in request.resolver_match.url_name or request.path == '/dashboard/cms/promos/' %}text-[var(--sharp-mineral)] font-semibold{% endif %}"
+           href="{% url 'cms_promo_list' %}">Promos</a>
+        <a class="py-2" href="{% url 'dashboard_logout' %}">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="flex">
+    <!-- Sidebar -->
+    <aside class="hidden lg:block w-64 bg-[var(--navy)] text-white flex-shrink-0 min-h-[calc(100vh-4rem)]">
+      <nav class="p-4 space-y-2">
+        <div class="pt-2">
+          <p class="px-3 py-1 text-xs text-white/60 uppercase tracking-wide mb-2">Content Management</p>
+          <a href="{% url 'gallery' %}" class="block px-3 py-2 rounded hover:bg-white/10 {% if 'gallery' in request.resolver_match.url_name %}bg-white/10{% endif %}">
+            <i class="fa-solid fa-images mr-2"></i> Gallery
+          </a>
+          <a href="{% url 'seo_edit' %}" class="block px-3 py-2 rounded hover:bg-white/10 {% if 'seo' in request.resolver_match.url_name %}bg-white/10{% endif %}">
+            <i class="fa-solid fa-search mr-2"></i> SEO
+          </a>
+          <a href="{% url 'navigation_edit' %}" class="block px-3 py-2 rounded hover:bg-white/10 {% if 'navigation' in request.resolver_match.url_name %}bg-white/10{% endif %}">
+            <i class="fa-solid fa-bars mr-2"></i> Navigation
+          </a>
+          <a href="{% url 'hero_edit' %}" class="block px-3 py-2 rounded hover:bg-white/10 {% if 'hero' in request.resolver_match.url_name %}bg-white/10{% endif %}">
+            <i class="fa-solid fa-image mr-2"></i> Hero Section
+          </a>
+          <a href="{% url 'about_edit' %}" class="block px-3 py-2 rounded hover:bg-white/10 {% if 'about' in request.resolver_match.url_name %}bg-white/10{% endif %}">
+            <i class="fa-solid fa-info-circle mr-2"></i> About
+          </a>
+          <a href="{% url 'contact_edit' %}" class="block px-3 py-2 rounded hover:bg-white/10 {% if 'contact' in request.resolver_match.url_name and 'info' not in request.resolver_match.url_name and 'field' not in request.resolver_match.url_name %}bg-white/10{% endif %}">
+            <i class="fa-solid fa-envelope mr-2"></i> Contact
+          </a>
+          <a href="{% url 'social_links_list' %}" class="block px-3 py-2 rounded hover:bg-white/10 {% if 'social' in request.resolver_match.url_name %}bg-white/10{% endif %}">
+            <i class="fa-solid fa-share-nodes mr-2"></i> Social Links
+          </a>
+          <a href="{% url 'footer_edit' %}" class="block px-3 py-2 rounded hover:bg-white/10 {% if 'footer' in request.resolver_match.url_name %}bg-white/10{% endif %}">
+            <i class="fa-solid fa-footer mr-2"></i> Footer
+          </a>
+        </div>
+        
+        <div class="pt-4 border-t border-white/10 mt-2">
+          <p class="px-3 py-1 text-xs text-white/60 uppercase tracking-wide mb-2">Optional Sections</p>
+          <a href="{% url 'stats_list' %}" class="block px-3 py-2 rounded hover:bg-white/10 {% if 'stat' in request.resolver_match.url_name %}bg-white/10{% endif %}">
+            <i class="fa-solid fa-chart-bar mr-2"></i> Stats
+          </a>
+          <a href="{% url 'services_list' %}" class="block px-3 py-2 rounded hover:bg-white/10 {% if 'service' in request.resolver_match.url_name %}bg-white/10{% endif %}">
+            <i class="fa-solid fa-briefcase mr-2"></i> Services
+          </a>
+          <a href="{% url 'testimonials_list' %}" class="block px-3 py-2 rounded hover:bg-white/10 {% if 'testimonial' in request.resolver_match.url_name %}bg-white/10{% endif %}">
+            <i class="fa-solid fa-quote-left mr-2"></i> Testimonials
+          </a>
+          <a href="{% url 'faq_section_edit' %}" class="block px-3 py-2 rounded hover:bg-white/10 {% if 'faq' in request.resolver_match.url_name %}bg-white/10{% endif %}">
+            <i class="fa-solid fa-question-circle mr-2"></i> FAQs
+          </a>
+          <a href="{% url 'portfolio_edit' %}" class="block px-3 py-2 rounded hover:bg-white/10 {% if 'portfolio' in request.resolver_match.url_name %}bg-white/10{% endif %}">
+            <i class="fa-solid fa-folder mr-2"></i> Portfolio
+          </a>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 min-h-[calc(100vh-4rem)]">
+      <!-- Flash messages -->
+      {% if messages %}
+      <div class="max-w-7xl mx-auto px-4 md:px-8 pt-4">
+        {% for m in messages %}
+          <div class="mb-3 rounded-xl border border-[#E1E1E1] bg-white p-3 text-sm">{{ m }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Page content -->
+      <div class="max-w-7xl mx-auto p-4 md:p-8">
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+
+  <script>
+    (function(){
+      const btn = document.getElementById('nav-toggle');
+      const drawer = document.getElementById('nav-drawer');
+      if(!btn || !drawer) return;
+      btn.addEventListener('click', ()=> drawer.classList.toggle('hidden'));
+    })();
+  </script>
+</body>
+</html>
+

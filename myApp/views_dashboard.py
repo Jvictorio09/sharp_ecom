@@ -371,6 +371,9 @@ def order_list(request):
 
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         return render(request, "dashboard/_orders_table.html", ctx)
+    # Use CMS template if coming from CMS dashboard
+    if '/cms/' in request.path or request.path == '/dashboard/cms/orders/':
+        return render(request, "dashboard/cms_orders.html", ctx)
     return render(request, "dashboard/orders.html", ctx)
 
 # views_dashboard.py
@@ -396,14 +399,19 @@ def order_detail(request, order_number):
     # ✅ supply shipping_text expected by the template
     shipping_text = _shipping_text_for(order)
 
+    template = "dashboard/order_detail.html"
+    # Use CMS template if coming from CMS dashboard
+    if '/cms/' in request.path or request.META.get('HTTP_REFERER', '').startswith(request.build_absolute_uri('/dashboard/cms/')):
+        template = "dashboard/cms_order_detail.html"
+
     return render(
         request,
-        "dashboard/order_detail.html",
+        template,
         {
             "order": order,
             "items": items_qs,
             "order_statuses": tuple(getattr(Order, "STATUS_CHOICES", ())),
-            "shipping_text": shipping_text,   # <— add this
+            "shipping_text": shipping_text,
         },
     )
 
@@ -920,6 +928,9 @@ def promo_list(request):
     promos = PromoCode.objects.all()
     if q:
         promos = promos.filter(code__icontains=q)
+    # Use CMS template if coming from CMS dashboard
+    if '/cms/' in request.path or request.path == '/dashboard/cms/promos/':
+        return render(request, "dashboard/cms_promos.html", {"promos": promos, "q": q})
     return render(request, "dashboard/promos/list.html", {"promos": promos, "q": q})
 
 @dashboard_required
@@ -933,9 +944,15 @@ def promo_upsert(request, pk=None):
             obj.code = obj.code.upper()
             obj.save()
             messages.success(request, f"Promo {obj.code} saved.")
+            # Redirect to CMS if coming from CMS
+            if '/cms/' in request.path or request.META.get('HTTP_REFERER', '').startswith(request.build_absolute_uri('/dashboard/cms/')):
+                return redirect("cms_promo_list")
             return redirect("dashboard_promo_list")
     else:
         form = PromoForm(instance=promo)
+    # Use CMS template if coming from CMS dashboard
+    if '/cms/' in request.path or request.META.get('HTTP_REFERER', '').startswith(request.build_absolute_uri('/dashboard/cms/')):
+        return render(request, "dashboard/cms_promo_form.html", {"form": form, "promo": promo})
     return render(request, "dashboard/promos/form.html", {"form": form, "promo": promo})
 
 @dashboard_required
@@ -944,6 +961,9 @@ def promo_toggle(request, pk):
     promo.active = not promo.active
     promo.save(update_fields=["active","updated_at"])
     messages.info(request, f"{promo.code} is now {'active' if promo.active else 'inactive'}.")
+    # Redirect to CMS if coming from CMS
+    if '/cms/' in request.path or request.META.get('HTTP_REFERER', '').startswith(request.build_absolute_uri('/dashboard/cms/')):
+        return redirect("cms_promo_list")
     return redirect("dashboard_promo_list")
 
 @dashboard_required
@@ -952,6 +972,9 @@ def promo_delete(request, pk):
     code = promo.code
     promo.delete()
     messages.warning(request, f"Promo {code} deleted.")
+    # Redirect to CMS if coming from CMS
+    if '/cms/' in request.path or request.META.get('HTTP_REFERER', '').startswith(request.build_absolute_uri('/dashboard/cms/')):
+        return redirect("cms_promo_list")
     return redirect("dashboard_promo_list")
 
 
@@ -1123,6 +1146,9 @@ def product_list(request):
     ctx = {"page": page, "q": q, "active": active, "sort": sort}
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         return render(request, "dashboard/products/_table.html", ctx)
+    # Use CMS template if coming from CMS dashboard
+    if '/cms/' in request.path or request.path == '/dashboard/cms/products/':
+        return render(request, "dashboard/cms_products.html", ctx)
     return render(request, "dashboard/products/list.html", ctx)
 
 
@@ -1145,6 +1171,9 @@ def product_upsert(request, pk=None):
             if request.headers.get("x-requested-with") == "XMLHttpRequest":
                 return JsonResponse({"ok": True})
             messages.success(request, f"Product '{obj.name}' saved.")
+            # Redirect to CMS if coming from CMS
+            if '/cms/' in request.path or request.META.get('HTTP_REFERER', '').startswith(request.build_absolute_uri('/dashboard/cms/')):
+                return redirect("cms_product_list")
             return redirect("dashboard_product_list")
         # invalid -> fall through to render with errors
     else:
@@ -1195,6 +1224,9 @@ def product_delete(request, pk):
         product.delete()
         if request.headers.get("x-requested-with") == "XMLHttpRequest":
             return JsonResponse({"ok": True})
+        # Redirect to CMS if coming from CMS
+        if '/cms/' in request.path or request.META.get('HTTP_REFERER', '').startswith(request.build_absolute_uri('/dashboard/cms/')):
+            return redirect("cms_product_list")
         return redirect("dashboard_product_list")
 
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
@@ -1241,3 +1273,663 @@ def product_bulk_action(request):
         return JsonResponse({"ok": False, "error": "Unknown action."}, status=400)
 
     return JsonResponse({"ok": True, "count": count})
+
+
+# ============================================================================
+# CMS DASHBOARD VIEWS
+# ============================================================================
+
+from .models import (
+    MediaAsset, SEO, Navigation, Hero, About, Stat, Service,
+    Portfolio, PortfolioProject, Testimonial, FAQ, FAQItem,
+    Contact, ContactInfo, ContactFormField, SocialLink, Footer
+)
+from .utils.cloudinary_utils import upload_to_cloudinary
+from django.views.decorators.csrf import csrf_exempt
+import json
+
+
+@dashboard_required
+def cms_dashboard_home(request):
+    """CMS Dashboard Homepage with KPIs"""
+    # KPIs
+    kpi = {
+        "pending": Order.objects.filter(status="0").count(),
+        "today": Order.objects.filter(created_at__date=timezone.localdate()).count(),
+        "sales_30": Order.objects.filter(
+            created_at__gte=timezone.now() - timezone.timedelta(days=30)
+        ).aggregate(total=Sum("grand_total"))["total"] or 0,
+    }
+    
+    recent = Order.objects.order_by("-created_at")[:10]
+    
+    # CMS Stats
+    try:
+        media_count = MediaAsset.objects.count()
+    except:
+        media_count = 0
+    
+    try:
+        navigation_count = Navigation.objects.filter(is_active=True).count()
+    except:
+        navigation_count = 0
+    
+    try:
+        services_count = Service.objects.filter(is_active=True).count()
+    except:
+        services_count = 0
+    
+    try:
+        testimonials_count = Testimonial.objects.filter(is_active=True).count()
+    except:
+        testimonials_count = 0
+    
+    try:
+        product_count = Product.objects.filter(is_active=True).count()
+    except:
+        product_count = 0
+    
+    context = {
+        'kpi': kpi,
+        'recent': recent,
+        'order_statuses': getattr(Order, "STATUS_CHOICES", []),
+        'media_count': media_count,
+        'navigation_count': navigation_count,
+        'services_count': services_count,
+        'testimonials_count': testimonials_count,
+        'product_count': product_count,
+    }
+    return render(request, 'dashboard/cms_index.html', context)
+
+
+# ============================================================================
+# Image Upload & Gallery
+# ============================================================================
+
+@dashboard_required
+@csrf_exempt
+def upload_image(request):
+    """Upload image to Cloudinary"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+    
+    if 'image' not in request.FILES:
+        return JsonResponse({'success': False, 'error': 'No image file'}, status=400)
+    
+    image_file = request.FILES['image']
+    folder = request.POST.get('folder', 'uploads')
+    
+    result = upload_to_cloudinary(image_file, folder=folder)
+    
+    if result['success']:
+        # Save to MediaAsset
+        asset = MediaAsset.objects.create(
+            title=request.POST.get('title', ''),
+            original_url=result['original_url'],
+            web_url=result['web_url'],
+            thumbnail_url=result['thumbnail_url'],
+            folder=folder,
+            public_id=result['public_id'],
+            width=result.get('width'),
+            height=result.get('height'),
+            file_size=result.get('bytes'),
+        )
+        return JsonResponse({
+            'success': True,
+            'url': result['original_url'],
+            'web_url': result['web_url'],
+            'thumbnail_url': result['thumbnail_url'],
+            'asset_id': asset.id,
+        })
+    else:
+        return JsonResponse({'success': False, 'error': result.get('error', 'Upload failed')}, status=500)
+
+
+@dashboard_required
+def gallery(request):
+    """Image gallery"""
+    folder = request.GET.get('folder', '')
+    assets = MediaAsset.objects.all()
+    if folder:
+        assets = assets.filter(folder=folder)
+    assets = assets.order_by('-created_at')
+    
+    folders = MediaAsset.objects.values_list('folder', flat=True).distinct()
+    
+    context = {
+        'assets': assets,
+        'folders': folders,
+        'current_folder': folder,
+    }
+    return render(request, 'dashboard/gallery.html', context)
+
+
+# ============================================================================
+# SEO
+# ============================================================================
+
+@dashboard_required
+def seo_edit(request):
+    """Edit SEO settings"""
+    seo, created = SEO.objects.get_or_create(page='home')
+    
+    if request.method == 'POST':
+        seo.title = request.POST.get('title', '')
+        seo.description = request.POST.get('description', '')
+        seo.keywords = request.POST.get('keywords', '')
+        seo.og_image_url = request.POST.get('og_image_url', '')
+        seo.save()
+        messages.success(request, 'SEO settings updated successfully.')
+        return redirect('dashboard:seo_edit')
+    
+    context = {'seo': seo}
+    return render(request, 'dashboard/seo_edit.html', context)
+
+
+# ============================================================================
+# Navigation
+# ============================================================================
+
+@dashboard_required
+def navigation_edit(request):
+    """Edit navigation menu"""
+    items = Navigation.objects.all().order_by('sort_order')
+    
+    if request.method == 'POST':
+        # Handle delete
+        if 'delete_id' in request.POST:
+            item = get_object_or_404(Navigation, id=request.POST['delete_id'])
+            item.delete()
+            messages.success(request, 'Navigation item deleted.')
+            return redirect('dashboard:navigation_edit')
+        
+        # Handle add/edit
+        item_id = request.POST.get('item_id')
+        if item_id:
+            item = get_object_or_404(Navigation, id=item_id)
+        else:
+            item = Navigation()
+        
+        item.label = request.POST.get('label', '')
+        item.url = request.POST.get('url', '')
+        item.sort_order = int(request.POST.get('sort_order', 0))
+        item.is_active = request.POST.get('is_active') == 'on'
+        item.is_external = request.POST.get('is_external') == 'on'
+        item.save()
+        
+        messages.success(request, 'Navigation item saved successfully.')
+        return redirect('dashboard:navigation_edit')
+    
+    context = {'items': items}
+    return render(request, 'dashboard/navigation_edit.html', context)
+
+
+# ============================================================================
+# Hero
+# ============================================================================
+
+@dashboard_required
+def hero_edit(request):
+    """Edit hero section"""
+    hero, created = Hero.objects.get_or_create(id=1)
+    
+    if request.method == 'POST':
+        hero.title = request.POST.get('title', '')
+        hero.subtitle = request.POST.get('subtitle', '')
+        hero.cta_text = request.POST.get('cta_text', '')
+        hero.cta_url = request.POST.get('cta_url', '')
+        hero.background_image_url = request.POST.get('background_image_url', '')
+        hero.is_active = request.POST.get('is_active') == 'on'
+        hero.save()
+        messages.success(request, 'Hero section updated successfully.')
+        return redirect('dashboard:hero_edit')
+    
+    context = {'hero': hero}
+    return render(request, 'dashboard/hero_edit.html', context)
+
+
+# ============================================================================
+# About
+# ============================================================================
+
+@dashboard_required
+def about_edit(request):
+    """Edit about section"""
+    about, created = About.objects.get_or_create(id=1)
+    
+    if request.method == 'POST':
+        about.title = request.POST.get('title', '')
+        about.content = request.POST.get('content', '')
+        about.image_url = request.POST.get('image_url', '')
+        about.is_active = request.POST.get('is_active') == 'on'
+        about.save()
+        messages.success(request, 'About section updated successfully.')
+        return redirect('dashboard:about_edit')
+    
+    context = {'about': about}
+    return render(request, 'dashboard/about_edit.html', context)
+
+
+# ============================================================================
+# Stats
+# ============================================================================
+
+@dashboard_required
+def stats_list(request):
+    """List all stats"""
+    stats = Stat.objects.all().order_by('sort_order')
+    context = {'stats': stats}
+    return render(request, 'dashboard/stats_list.html', context)
+
+
+@dashboard_required
+def stat_edit(request, stat_id=None):
+    """Edit a stat"""
+    if stat_id:
+        stat = get_object_or_404(Stat, id=stat_id)
+    else:
+        stat = Stat()
+    
+    if request.method == 'POST':
+        stat.label = request.POST.get('label', '')
+        stat.value = request.POST.get('value', '')
+        stat.icon = request.POST.get('icon', '')
+        stat.sort_order = int(request.POST.get('sort_order', 0))
+        stat.is_active = request.POST.get('is_active') == 'on'
+        stat.save()
+        messages.success(request, 'Stat saved successfully.')
+        return redirect('dashboard:stats_list')
+    
+    context = {'stat': stat}
+    return render(request, 'dashboard/stat_edit.html', context)
+
+
+@dashboard_required
+@require_POST
+def stat_delete(request, stat_id):
+    """Delete a stat"""
+    stat = get_object_or_404(Stat, id=stat_id)
+    stat.delete()
+    messages.success(request, 'Stat deleted successfully.')
+    return redirect('dashboard:stats_list')
+
+
+# ============================================================================
+# Services
+# ============================================================================
+
+@dashboard_required
+def services_list(request):
+    """List all services"""
+    services = Service.objects.all().order_by('sort_order')
+    context = {'services': services}
+    return render(request, 'dashboard/services_list.html', context)
+
+
+@dashboard_required
+def service_edit(request, service_id=None):
+    """Edit a service"""
+    if service_id:
+        service = get_object_or_404(Service, id=service_id)
+    else:
+        service = Service()
+    
+    if request.method == 'POST':
+        service.title = request.POST.get('title', '')
+        service.description = request.POST.get('description', '')
+        service.icon = request.POST.get('icon', '')
+        service.image_url = request.POST.get('image_url', '')
+        service.sort_order = int(request.POST.get('sort_order', 0))
+        service.is_active = request.POST.get('is_active') == 'on'
+        service.save()
+        messages.success(request, 'Service saved successfully.')
+        return redirect('dashboard:services_list')
+    
+    context = {'service': service}
+    return render(request, 'dashboard/service_edit.html', context)
+
+
+@dashboard_required
+@require_POST
+def service_delete(request, service_id):
+    """Delete a service"""
+    service = get_object_or_404(Service, id=service_id)
+    service.delete()
+    messages.success(request, 'Service deleted successfully.')
+    return redirect('dashboard:services_list')
+
+
+# ============================================================================
+# Portfolio
+# ============================================================================
+
+@dashboard_required
+def portfolio_edit(request):
+    """Edit portfolio section header"""
+    portfolio, created = Portfolio.objects.get_or_create(id=1)
+    
+    if request.method == 'POST':
+        portfolio.title = request.POST.get('title', '')
+        portfolio.subtitle = request.POST.get('subtitle', '')
+        portfolio.is_active = request.POST.get('is_active') == 'on'
+        portfolio.save()
+        messages.success(request, 'Portfolio section updated successfully.')
+        return redirect('dashboard:portfolio_edit')
+    
+    context = {'portfolio': portfolio}
+    return render(request, 'dashboard/portfolio_edit.html', context)
+
+
+@dashboard_required
+def portfolio_projects_list(request):
+    """List all portfolio projects"""
+    projects = PortfolioProject.objects.all().order_by('sort_order')
+    context = {'projects': projects}
+    return render(request, 'dashboard/portfolio_projects_list.html', context)
+
+
+@dashboard_required
+def portfolio_project_edit(request, project_id=None):
+    """Edit a portfolio project"""
+    if project_id:
+        project = get_object_or_404(PortfolioProject, id=project_id)
+    else:
+        project = PortfolioProject()
+    
+    if request.method == 'POST':
+        project.title = request.POST.get('title', '')
+        project.description = request.POST.get('description', '')
+        project.image_url = request.POST.get('image_url', '')
+        project.project_url = request.POST.get('project_url', '')
+        project.sort_order = int(request.POST.get('sort_order', 0))
+        project.is_active = request.POST.get('is_active') == 'on'
+        project.save()
+        messages.success(request, 'Portfolio project saved successfully.')
+        return redirect('dashboard:portfolio_projects_list')
+    
+    context = {'project': project}
+    return render(request, 'dashboard/portfolio_project_edit.html', context)
+
+
+@dashboard_required
+@require_POST
+def portfolio_project_delete(request, project_id):
+    """Delete a portfolio project"""
+    project = get_object_or_404(PortfolioProject, id=project_id)
+    project.delete()
+    messages.success(request, 'Portfolio project deleted successfully.')
+    return redirect('dashboard:portfolio_projects_list')
+
+
+# ============================================================================
+# Testimonials
+# ============================================================================
+
+@dashboard_required
+def testimonials_list(request):
+    """List all testimonials"""
+    testimonials = Testimonial.objects.all().order_by('sort_order')
+    context = {'testimonials': testimonials}
+    return render(request, 'dashboard/testimonials_list.html', context)
+
+
+@dashboard_required
+def testimonial_edit(request, testimonial_id=None):
+    """Edit a testimonial"""
+    if testimonial_id:
+        testimonial = get_object_or_404(Testimonial, id=testimonial_id)
+    else:
+        testimonial = Testimonial()
+    
+    if request.method == 'POST':
+        testimonial.name = request.POST.get('name', '')
+        testimonial.role = request.POST.get('role', '')
+        testimonial.company = request.POST.get('company', '')
+        testimonial.content = request.POST.get('content', '')
+        testimonial.image_url = request.POST.get('image_url', '')
+        testimonial.rating = int(request.POST.get('rating', 5))
+        testimonial.sort_order = int(request.POST.get('sort_order', 0))
+        testimonial.is_active = request.POST.get('is_active') == 'on'
+        testimonial.save()
+        messages.success(request, 'Testimonial saved successfully.')
+        return redirect('dashboard:testimonials_list')
+    
+    context = {'testimonial': testimonial}
+    return render(request, 'dashboard/testimonial_edit.html', context)
+
+
+@dashboard_required
+@require_POST
+def testimonial_delete(request, testimonial_id):
+    """Delete a testimonial"""
+    testimonial = get_object_or_404(Testimonial, id=testimonial_id)
+    testimonial.delete()
+    messages.success(request, 'Testimonial deleted successfully.')
+    return redirect('dashboard:testimonials_list')
+
+
+# ============================================================================
+# FAQs
+# ============================================================================
+
+@dashboard_required
+def faq_section_edit(request):
+    """Edit FAQ section header"""
+    faq, created = FAQ.objects.get_or_create(id=1)
+    
+    if request.method == 'POST':
+        faq.title = request.POST.get('title', '')
+        faq.subtitle = request.POST.get('subtitle', '')
+        faq.is_active = request.POST.get('is_active') == 'on'
+        faq.save()
+        messages.success(request, 'FAQ section updated successfully.')
+        return redirect('dashboard:faq_section_edit')
+    
+    context = {'faq': faq}
+    return render(request, 'dashboard/faq_section_edit.html', context)
+
+
+@dashboard_required
+def faqs_list(request):
+    """List all FAQ items"""
+    faqs = FAQItem.objects.all().order_by('sort_order')
+    context = {'faqs': faqs}
+    return render(request, 'dashboard/faqs_list.html', context)
+
+
+@dashboard_required
+def faq_edit(request, faq_id=None):
+    """Edit an FAQ item"""
+    if faq_id:
+        faq = get_object_or_404(FAQItem, id=faq_id)
+    else:
+        faq = FAQItem()
+    
+    if request.method == 'POST':
+        faq.question = request.POST.get('question', '')
+        faq.answer = request.POST.get('answer', '')
+        faq.sort_order = int(request.POST.get('sort_order', 0))
+        faq.is_active = request.POST.get('is_active') == 'on'
+        faq.save()
+        messages.success(request, 'FAQ item saved successfully.')
+        return redirect('dashboard:faqs_list')
+    
+    context = {'faq': faq}
+    return render(request, 'dashboard/faq_edit.html', context)
+
+
+@dashboard_required
+@require_POST
+def faq_delete(request, faq_id):
+    """Delete an FAQ item"""
+    faq = get_object_or_404(FAQItem, id=faq_id)
+    faq.delete()
+    messages.success(request, 'FAQ item deleted successfully.')
+    return redirect('dashboard:faqs_list')
+
+
+# ============================================================================
+# Contact
+# ============================================================================
+
+@dashboard_required
+def contact_edit(request):
+    """Edit contact section header"""
+    contact, created = Contact.objects.get_or_create(id=1)
+    
+    if request.method == 'POST':
+        contact.title = request.POST.get('title', '')
+        contact.subtitle = request.POST.get('subtitle', '')
+        contact.is_active = request.POST.get('is_active') == 'on'
+        contact.save()
+        messages.success(request, 'Contact section updated successfully.')
+        return redirect('dashboard:contact_edit')
+    
+    context = {'contact': contact}
+    return render(request, 'dashboard/contact_edit.html', context)
+
+
+@dashboard_required
+def contact_info_list(request):
+    """List all contact info items"""
+    info_items = ContactInfo.objects.all().order_by('sort_order')
+    context = {'info_items': info_items}
+    return render(request, 'dashboard/contact_info_list.html', context)
+
+
+@dashboard_required
+def contact_info_edit(request, info_id=None):
+    """Edit a contact info item"""
+    if info_id:
+        info = get_object_or_404(ContactInfo, id=info_id)
+    else:
+        info = ContactInfo()
+    
+    if request.method == 'POST':
+        info.label = request.POST.get('label', '')
+        info.value = request.POST.get('value', '')
+        info.icon = request.POST.get('icon', '')
+        info.sort_order = int(request.POST.get('sort_order', 0))
+        info.is_active = request.POST.get('is_active') == 'on'
+        info.save()
+        messages.success(request, 'Contact info saved successfully.')
+        return redirect('dashboard:contact_info_list')
+    
+    context = {'info': info}
+    return render(request, 'dashboard/contact_info_edit.html', context)
+
+
+@dashboard_required
+@require_POST
+def contact_info_delete(request, info_id):
+    """Delete a contact info item"""
+    info = get_object_or_404(ContactInfo, id=info_id)
+    info.delete()
+    messages.success(request, 'Contact info deleted successfully.')
+    return redirect('dashboard:contact_info_list')
+
+
+@dashboard_required
+def contact_form_fields_list(request):
+    """List all contact form fields"""
+    fields = ContactFormField.objects.all().order_by('sort_order')
+    context = {'fields': fields}
+    return render(request, 'dashboard/contact_form_fields_list.html', context)
+
+
+@dashboard_required
+def contact_form_field_edit(request, field_id=None):
+    """Edit a contact form field"""
+    if field_id:
+        field = get_object_or_404(ContactFormField, id=field_id)
+    else:
+        field = ContactFormField()
+    
+    if request.method == 'POST':
+        field.label = request.POST.get('label', '')
+        field.field_type = request.POST.get('field_type', 'text')
+        field.name = request.POST.get('name', '')
+        field.placeholder = request.POST.get('placeholder', '')
+        field.required = request.POST.get('required') == 'on'
+        field.sort_order = int(request.POST.get('sort_order', 0))
+        field.is_active = request.POST.get('is_active') == 'on'
+        field.save()
+        messages.success(request, 'Form field saved successfully.')
+        return redirect('dashboard:contact_form_fields_list')
+    
+    context = {'field': field}
+    return render(request, 'dashboard/contact_form_field_edit.html', context)
+
+
+@dashboard_required
+@require_POST
+def contact_form_field_delete(request, field_id):
+    """Delete a contact form field"""
+    field = get_object_or_404(ContactFormField, id=field_id)
+    field.delete()
+    messages.success(request, 'Form field deleted successfully.')
+    return redirect('dashboard:contact_form_fields_list')
+
+
+# ============================================================================
+# Social Links
+# ============================================================================
+
+@dashboard_required
+def social_links_list(request):
+    """List all social links"""
+    links = SocialLink.objects.all().order_by('sort_order')
+    context = {'links': links}
+    return render(request, 'dashboard/social_links_list.html', context)
+
+
+@dashboard_required
+def social_link_edit(request, link_id=None):
+    """Edit a social link"""
+    if link_id:
+        link = get_object_or_404(SocialLink, id=link_id)
+    else:
+        link = SocialLink()
+    
+    if request.method == 'POST':
+        link.platform = request.POST.get('platform', '')
+        link.url = request.POST.get('url', '')
+        link.icon = request.POST.get('icon', '')
+        link.sort_order = int(request.POST.get('sort_order', 0))
+        link.is_active = request.POST.get('is_active') == 'on'
+        link.save()
+        messages.success(request, 'Social link saved successfully.')
+        return redirect('dashboard:social_links_list')
+    
+    context = {'link': link}
+    return render(request, 'dashboard/social_link_edit.html', context)
+
+
+@dashboard_required
+@require_POST
+def social_link_delete(request, link_id):
+    """Delete a social link"""
+    link = get_object_or_404(SocialLink, id=link_id)
+    link.delete()
+    messages.success(request, 'Social link deleted successfully.')
+    return redirect('dashboard:social_links_list')
+
+
+# ============================================================================
+# Footer
+# ============================================================================
+
+@dashboard_required
+def footer_edit(request):
+    """Edit footer content"""
+    footer, created = Footer.objects.get_or_create(id=1)
+    
+    if request.method == 'POST':
+        footer.copyright_text = request.POST.get('copyright_text', '')
+        footer.additional_text = request.POST.get('additional_text', '')
+        footer.save()
+        messages.success(request, 'Footer updated successfully.')
+        return redirect('dashboard:footer_edit')
+    
+    context = {'footer': footer}
+    return render(request, 'dashboard/footer_edit.html', context)

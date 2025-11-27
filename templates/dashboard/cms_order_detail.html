@@ -1,0 +1,269 @@
+{% extends "dashboard/cms_base.html" %}
+{% block content %}
+<div class="grid lg:grid-cols-3 gap-6">
+  <!-- Left: Summary -->
+  <section class="lg:col-span-2 space-y-6">
+
+    <div class="rounded-2xl border border-[#E1E1E1] bg-white p-6 shadow">
+      <div class="flex items-center justify-between">
+        <h1 class="text-xl font-extrabold">Order {{ order.order_number }}</h1>
+        <span class="text-sm px-3 py-1 rounded-full border border-[#E1E1E1]">
+          {{ order.get_status_display }}
+        </span>
+      </div>
+      <p class="text-sm text-black/60 mt-2">
+        Placed {{ order.created_at|date:"M d, Y H:i" }}
+      </p>
+
+      <div class="mt-6 overflow-hidden rounded-xl border border-[#E1E1E1]">
+        <table class="w-full text-sm">
+          <thead class="bg-[#FAFAF8]">
+            <tr>
+              <th class="text-left px-4 py-3">Item</th>
+              <th class="text-left px-4 py-3">Qty</th>
+              <th class="text-left px-4 py-3">Unit</th>
+              <th class="text-left px-4 py-3">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for it in items %}
+            <tr class="border-t border-[#E1E1E1]">
+              <td class="px-4 py-3">
+                <div class="flex flex-col gap-1">
+                  <span>{{ it.name }}</span>
+                  <div class="hidden item-cancel-wrap">
+                    <label class="text-[11px] opacity-70">Item cancel reason (optional)</label>
+                    <input name="item_reason_{{ it.id }}" form="orderUpdateForm"
+                           value="{{ it.cancel_reason|default_if_none:'' }}"
+                           class="mt-1 w-full px-3 py-1.5 rounded-lg border border-[#E1E1E1] bg-white" />
+                  </div>
+                </div>
+              </td>
+              <td class="px-4 py-3">{{ it.quantity }}</td>
+              <td class="px-4 py-3">{{ it.unit_price|default_if_none:0|money:request }}</td>
+              <td class="px-4 py-3">{{ it.line_total|default_if_none:0|money:request }}</td>
+            </tr>
+            {% empty %}
+            <tr class="border-t border-[#E1E1E1]">
+              <td colspan="4" class="px-4 py-3 text-black/60">No items.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-4 grid sm:grid-cols-2 gap-4 text-sm">
+        <div class="rounded-xl border border-[#E1E1E1] p-4 bg-[#FCFCFA]">
+          <p class="font-semibold mb-1">Customer</p>
+          <p>{{ order.full_name }}</p>
+          <p class="text-black/60">{{ order.email }}</p>
+          <p class="text-black/60">{{ order.phone }}</p>
+        </div>
+        <div class="rounded-xl border border-[#E1E1E1] p-4 bg-[#FCFCFA]">
+          <p class="font-semibold mb-1">Ship to</p>
+          {% if shipping_text and shipping_text.strip %}
+            <div class="text-sm whitespace-pre-line">{{ shipping_text }}</div>
+          {% else %}
+            {% with sa=order.shipping_address %}
+              {% if sa.address_line1 or sa.address_line2 or sa.barangay or sa.city or sa.province or sa.state or sa.emirate or sa.county or sa.area or sa.area_other or sa.postal_code or order.country %}
+                <div class="text-sm whitespace-pre-line">
+                  {% if sa.address_line1 or sa.address_line2 %}
+                    {{ sa.address_line1 }}{% if sa.address_line2 %}, {{ sa.address_line2 }}{% endif %}{% if sa.address_line1 or sa.address_line2 %}<br>{% endif %}
+                  {% endif %}
+                  {% if sa.barangay or sa.city %}
+                    {% if sa.barangay %}{{ sa.barangay }}{% if sa.city %}, {% endif %}{% endif %}{{ sa.city }}<br>
+                  {% endif %}
+                  {% if sa.province or sa.state or sa.emirate or sa.county or sa.area or sa.area_other %}
+                    {% if sa.province %}
+                      {{ sa.province }}
+                    {% elif sa.state %}
+                      {{ sa.state }}
+                    {% elif sa.emirate %}
+                      {{ sa.emirate }}
+                    {% elif sa.county %}
+                      {{ sa.county }}
+                    {% elif sa.area %}
+                      {% if sa.area == 'Other' and sa.area_other %}
+                        {{ sa.area_other }}
+                      {% else %}
+                        {{ sa.area }}
+                      {% endif %}
+                    {% endif %}<br>
+                  {% endif %}
+                  {% if sa.postal_code or order.country %}
+                    {{ sa.postal_code }}{% if sa.postal_code and order.country %} {% endif %}{{ order.country|upper }}
+                  {% endif %}
+                </div>
+              {% else %}
+                {% if order.address_line1 or order.city or order.province or order.zip_code or order.country %}
+                  <div class="text-sm whitespace-pre-line">
+                    {% if order.address_line1 %}{{ order.address_line1 }}<br>{% endif %}
+                    {% if order.city or order.province %}
+                      {{ order.city }}{% if order.city and order.province %}, {% endif %}{{ order.province }}<br>
+                    {% endif %}
+                    {% if order.zip_code or order.country %}
+                      {{ order.zip_code }}{% if order.zip_code and order.country %} {% endif %}{{ order.country|upper }}
+                    {% endif %}
+                  </div>
+                {% else %}
+                  <div class="text-sm text-slate-500">—</div>
+                {% endif %}
+              {% endif %}
+            {% endwith %}
+          {% endif %}
+          <div class="mt-1 text-sm">
+            Method: {{ order.shipping_method|title }}{% if order.shipping_cost == 0 %} • Free{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-2xl border border-[#E1E1E1] bg-white p-6 shadow">
+      <p class="font-semibold mb-3">Totals</p>
+      <div class="text-sm space-y-2">
+        <div class="flex items-center justify-between">
+          <span>Subtotal</span>
+          <span>{{ order.subtotal|default_if_none:0|money:request }}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span>Shipping</span>
+          <span>
+            {% if order.shipping_cost and order.shipping_cost|stringformat:"f" != "0.00" %}
+              {{ order.shipping_cost|money:request }}
+            {% else %}
+              <span class="text-green-700">Free</span>
+            {% endif %}
+          </span>
+        </div>
+        {% if order.discount_total and order.discount_total|stringformat:"f" != "0.00" %}
+        <div class="flex items-center justify-between">
+          <span>Discount</span>
+          <span>-{{ order.discount_total|money:request }}</span>
+        </div>
+        {% endif %}
+        <div class="pt-2 border-t border-[#E1E1E1] flex items-center justify-between text-base">
+          <span class="font-semibold">Grand Total</span>
+          <span class="font-semibold">{{ order.grand_total|default_if_none:0|money:request }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Right: Actions -->
+  <aside class="space-y-6">
+    <div class="rounded-2xl border border-[#E1E1E1] bg-white p-6 shadow">
+      <p class="font-semibold mb-3">Update Status</p>
+
+      <form method="post"
+            id="orderUpdateForm"
+            action="{% url 'dashboard_order_update' order.order_number %}"
+            class="space-y-3">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}"/>
+
+        <label class="block">
+          <span class="text-sm">Status</span>
+          <select name="status" id="statusSelect"
+                  class="block w-full mt-1 px-4 py-2.5 rounded-xl border border-[#E1E1E1] bg-white">
+            {% for value,label in order_statuses %}
+              <option value="{{ value }}" {% if order.status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="block">
+          <span class="text-sm">Tracking #</span>
+          <input name="tracking" value="{{ order.tracking_number|default_if_none:'' }}"
+                 class="block w-full mt-1 px-4 py-2.5 rounded-xl border border-[#E1E1E1] bg-white" />
+        </label>
+
+        <label class="block">
+          <span class="text-sm">Internal Notes</span>
+          <textarea name="notes"
+                    class="block w-full mt-1 px-4 py-2.5 rounded-xl border border-[#E1E1E1] bg-white"
+                    rows="3">{{ order.notes }}</textarea>
+        </label>
+
+        <div id="cancelWrap" class="hidden">
+          <label class="block">
+            <span class="text-sm">Cancellation reason <span class="text-red-600">*</span></span>
+            <textarea name="cancel_reason" id="cancelReason"
+                      placeholder="e.g., Out of stock (Shampoo 250ml); customer requested cancellation"
+                      class="block w-full mt-1 px-4 py-2.5 rounded-xl border border-[#E1E1E1] bg-white"
+                      rows="3"></textarea>
+          </label>
+          {% if order.cancel_reason %}
+            <p class="text-xs opacity-70 mt-1">Existing reason: {{ order.cancel_reason }}</p>
+          {% endif %}
+        </div>
+
+        <label class="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" name="notify" class="rounded border-[#E1E1E1]" checked>
+          <span>Email customer if status/tracking changed</span>
+        </label>
+
+        <button class="w-full px-5 py-2.5 rounded-full text-white bg-[var(--sharp-mineral)] hover:bg-opacity-90">
+          Save
+        </button>
+      </form>
+    </div>
+
+    <div class="rounded-2xl border border-[#E1E1E1] bg-white p-6 shadow text-sm">
+      <p class="font-semibold mb-2">Meta</p>
+      <p><span class="text-black/60">Created:</span> {{ order.created_at|date:"M d, Y H:i" }}</p>
+      <p><span class="text-black/60">Updated:</span> {{ order.updated_at|date:"M d, Y H:i" }}</p>
+      <p><span class="text-black/60">Payment:</span> {{ order.payment_method|upper }}</p>
+
+      <form method="post"
+            action="{% url 'dashboard_order_delete' order.order_number %}"
+            id="deleteForm"
+            class="mt-4">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}"/>
+        <input type="hidden" name="cancel_reason" id="deleteReason">
+        <button type="button" id="deleteBtn"
+                class="px-4 py-2 rounded-full border border-red-300 text-red-700 hover:bg-red-50">
+          Delete Order
+        </button>
+      </form>
+    </div>
+  </aside>
+</div>
+
+<script>
+  (function(){
+    const statusSel = document.getElementById('statusSelect');
+    const cancelWrap = document.getElementById('cancelWrap');
+    const cancelReason = document.getElementById('cancelReason');
+    const itemReasonWraps = Array.from(document.querySelectorAll('.item-cancel-wrap'));
+
+    function updateCancelUI() {
+      const isCanceled = statusSel.value === 'canceled';
+      cancelWrap.classList.toggle('hidden', !isCanceled);
+      itemReasonWraps.forEach(w => w.classList.toggle('hidden', !isCanceled));
+      if (isCanceled) {
+        cancelReason?.setAttribute('required', 'required');
+      } else {
+        cancelReason?.removeAttribute('required');
+      }
+    }
+    statusSel.addEventListener('change', updateCancelUI);
+    updateCancelUI();
+  })();
+
+  (function(){
+    const btn = document.getElementById('deleteBtn');
+    const field = document.getElementById('deleteReason');
+    const form = document.getElementById('deleteForm');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+      const why = prompt("Please enter a reason for deletion (required):");
+      if (!why || !why.trim()) return;
+      field.value = why.trim();
+      form.submit();
+    });
+  })();
+</script>
+{% endblock %}
+

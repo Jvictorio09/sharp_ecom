@@ -92,4 +92,91 @@ urlpatterns = [
     path("dashboard/products/<int:pk>/toggle/", dash.product_toggle_active, name="dashboard_product_toggle"),
     path("dashboard/products/<int:pk>/price/", dash.product_update_price, name="dashboard_product_update_price"),
     path("dashboard/products/bulk/", dash.product_bulk_action, name="dashboard_product_bulk"),
+    
+    # ============================================================================
+    # CMS Dashboard URLs - All functionality with new design
+    # ============================================================================
+    path("dashboard/cms/", dash.cms_dashboard_home, name="cms_dashboard_home"),
+    # Products (CMS version)
+    path("dashboard/cms/products/", dash.product_list, name="cms_product_list"),
+    path("dashboard/cms/products/new/", dash.product_upsert, name="cms_product_new"),
+    path("dashboard/cms/products/<int:pk>/", dash.product_upsert, name="cms_product_edit"),
+    path("dashboard/cms/products/<int:pk>/delete/", dash.product_delete, name="cms_product_delete"),
+    path("dashboard/cms/products/<int:pk>/toggle/", dash.product_toggle_active, name="cms_product_toggle"),
+    path("dashboard/cms/products/<int:pk>/price/", dash.product_update_price, name="cms_product_update_price"),
+    path("dashboard/cms/products/bulk/", dash.product_bulk_action, name="cms_product_bulk"),
+    # Orders (CMS version)
+    path("dashboard/cms/orders/", dash.order_list, name="cms_order_list"),
+    # Promos (CMS version)
+    path("dashboard/cms/promos/", dash.promo_list, name="cms_promo_list"),
+    path("dashboard/cms/promos/new/", dash.promo_upsert, name="cms_promo_new"),
+    path("dashboard/cms/promos/<int:pk>/", dash.promo_upsert, name="cms_promo_edit"),
+    path("dashboard/cms/promos/<int:pk>/toggle/", dash.promo_toggle, name="cms_promo_toggle"),
+    path("dashboard/cms/promos/<int:pk>/delete/", dash.promo_delete, name="cms_promo_delete"),
+    path("dashboard/cms/upload-image/", dash.upload_image, name="upload_image"),
+    path("dashboard/cms/gallery/", dash.gallery, name="gallery"),
+    
+    # SEO
+    path("dashboard/cms/seo/", dash.seo_edit, name="seo_edit"),
+    
+    # Navigation
+    path("dashboard/cms/navigation/", dash.navigation_edit, name="navigation_edit"),
+    
+    # Hero
+    path("dashboard/cms/hero/", dash.hero_edit, name="hero_edit"),
+    
+    # About
+    path("dashboard/cms/about/", dash.about_edit, name="about_edit"),
+    
+    # Stats
+    path("dashboard/cms/stats/", dash.stats_list, name="stats_list"),
+    path("dashboard/cms/stats/new/", dash.stat_edit, name="stat_new"),
+    path("dashboard/cms/stats/<int:stat_id>/", dash.stat_edit, name="stat_edit"),
+    path("dashboard/cms/stats/<int:stat_id>/delete/", dash.stat_delete, name="stat_delete"),
+    
+    # Services
+    path("dashboard/cms/services/", dash.services_list, name="services_list"),
+    path("dashboard/cms/services/new/", dash.service_edit, name="service_new"),
+    path("dashboard/cms/services/<int:service_id>/", dash.service_edit, name="service_edit"),
+    path("dashboard/cms/services/<int:service_id>/delete/", dash.service_delete, name="service_delete"),
+    
+    # Portfolio
+    path("dashboard/cms/portfolio/", dash.portfolio_edit, name="portfolio_edit"),
+    path("dashboard/cms/portfolio/projects/", dash.portfolio_projects_list, name="portfolio_projects_list"),
+    path("dashboard/cms/portfolio/projects/new/", dash.portfolio_project_edit, name="portfolio_project_new"),
+    path("dashboard/cms/portfolio/projects/<int:project_id>/", dash.portfolio_project_edit, name="portfolio_project_edit"),
+    path("dashboard/cms/portfolio/projects/<int:project_id>/delete/", dash.portfolio_project_delete, name="portfolio_project_delete"),
+    
+    # Testimonials
+    path("dashboard/cms/testimonials/", dash.testimonials_list, name="testimonials_list"),
+    path("dashboard/cms/testimonials/new/", dash.testimonial_edit, name="testimonial_new"),
+    path("dashboard/cms/testimonials/<int:testimonial_id>/", dash.testimonial_edit, name="testimonial_edit"),
+    path("dashboard/cms/testimonials/<int:testimonial_id>/delete/", dash.testimonial_delete, name="testimonial_delete"),
+    
+    # FAQs
+    path("dashboard/cms/faq/", dash.faq_section_edit, name="faq_section_edit"),
+    path("dashboard/cms/faqs/", dash.faqs_list, name="faqs_list"),
+    path("dashboard/cms/faqs/new/", dash.faq_edit, name="faq_new"),
+    path("dashboard/cms/faqs/<int:faq_id>/", dash.faq_edit, name="faq_edit"),
+    path("dashboard/cms/faqs/<int:faq_id>/delete/", dash.faq_delete, name="faq_delete"),
+    
+    # Contact
+    path("dashboard/cms/contact/", dash.contact_edit, name="contact_edit"),
+    path("dashboard/cms/contact/info/", dash.contact_info_list, name="contact_info_list"),
+    path("dashboard/cms/contact/info/new/", dash.contact_info_edit, name="contact_info_new"),
+    path("dashboard/cms/contact/info/<int:info_id>/", dash.contact_info_edit, name="contact_info_edit"),
+    path("dashboard/cms/contact/info/<int:info_id>/delete/", dash.contact_info_delete, name="contact_info_delete"),
+    path("dashboard/cms/contact/fields/", dash.contact_form_fields_list, name="contact_form_fields_list"),
+    path("dashboard/cms/contact/fields/new/", dash.contact_form_field_edit, name="contact_form_field_new"),
+    path("dashboard/cms/contact/fields/<int:field_id>/", dash.contact_form_field_edit, name="contact_form_field_edit"),
+    path("dashboard/cms/contact/fields/<int:field_id>/delete/", dash.contact_form_field_delete, name="contact_form_field_delete"),
+    
+    # Social Links
+    path("dashboard/cms/social/", dash.social_links_list, name="social_links_list"),
+    path("dashboard/cms/social/new/", dash.social_link_edit, name="social_link_new"),
+    path("dashboard/cms/social/<int:link_id>/", dash.social_link_edit, name="social_link_edit"),
+    path("dashboard/cms/social/<int:link_id>/delete/", dash.social_link_delete, name="social_link_delete"),
+    
+    # Footer
+    path("dashboard/cms/footer/", dash.footer_edit, name="footer_edit"),
 ]

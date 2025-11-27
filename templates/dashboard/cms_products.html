@@ -1,0 +1,269 @@
+{% extends "dashboard/cms_base.html" %}
+
+{% block content %}
+<div>
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-3xl font-bold">Products</h1>
+    <a href="{% url 'cms_product_new' %}" data-modal="product-modal"
+       class="px-4 py-2 rounded-xl bg-[var(--sharp-mineral)] text-white hover:bg-opacity-90">
+      <i class="fa-solid fa-plus mr-2"></i>New Product
+    </a>
+  </div>
+
+  <form id="prod-filters" class="grid md:grid-cols-4 gap-3 mb-4">
+    <input class="px-3 py-2 rounded-xl border border-[#E1E1E1]" name="q" placeholder="Search name or SKU" value="{{ q }}">
+
+    <select class="px-3 py-2 rounded-xl border border-[#E1E1E1]" name="active">
+      <option value="all" {% if active == "all" %}selected{% endif %}>All</option>
+      <option value="active" {% if active == "active" %}selected{% endif %}>Active</option>
+      <option value="inactive" {% if active == "inactive" %}selected{% endif %}>Inactive</option>
+    </select>
+
+    <select class="px-3 py-2 rounded-xl border border-[#E1E1E1]" name="sort">
+      <option value="name"        {% if sort == "name" %}selected{% endif %}>Name</option>
+      <option value="price_asc"   {% if sort == "price_asc" %}selected{% endif %}>Price ↑</option>
+      <option value="price_desc"  {% if sort == "price_desc" %}selected{% endif %}>Price ↓</option>
+      <option value="created_desc"{% if sort == "created_desc" %}selected{% endif %}>Newest</option>
+      <option value="created_asc" {% if sort == "created_asc" %}selected{% endif %}>Oldest</option>
+    </select>
+
+    <button class="px-4 py-2 rounded-xl bg-white border border-[#E1E1E1] hover:border-[var(--sharp-mineral)]">Filter</button>
+  </form>
+
+  <form id="bulk-form" class="mb-3">
+    {% csrf_token %}
+    <input type="hidden" name="ids" id="bulk-ids">
+    <div class="flex gap-2 flex-wrap">
+      <button data-bulk="activate" type="button" class="px-3 py-2 rounded-xl bg-white border border-[#E1E1E1] hover:border-[var(--sharp-mineral)]">
+        <i class="fa-solid fa-check mr-1"></i>Activate
+      </button>
+      <button data-bulk="deactivate" type="button" class="px-3 py-2 rounded-xl bg-white border border-[#E1E1E1] hover:border-[var(--sharp-mineral)]">
+        <i class="fa-solid fa-times mr-1"></i>Deactivate
+      </button>
+      <div class="flex items-center gap-2">
+        <input id="pct" class="w-24 px-3 py-2 rounded-xl border border-[#E1E1E1]" placeholder="% e.g. 10">
+        <button data-bulk="price_percent" type="button" class="px-3 py-2 rounded-xl bg-white border border-[#E1E1E1] hover:border-[var(--sharp-mineral)]">
+          Adjust %
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <div id="products-table">
+    {% include "dashboard/products/_table.html" %}
+  </div>
+
+  <!-- Modal mount -->
+  <div id="modal-root"></div>
+
+  <script>
+  /* ---------------- CSRF + helpers ---------------- */
+  const csrftoken =
+    (document.querySelector('input[name=csrfmiddlewaretoken]')||{}).value ||
+    ((document.cookie.split('; ').find(r=>r.startsWith('csrftoken='))||'').split('=')[1] || '');
+
+  function fetchJSON(url, opt) {
+    return fetch(url, Object.assign({headers:{'X-CSRFToken': csrftoken}}, opt)).then(r=>r.json());
+  }
+
+  function ensureRoot(){
+    let r = document.getElementById('modal-root');
+    if (!r){ r = document.createElement('div'); r.id='modal-root'; document.body.appendChild(r); }
+    return r;
+  }
+
+  function attachModalBehaviors(modal){
+    const root = ensureRoot();
+    const close = () => {
+      root.innerHTML = '';
+      document.removeEventListener('keydown', escHandler);
+    };
+    const escHandler = (e)=>{ if(e.key==='Escape') close(); };
+    document.addEventListener('keydown', escHandler);
+
+    modal.addEventListener('click', (e)=>{
+      if (e.target === modal) return close(); // backdrop
+      const target = (e.target instanceof Element) ? e.target : e.target?.parentElement;
+      const closer = target && target.closest('[data-close]');
+      if (closer) { e.preventDefault(); return close(); }
+    });
+
+    return { close };
+  }
+
+  function styleDjangoWidgets(scope){
+    const form = scope.querySelector('#product-modal-form');
+    if (!form) return;
+
+    const txt = "mt-1 w-full px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sharp-mineral)]/20";
+    const ta  = txt + " min-h-[100px]";
+    const sel = txt;
+    const chk = "rounded border-[#E1E1E1] text-[var(--sharp-mineral)] focus:ring-[var(--sharp-mineral)]";
+
+    form.querySelectorAll('input[type="text"], input[type="url"], input[type="number"], input[type="email"]').forEach(el=>el.classList.add(...txt.split(' ')));
+    form.querySelectorAll('textarea').forEach(el=>el.classList.add(...ta.split(' ')));
+    form.querySelectorAll('select').forEach(el=>el.classList.add(...sel.split(' ')));
+    form.querySelectorAll('input[type="checkbox"]').forEach(el=>el.classList.add(...chk.split(' ')));
+  }
+
+  async function openModalFrom(url, kind){
+    const root = ensureRoot();
+    const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+    const html = await resp.text();
+    root.innerHTML = html;
+
+    const modal = document.getElementById('product-modal') ||
+                  root.querySelector('[id$="-modal"]') ||
+                  root.firstElementChild;
+    if (!modal) { console.error('No modal element found in response'); return; }
+
+    const { close } = attachModalBehaviors(modal);
+
+    if (kind === 'product') wireProductForm(modal, close);
+    if (kind === 'delete')  wireDeleteForm(modal, close);
+  }
+
+  function wireProductForm(scope, close){
+    styleDjangoWidgets(scope);
+
+    const form = scope.querySelector('#product-modal-form');
+    if (!form) return;
+
+    form.onsubmit = async (e)=>{
+      e.preventDefault();
+
+      const resp = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { 'X-Requested-With':'XMLHttpRequest', 'X-CSRFToken': csrftoken }
+      });
+
+      const ct = (resp.headers.get('content-type') || '');
+      if (!ct.includes('application/json')) {
+        const html = await resp.text();
+        ensureRoot().innerHTML = html;
+        const modal = document.getElementById('product-modal');
+        if (modal){
+          const { close: close2 } = attachModalBehaviors(modal);
+          wireProductForm(modal, close2);
+        }
+        return;
+      }
+
+      const js = await resp.json();
+      if (js.ok){
+        const tableResp = await fetch(location.pathname + location.search, { headers:{'X-Requested-With':'XMLHttpRequest'} });
+        const tableHtml = await tableResp.text();
+        const mount = document.getElementById('products-table');
+        if (mount) mount.innerHTML = tableHtml;
+        if (typeof window.bindRowActions === 'function') window.bindRowActions(document.getElementById('products-table'));
+        close();
+      } else {
+        alert(js.error || 'Please fix the highlighted errors.');
+      }
+    };
+  }
+
+  function wireDeleteForm(scope, close){
+    const form = scope.querySelector('form');
+    if (!form) return;
+
+    form.onsubmit = async (e)=>{
+      e.preventDefault();
+      const r = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { 'X-Requested-With':'XMLHttpRequest', 'X-CSRFToken': csrftoken }
+      });
+      const js = await r.json();
+      if (js.ok){
+        const resp2 = await fetch(location.pathname + location.search, { headers: {'X-Requested-With':'XMLHttpRequest'} });
+        document.getElementById('products-table').innerHTML = await resp2.text();
+        if (typeof window.bindRowActions === 'function') window.bindRowActions(document.getElementById('products-table'));
+        close();
+      } else {
+        alert(js.error || 'Delete failed');
+      }
+    };
+  }
+
+  /* ---------------- Row/table actions ---------------- */
+  function bindRowActions(scope=document){
+    scope.querySelectorAll('[data-toggle]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const id = btn.dataset.id;
+        fetchJSON("{% url 'cms_product_toggle' 0 %}".replace('/0/','/'+id+'/'), { method:'POST' })
+          .then(js=>{
+            btn.innerText = js.is_active ? 'Active' : 'Inactive';
+            btn.classList.toggle('opacity-40', !js.is_active);
+          });
+      };
+    });
+
+    scope.querySelectorAll('[data-price]').forEach(input=>{
+      input.onblur = ()=>{
+        const id = input.dataset.id;
+        const price = input.value;
+        fetchJSON("{% url 'cms_product_update_price' 0 %}".replace('/0/','/'+id+'/'), {
+          method:'POST',
+          body: new URLSearchParams({ price })
+        }).then(js=>{
+          if(!js.ok){
+            alert(js.error||'Invalid price');
+          } else {
+            input.value = js.price;
+            input.classList.add('ring-2');
+            setTimeout(()=>input.classList.remove('ring-2'),600);
+          }
+        });
+      };
+    });
+
+    scope.querySelectorAll('[data-modal="product-modal"]').forEach(link=>{
+      link.onclick = async (e)=>{
+        e.preventDefault();
+        openModalFrom(link.href, 'product').catch(console.error);
+      };
+    });
+
+    scope.querySelectorAll('[data-modal="delete-modal"]').forEach(link=>{
+      link.onclick = async (e)=>{
+        e.preventDefault();
+        openModalFrom(link.href, 'delete').catch(console.error);
+      };
+    });
+
+    scope.querySelectorAll('[data-select]').forEach(cb=>cb.onchange = syncBulk);
+  }
+
+  function syncBulk(){
+    const ids = [...document.querySelectorAll('[data-select]:checked')].map(x=>x.value);
+    document.getElementById('bulk-ids').value = ids.join(',');
+  }
+
+  /* ---------------- Bulk ops ---------------- */
+  async function doBulk(action){
+    const ids = document.getElementById('bulk-ids').value;
+    if(!ids){ alert('Select some rows'); return; }
+    const data = new URLSearchParams({ ids, action });
+    if(action==='price_percent'){
+      const pct = document.getElementById('pct').value || '0';
+      data.set('percent', pct);
+    }
+    const r = await fetch("{% url 'cms_product_bulk' %}", { method:'POST', headers:{'X-CSRFToken':csrftoken}, body:data });
+    const js = await r.json();
+    if(!js.ok){ alert(js.error||'Failed'); return; }
+    const resp = await fetch(location.pathname + location.search, { headers:{'X-Requested-With':'XMLHttpRequest'} });
+    document.getElementById('products-table').innerHTML = await resp.text();
+    bindRowActions(document.getElementById('products-table'));
+    document.getElementById('bulk-ids').value = '';
+  }
+
+  /* ---------------- Boot ---------------- */
+  document.querySelectorAll('[data-bulk]').forEach(b=>b.onclick=()=>doBulk(b.dataset.bulk));
+  window.bindRowActions = bindRowActions;
+  bindRowActions();
+  </script>
+</div>
+{% endblock %}
+

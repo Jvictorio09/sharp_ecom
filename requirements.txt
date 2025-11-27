@@ -39,4 +39,6 @@ yarl==1.20.1
 
 django-countries==7.6.1
 openpyxl==3.1.5     
-reportlab==4.2.2   
+reportlab==4.2.2
+cloudinary==1.43.0
+pillow==10.4.0   

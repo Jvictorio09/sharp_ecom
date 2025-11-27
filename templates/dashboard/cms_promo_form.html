@@ -1,0 +1,284 @@
+{% extends "dashboard/cms_base.html" %}
+{% block content %}
+<div>
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-3xl font-bold">
+      {% if promo %}Edit Promo — {{ promo.code }}{% else %}New Promo{% endif %}
+    </h1>
+    <a href="{% url 'cms_promo_list' %}" class="text-sm text-[var(--sharp-mineral)] hover:underline">
+      <i class="fa-solid fa-arrow-left mr-1"></i>Back to list
+    </a>
+  </div>
+
+  <form method="post" class="grid lg:grid-cols-3 gap-8">
+    {% csrf_token %}
+
+    <!-- LEFT: Form -->
+    <div class="lg:col-span-2 space-y-6 max-w-3xl">
+      {% if form.non_field_errors %}
+        <div class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      <!-- BASICS -->
+      <section class="rounded-2xl border border-[#E1E1E1] bg-white p-5 shadow">
+        <h2 class="text-base font-semibold">Basics</h2>
+        <p class="mt-1 text-sm text-gray-500">Give it a short code and a friendly label customers will see at checkout.</p>
+        <div class="mt-4 grid md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm font-medium">Code</label>
+            {{ form.code }}
+            {% if form.code.help_text %}<p class="text-xs text-gray-500 mt-1">{{ form.code.help_text }}</p>{% endif %}
+            {% if form.code.errors %}<p class="text-xs text-rose-600 mt-1">{{ form.code.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="text-sm font-medium">Description (shown to customers)</label>
+            {{ form.description }}
+          </div>
+        </div>
+      </section>
+
+      <!-- DISCOUNT -->
+      <section class="rounded-2xl border border-[#E1E1E1] bg-white p-5 shadow">
+        <h2 class="text-base font-semibold">Discount</h2>
+        <p class="mt-1 text-sm text-gray-500">Choose percent or flat and (optionally) cap the maximum discount.</p>
+        <div class="mt-4 grid md:grid-cols-3 gap-4">
+          <div>
+            <label class="text-sm font-medium">Type</label>
+            {{ form.type }}
+          </div>
+          <div>
+            <label class="text-sm font-medium">Value</label>
+            {{ form.value }}
+            <p class="text-xs text-gray-500 mt-1">If type is <strong>percent</strong>, use 10 for 10%.</p>
+          </div>
+          <div>
+            <label class="text-sm font-medium">Max Discount (optional)</label>
+            {{ form.max_discount }}
+            <p class="text-xs text-gray-500 mt-1">Cap the discount amount.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ELIGIBILITY -->
+      <section class="rounded-2xl border border-[#E1E1E1] bg-white p-5 shadow">
+        <h2 class="text-base font-semibold">Eligibility</h2>
+        <p class="mt-1 text-sm text-gray-500">Limit by order subtotal and/or country.</p>
+        <div class="mt-4 grid md:grid-cols-3 gap-4">
+          <div>
+            <label class="text-sm font-medium">Minimum Subtotal</label>
+            {{ form.min_subtotal }}
+            <p class="text-xs text-gray-500 mt-1">Order must be at least this amount.</p>
+          </div>
+          <div class="md:col-span-2">
+            <label class="text-sm font-medium">Countries (CSV)</label>
+            {{ form.countries_csv }}
+            <p class="text-xs text-gray-500 mt-1">ISO-2 codes, comma-separated (e.g., <code>JO,AE,US</code>). Leave blank for all countries.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCHEDULE -->
+      <section class="rounded-2xl border border-[#E1E1E1] bg-white p-5 shadow">
+        <h2 class="text-base font-semibold">Schedule</h2>
+        <p class="mt-1 text-sm text-gray-500">Set start/end times, or leave blank to run indefinitely.</p>
+        <div class="mt-4 grid md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm font-medium">Starts At</label>
+            {{ form.starts_at }}
+            <p class="text-xs text-gray-500 mt-1">Local time. Blank = starts now.</p>
+          </div>
+          <div>
+            <label class="text-sm font-medium">Ends At</label>
+            {{ form.ends_at }}
+            <p class="text-xs text-gray-500 mt-1">Local time. Blank = no end date.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- LIMITS & STATUS -->
+      <section class="rounded-2xl border border-[#E1E1E1] bg-white p-5 shadow">
+        <h2 class="text-base font-semibold">Limits & Status</h2>
+        <div class="mt-4 grid md:grid-cols-3 gap-4 items-end">
+          <div>
+            <label class="text-sm font-medium">Usage Limit (optional)</label>
+            {{ form.usage_limit }}
+            <p class="text-xs text-gray-500 mt-1">Total allowed uses. Blank = unlimited.</p>
+          </div>
+          <div class="md:col-span-2">
+            <label class="inline-flex items-center gap-2 mt-2">
+              {{ form.active }}
+              <span class="text-sm">Active</span>
+            </label>
+            <p class="text-xs text-gray-500 mt-1">If off, customers can't use this code even if dates match.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ACTIONS -->
+      <div class="flex items-center gap-3 pt-2">
+        <button class="px-5 py-2.5 rounded-full text-white bg-[var(--sharp-mineral)] hover:bg-opacity-90">
+          <i class="fa-solid fa-save mr-2"></i>Save Promo
+        </button>
+        <a href="{% url 'cms_promo_list' %}" class="px-5 py-2.5 rounded-full border border-[#E1E1E1] bg-white hover:border-[var(--sharp-mineral)]">
+          Cancel
+        </a>
+      </div>
+    </div>
+
+    <!-- RIGHT: Live Preview / Quick Test -->
+    <aside class="lg:col-span-1">
+      <div class="sticky top-20 space-y-6">
+        <section class="rounded-2xl border border-[#E1E1E1] bg-white p-5 shadow">
+          <h3 class="text-base font-semibold">Customer-facing Summary</h3>
+          <p class="mt-1 text-sm text-gray-500">How this will read to shoppers.</p>
+
+          <div class="mt-4 rounded-xl border border-[#E1E1E1] bg-[#F4EFE7] p-4 text-sm">
+            <p class="font-medium" id="pv_label">—</p>
+            <ul class="mt-2 space-y-1 text-gray-700">
+              <li id="pv_type">—</li>
+              <li id="pv_min">—</li>
+              <li id="pv_cap">—</li>
+              <li id="pv_countries">—</li>
+              <li id="pv_dates">—</li>
+              <li id="pv_active">—</li>
+            </ul>
+          </div>
+          <p class="mt-2 text-xs text-gray-500">Preview uses your current entries; server rules still apply.</p>
+        </section>
+
+        <section class="rounded-2xl border border-[#E1E1E1] bg-white p-5 shadow">
+          <h3 class="text-base font-semibold">Quick Test</h3>
+          <p class="mt-1 text-sm text-gray-500">Try a subtotal & country to see if it would apply.</p>
+          <div class="mt-3 grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs font-medium">Test Subtotal</label>
+              <input id="test_subtotal" type="number" step="0.01" value="150.00"
+                     class="mt-1 w-full px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white">
+            </div>
+            <div>
+              <label class="text-xs font-medium">Test Country (ISO-2)</label>
+              <input id="test_country" type="text" value="JO"
+                     class="mt-1 w-full px-3 py-2 rounded-xl border border-[#E1E1E1] bg-white">
+            </div>
+          </div>
+          <div class="mt-3 text-sm rounded-xl border border-[#E1E1E1] bg-[#F4EFE7] p-3" id="test_result">—</div>
+        </section>
+      </div>
+    </aside>
+  </form>
+
+  <script>
+  (function () {
+    const $ = (s) => document.querySelector(s);
+
+    const code        = $("#id_code");
+    const desc        = $("#id_description");
+    const typeEl      = $("#id_type");
+    const valueEl     = $("#id_value");
+    const maxDiscEl   = $("#id_max_discount");
+    const minSubEl    = $("#id_min_subtotal");
+    const countriesEl = $("#id_countries_csv");
+    const startsAtEl  = $("#id_starts_at");
+    const endsAtEl    = $("#id_ends_at");
+    const activeEl    = $("#id_active");
+
+    const pvLabel     = $("#pv_label");
+    const pvType      = $("#pv_type");
+    const pvMin       = $("#pv_min");
+    const pvCap       = $("#pv_cap");
+    const pvCountries = $("#pv_countries");
+    const pvDates     = $("#pv_dates");
+    const pvActive    = $("#pv_active");
+
+    const qtSubtotal  = $("#test_subtotal");
+    const qtCountry   = $("#test_country");
+    const qtOut       = $("#test_result");
+
+    const money = (n) => Number(n || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+    const num   = (s) => Number(String(s||"0").replace(",", "."));
+    const parseDT = (el) => {
+      const v = (el?.value || "").trim();
+      if (!v) return null;
+      const d = new Date(v.replace(" ", "T"));
+      return isNaN(d.getTime()) ? null : d;
+    };
+    const readCountries = () => {
+      const raw = (countriesEl?.value || "").trim();
+      if (!raw) return [];
+      return raw.split(",").map(x => x.trim().toUpperCase()).filter(Boolean);
+    };
+
+    function renderSummary() {
+      const t   = (typeEl?.value || "percent").toLowerCase();
+      const val = num(valueEl?.value);
+      const min = num(minSubEl?.value);
+      const cap = num(maxDiscEl?.value) > 0 ? num(maxDiscEl?.value) : null;
+      const cc  = readCountries();
+      const sAt = parseDT(startsAtEl);
+      const eAt = parseDT(endsAtEl);
+      const on  = !!activeEl?.checked;
+
+      pvLabel.textContent     = (desc?.value || "").trim() || (code?.value || "").trim() || "Discount";
+      pvType.textContent      = `Discount: ${t === "percent" ? `${val}% off` : `${money(val)} off`}`;
+      pvMin.textContent       = `Requires minimum order of ${money(min || 0)}.`;
+      pvCap.textContent       = `Maximum discount: ${cap ? money(cap) : "No cap"}.`;
+      pvCountries.textContent = `Applies ${cc.length ? `in ${cc.join(", ")}` : "in all countries"}.`;
+
+      if (sAt && eAt) {
+        pvDates.textContent = `Valid ${sAt.toLocaleString()} – ${eAt.toLocaleString()}`;
+      } else if (sAt) {
+        pvDates.textContent = `Valid from ${sAt.toLocaleString()}`;
+      } else if (eAt) {
+        pvDates.textContent = `Valid until ${eAt.toLocaleString()}`;
+      } else {
+        pvDates.textContent = `Valid anytime`;
+      }
+
+      pvActive.textContent = `Status: ${on ? "Active" : "Inactive"}`;
+    }
+
+    function runQuickTest() {
+      if (!qtOut) return;
+
+      const subtotal = num(qtSubtotal?.value);
+      const country  = (qtCountry?.value || "").trim().toUpperCase();
+
+      const t   = (typeEl?.value || "percent").toLowerCase();
+      const val = num(valueEl?.value);
+      const min = num(minSubEl?.value);
+      const cap = num(maxDiscEl?.value) > 0 ? num(maxDiscEl?.value) : null;
+      const cc  = readCountries();
+      const sAt = parseDT(startsAtEl);
+      const eAt = parseDT(endsAtEl);
+      const on  = !!activeEl?.checked;
+      const now = new Date();
+
+      if (!on) { qtOut.textContent = "Inactive — would not apply."; return; }
+      if (sAt && now < sAt) { qtOut.textContent = "Not started yet."; return; }
+      if (eAt && now > eAt) { qtOut.textContent = "Expired."; return; }
+      if (cc.length && !cc.includes(country)) { qtOut.textContent = "Doesn't apply in that country."; return; }
+      if (subtotal < (min || 0)) { qtOut.textContent = `Requires minimum order of ${money(min)}.`; return; }
+
+      let disc = t === "percent" ? (subtotal * (val / 100)) : val;
+      if (cap) disc = Math.min(disc, cap);
+      disc = Math.max(0, disc);
+
+      if (disc <= 0) { qtOut.textContent = "No discount for this input."; return; }
+      qtOut.textContent = `Discount would be ${money(disc)} on a subtotal of ${money(subtotal)}.`;
+    }
+
+    code?.addEventListener("blur", () => { code.value = (code.value || "").trim().toUpperCase(); });
+
+    const inputs = [code, desc, typeEl, valueEl, maxDiscEl, minSubEl, countriesEl, startsAtEl, endsAtEl, activeEl,
+                    qtSubtotal, qtCountry].filter(Boolean);
+    inputs.forEach(el => el.addEventListener("input", () => { renderSummary(); runQuickTest(); }));
+
+    renderSummary();
+    runQuickTest();
+  })();
+  </script>
+</div>
+{% endblock %}
+

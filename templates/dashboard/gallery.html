@@ -1,0 +1,103 @@
+{% extends "dashboard/cms_base.html" %}
+
+{% block content %}
+<div>
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold">Image Gallery</h1>
+    <button onclick="document.getElementById('uploadModal').classList.remove('hidden')" 
+            class="bg-[var(--sharp-mineral)] text-white px-4 py-2 rounded hover:bg-opacity-90">
+      <i class="fa-solid fa-upload mr-2"></i>Upload Image
+    </button>
+  </div>
+
+  <!-- Upload Modal -->
+  <div id="uploadModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full m-4">
+      <h2 class="text-xl font-bold mb-4">Upload Image</h2>
+      <form id="uploadForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-2">Image File</label>
+          <input type="file" name="image" accept="image/*" required class="w-full border rounded p-2">
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-2">Folder</label>
+          <input type="text" name="folder" value="uploads" class="w-full border rounded p-2">
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-2">Title (optional)</label>
+          <input type="text" name="title" class="w-full border rounded p-2">
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="flex-1 bg-[var(--sharp-mineral)] text-white px-4 py-2 rounded hover:bg-opacity-90">
+            Upload
+          </button>
+          <button type="button" onclick="document.getElementById('uploadModal').classList.add('hidden')" 
+                  class="flex-1 bg-gray-200 px-4 py-2 rounded">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Gallery Grid -->
+  <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+    {% for asset in assets %}
+    <div class="bg-white rounded-lg overflow-hidden shadow">
+      <img src="{{ asset.thumbnail_url|default:asset.original_url }}" 
+           alt="{{ asset.title }}" 
+           class="w-full h-32 object-cover">
+      <div class="p-2">
+        <div class="text-xs font-medium truncate">{{ asset.title|default:"Untitled" }}</div>
+        <div class="text-xs text-gray-500 mt-1">{{ asset.folder }}</div>
+        <div class="mt-2 flex gap-1">
+          <button onclick="copyToClipboard('{{ asset.original_url }}')" 
+                  class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
+                  title="Copy URL">
+            <i class="fa-solid fa-copy"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full text-center py-12 text-gray-500">
+      No images uploaded yet. Click "Upload Image" to get started.
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const formData = new FormData(this);
+  
+  try {
+    const response = await fetch('{% url "upload_image" %}', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+      }
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      location.reload();
+    } else {
+      alert('Upload failed: ' + (data.error || 'Unknown error'));
+    }
+  } catch (error) {
+    alert('Upload failed: ' + error.message);
+  }
+});
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    alert('URL copied to clipboard!');
+  });
+}
+</script>
+{% endblock %}
+

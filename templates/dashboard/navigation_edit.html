@@ -1,0 +1,129 @@
+{% extends "dashboard/cms_base.html" %}
+
+{% block content %}
+<div>
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold">Navigation Menu</h1>
+    <button onclick="document.getElementById('addModal').classList.remove('hidden')" 
+            class="bg-[var(--sharp-mineral)] text-white px-4 py-2 rounded hover:bg-opacity-90">
+      <i class="fa-solid fa-plus mr-2"></i>Add Item
+    </button>
+  </div>
+
+  <!-- Add/Edit Modal -->
+  <div id="addModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full m-4">
+      <h2 class="text-xl font-bold mb-4">Add Navigation Item</h2>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="item_id" id="item_id" value="">
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-2">Label</label>
+          <input type="text" name="label" id="label" required class="w-full border rounded p-2">
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-2">URL</label>
+          <input type="text" name="url" id="url" required class="w-full border rounded p-2">
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-2">Sort Order</label>
+          <input type="number" name="sort_order" id="sort_order" value="0" class="w-full border rounded p-2">
+        </div>
+        
+        <div class="mb-4 space-y-2">
+          <label class="flex items-center">
+            <input type="checkbox" name="is_active" id="is_active" checked class="mr-2">
+            <span>Active</span>
+          </label>
+          <label class="flex items-center">
+            <input type="checkbox" name="is_external" id="is_external" class="mr-2">
+            <span>External Link</span>
+          </label>
+        </div>
+        
+        <div class="flex gap-2">
+          <button type="submit" class="flex-1 bg-[var(--sharp-mineral)] text-white px-4 py-2 rounded hover:bg-opacity-90">
+            Save
+          </button>
+          <button type="button" onclick="closeModal()" 
+                  class="flex-1 bg-gray-200 px-4 py-2 rounded">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Navigation Items List -->
+  <div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="w-full">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-4 py-3 text-left">Label</th>
+          <th class="px-4 py-3 text-left">URL</th>
+          <th class="px-4 py-3 text-left">Order</th>
+          <th class="px-4 py-3 text-left">Status</th>
+          <th class="px-4 py-3 text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr class="border-t">
+          <td class="px-4 py-3">{{ item.label }}</td>
+          <td class="px-4 py-3 text-sm text-gray-600">{{ item.url }}</td>
+          <td class="px-4 py-3">{{ item.sort_order }}</td>
+          <td class="px-4 py-3">
+            {% if item.is_active %}
+              <span class="text-green-600">Active</span>
+            {% else %}
+              <span class="text-gray-400">Inactive</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-right">
+            <button onclick="editItem({{ item.id }}, '{{ item.label }}', '{{ item.url }}', {{ item.sort_order }}, {{ item.is_active|yesno:"true,false" }}, {{ item.is_external|yesno:"true,false" }})" 
+                    class="text-blue-600 hover:underline mr-2">Edit</button>
+            <form method="post" class="inline" onsubmit="return confirm('Delete this item?')">
+              {% csrf_token %}
+              <input type="hidden" name="delete_id" value="{{ item.id }}">
+              <button type="submit" class="text-red-600 hover:underline">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+            No navigation items yet. Click "Add Item" to get started.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function editItem(id, label, url, sortOrder, isActive, isExternal) {
+  document.getElementById('item_id').value = id;
+  document.getElementById('label').value = label;
+  document.getElementById('url').value = url;
+  document.getElementById('sort_order').value = sortOrder;
+  document.getElementById('is_active').checked = isActive;
+  document.getElementById('is_external').checked = isExternal;
+  document.getElementById('addModal').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('addModal').classList.add('hidden');
+  document.getElementById('item_id').value = '';
+  document.getElementById('label').value = '';
+  document.getElementById('url').value = '';
+  document.getElementById('sort_order').value = '0';
+  document.getElementById('is_active').checked = true;
+  document.getElementById('is_external').checked = false;
+}
+</script>
+{% endblock %}
+

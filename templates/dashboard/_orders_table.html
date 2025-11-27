@@ -20,10 +20,19 @@
           <span class="text-black/60">{{ o.email }}</span>
         </td>
         <td class="px-4 py-3">{{ o.grand_total|default_if_none:0|money:request }}</td>
-        <td class="px-4 py-3">{{ o.get_status_display }}</td>
+        <td class="px-4 py-3">
+          <span class="inline-flex items-center px-2 py-1 rounded-full border text-xs
+             {% if o.status == '0' %}border-amber-400 text-amber-700 bg-amber-50
+             {% elif o.status == '170' %}border-emerald-400 text-emerald-700 bg-emerald-50
+             {% else %}border-gray-300 text-gray-700 bg-gray-50{% endif %}">
+            {{ o.get_status_display }}
+          </span>
+        </td>
         <td class="px-4 py-3">{{ o.created_at|date:"M d, Y H:i" }}</td>
         <td class="px-4 py-3">
-          <a class="underline" href="{% url 'dashboard_order_detail' o.order_number %}">View</a>
+          <a class="text-[var(--sharp-mineral)] hover:underline font-medium" href="{% url 'dashboard_order_detail' o.order_number %}">
+            <i class="fa-solid fa-eye mr-1"></i>View
+          </a>
         </td>
       </tr>
       {% empty %}

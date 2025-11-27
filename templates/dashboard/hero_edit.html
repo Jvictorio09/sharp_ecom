@@ -1,0 +1,55 @@
+{% extends "dashboard/cms_base.html" %}
+
+{% block content %}
+<div>
+  <h1 class="text-3xl font-bold mb-6">Hero Section</h1>
+  
+  <form method="post" class="bg-white rounded-lg p-6 shadow max-w-2xl">
+    {% csrf_token %}
+    
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-2">Title</label>
+      <input type="text" name="title" value="{{ hero.title }}" 
+             class="w-full border rounded p-2" required>
+    </div>
+    
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-2">Subtitle</label>
+      <textarea name="subtitle" rows="3" 
+                class="w-full border rounded p-2">{{ hero.subtitle }}</textarea>
+    </div>
+    
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-2">CTA Button Text</label>
+      <input type="text" name="cta_text" value="{{ hero.cta_text }}" 
+             class="w-full border rounded p-2" placeholder="Get Started">
+    </div>
+    
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-2">CTA Button URL</label>
+      <input type="text" name="cta_url" value="{{ hero.cta_url }}" 
+             class="w-full border rounded p-2" placeholder="/products">
+    </div>
+    
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-2">Background Image URL</label>
+      <input type="url" name="background_image_url" value="{{ hero.background_image_url }}" 
+             class="w-full border rounded p-2" placeholder="https://...">
+      <a href="{% url 'gallery' %}" class="text-blue-600 text-sm mt-1 block">Browse Gallery →</a>
+    </div>
+    
+    <div class="mb-4">
+      <label class="flex items-center">
+        <input type="checkbox" name="is_active" {% if hero.is_active %}checked{% endif %} 
+               class="mr-2">
+        <span>Active</span>
+      </label>
+    </div>
+    
+    <button type="submit" class="bg-[var(--sharp-mineral)] text-white px-6 py-2 rounded hover:bg-opacity-90">
+      Save Changes
+    </button>
+  </form>
+</div>
+{% endblock %}
+

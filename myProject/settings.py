@@ -105,13 +105,36 @@ WSGI_APPLICATION = 'myProject.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-# Database configuration - Always use SQLite (local database)
+# Database configuration - Always use PostgreSQL from DATABASE_URL
+import dj_database_url
+
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if not DATABASE_URL:
+    raise ValueError(
+        "DATABASE_URL environment variable is required. "
+        "Please set it in your .env file or environment variables."
+    )
+
+# Always use PostgreSQL from DATABASE_URL
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=DATABASE_URL,
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
+
+# Log database configuration
+db_config = DATABASES['default']
+print("=" * 60)
+print("DATABASE CONFIGURATION:")
+print(f"  Engine: {db_config.get('ENGINE', 'Unknown')}")
+print(f"  Name: {db_config.get('NAME', 'Unknown')}")
+print(f"  Host: {db_config.get('HOST', 'Unknown')}")
+print(f"  Port: {db_config.get('PORT', 'Unknown')}")
+print(f"  User: {db_config.get('USER', 'Unknown')}")
+print("=" * 60)
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -235,3 +258,20 @@ LOGGING = {
         "django.template": {"handlers": ["console"], "level": "ERROR"},
     },
 }
+
+# ============================================================================
+# Cloudinary Configuration
+# ============================================================================
+try:
+    import cloudinary
+    import cloudinary.uploader
+    import cloudinary.api
+    
+    cloudinary.config(
+        cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME', ''),
+        api_key=os.getenv('CLOUDINARY_API_KEY', ''),
+        api_secret=os.getenv('CLOUDINARY_API_SECRET', ''),
+        secure=True
+    )
+except Exception as e:
+    print(f"Warning: Cloudinary not configured: {e}")
