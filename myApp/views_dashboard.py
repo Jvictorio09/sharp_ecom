@@ -960,6 +960,23 @@ def promo_list(request):
         return render(request, "dashboard/cms_promos.html", {"promos": promos, "q": q})
     return render(request, "dashboard/promos/list.html", {"promos": promos, "q": q})
 
+def _clear_sitewide_promo_cache():
+    """Helper to clear all sitewide promo cache keys."""
+    from django.core.cache import cache
+    
+    # Clear the main cache keys
+    cache_keys_to_clear = [
+        "sitewide_promo_candidates:all",
+        "sitewide_promo_candidates:None",
+    ]
+    # Also try to clear with common country codes
+    common_countries = ["JO", "US", "SA", "AE", "KW", "QA", "BH", "OM"]
+    for country in common_countries:
+        cache_keys_to_clear.append(f"sitewide_promo_candidates:{country}")
+    
+    for key in cache_keys_to_clear:
+        cache.delete(key)
+
 @dashboard_required
 def promo_upsert(request, pk=None):
     promo = get_object_or_404(PromoCode, pk=pk) if pk else None
@@ -970,6 +987,10 @@ def promo_upsert(request, pk=None):
             # normalize code upper
             obj.code = obj.code.upper()
             obj.save()
+            
+            # Clear sitewide promo cache when saving (active status or is_sitewide may have changed)
+            _clear_sitewide_promo_cache()
+            
             messages.success(request, f"Promo {obj.code} saved.")
             # Redirect to CMS if coming from CMS
             if '/cms/' in request.path or request.META.get('HTTP_REFERER', '').startswith(request.build_absolute_uri('/dashboard/cms/')):
@@ -980,13 +1001,17 @@ def promo_upsert(request, pk=None):
     # Use CMS template if coming from CMS dashboard
     if '/cms/' in request.path or request.META.get('HTTP_REFERER', '').startswith(request.build_absolute_uri('/dashboard/cms/')):
         return render(request, "dashboard/cms_promo_form.html", {"form": form, "promo": promo})
-    return render(request, "dashboard/promos/form.html", {"form": form, "promo": promo})
+        return render(request, "dashboard/promos/form.html", {"form": form, "promo": promo})
 
 @dashboard_required
 def promo_toggle(request, pk):
     promo = get_object_or_404(PromoCode, pk=pk)
     promo.active = not promo.active
     promo.save(update_fields=["active","updated_at"])
+    
+    # Clear sitewide promo cache when toggling
+    _clear_sitewide_promo_cache()
+    
     messages.info(request, f"{promo.code} is now {'active' if promo.active else 'inactive'}.")
     # Redirect to CMS if coming from CMS
     if '/cms/' in request.path or request.META.get('HTTP_REFERER', '').startswith(request.build_absolute_uri('/dashboard/cms/')):
@@ -998,6 +1023,10 @@ def promo_delete(request, pk):
     promo = get_object_or_404(PromoCode, pk=pk)
     code = promo.code
     promo.delete()
+    
+    # Clear sitewide promo cache when deleting
+    _clear_sitewide_promo_cache()
+    
     messages.warning(request, f"Promo {code} deleted.")
     # Redirect to CMS if coming from CMS
     if '/cms/' in request.path or request.META.get('HTTP_REFERER', '').startswith(request.build_absolute_uri('/dashboard/cms/')):

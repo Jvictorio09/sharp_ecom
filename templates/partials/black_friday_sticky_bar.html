@@ -1,4 +1,5 @@
-<!-- Black Friday Sticky Header Promo Bar -->
+<!-- Black Friday Sticky Header Promo Bar - Only show if sitewide promo is active -->
+{% if sitewide_promo %}
 <div id="blackFridayStickyBar" class="fixed top-0 left-0 right-0 z-50 h-[50px] bg-[#111827] text-[#EAB308] flex items-center justify-center overflow-hidden">
   <!-- Background shimmer animation -->
   <div class="absolute inset-0 shimmer-bg"></div>
@@ -10,8 +11,13 @@
     
     <!-- Text -->
     <p class="text-xs md:text-sm font-semibold md:font-medium text-center">
-      <span class="hidden md:inline">🔥 Black Friday Sale! 30% OFF — Grab it while it lasts!</span>
-      <span class="md:hidden">Black Friday: 30% OFF!</span>
+      {% if sitewide_discount_percent %}
+        <span class="hidden md:inline">🔥 {{ sitewide_promo.description|default:"Sitewide Sale" }}! {{ sitewide_discount_percent|floatformat:0 }}% OFF — Grab it while it lasts!</span>
+        <span class="md:hidden">{{ sitewide_promo.description|default:"Sale" }}: {{ sitewide_discount_percent|floatformat:0 }}% OFF!</span>
+      {% else %}
+        <span class="hidden md:inline">🔥 {{ sitewide_promo.description|default:"Sitewide Sale" }} — Grab it while it lasts!</span>
+        <span class="md:hidden">{{ sitewide_promo.description|default:"Sale" }}!</span>
+      {% endif %}
     </p>
     
     <!-- Right sparkle -->
@@ -80,4 +86,4 @@
     });
   })();
 </script>
-
+{% endif %}

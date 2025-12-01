@@ -16,6 +16,36 @@ def cart(request):
 
 from .models import Order, Product
 
+def sitewide_promo(request):
+    """
+    Makes sitewide_promo and sitewide_discount_percent available globally.
+    Returns None if no active sitewide promo exists.
+    """
+    from .views import _get_best_sitewide_promo
+    from .models import Product
+    
+    # Get a dummy subtotal from any active product (or use 100 as fallback)
+    dummy_product = Product.objects.filter(is_active=True).first()
+    dummy_subtotal = dummy_product.price if dummy_product else Decimal("100.00")
+    
+    country = request.session.get('country') or None
+    promo_obj, promo_disc, promo_label = _get_best_sitewide_promo(
+        subtotal=dummy_subtotal,
+        country=country
+    )
+    
+    if promo_obj:
+        sitewide_discount_percent = float(promo_obj.value) if promo_obj.type == "percent" else None
+        return {
+            "sitewide_promo": promo_obj,
+            "sitewide_discount_percent": sitewide_discount_percent,
+        }
+    
+    return {
+        "sitewide_promo": None,
+        "sitewide_discount_percent": None,
+    }
+
 def dashboard_counts(request):
     """
     Adds:

@@ -1,4 +1,5 @@
-<!-- Black Friday Hero Pop-up Modal -->
+<!-- Black Friday Hero Pop-up Modal - Only show if sitewide promo is active -->
+{% if sitewide_promo %}
 <div id="blackFridayPopup" class="fixed inset-0 z-[100] hidden items-center justify-center p-4">
   <!-- Backdrop with gradient -->
   <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
@@ -26,13 +27,17 @@
       <!-- Top Section - Ribbon Tag -->
       <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#EAB308] mb-6 animate-fadeInUp">
         <i class="fa-solid fa-star-of-life text-white text-xs"></i>
-        <span class="text-white font-bold text-xs uppercase tracking-wider">BLACK FRIDAY SPECIAL</span>
+        <span class="text-white font-bold text-xs uppercase tracking-wider">{{ sitewide_promo.description|default:"SITEWIDE SPECIAL"|upper }}</span>
         <i class="fa-solid fa-star-of-life text-white text-xs"></i>
       </div>
       
       <!-- Main Headline -->
       <h2 class="text-5xl md:text-7xl lg:text-8xl font-extrabold text-white mb-4 leading-tight tracking-tight animate-fadeInUp delay-100">
-        30% OFF
+        {% if sitewide_discount_percent %}
+          {{ sitewide_discount_percent|floatformat:0 }}% OFF
+        {% else %}
+          SALE
+        {% endif %}
         <span class="block text-3xl md:text-4xl lg:text-5xl font-semibold text-white/90 mt-2 normal-case tracking-normal">
           SITEWIDE
         </span>
@@ -43,7 +48,11 @@
       
       <!-- Subheadline -->
       <p class="text-lg md:text-xl text-white/85 mb-8 animate-fadeInUp delay-300">
-        This Week Only — Don't Miss Out
+        {% if sitewide_promo.ends_at %}
+          Limited Time — Don't Miss Out
+        {% else %}
+          This Week Only — Don't Miss Out
+        {% endif %}
       </p>
       
       <!-- CTA Buttons -->
@@ -222,23 +231,23 @@
     
     // Countdown timer
     function startCountdown() {
-      // Set end date to this Saturday at 23:59:59
       const now = new Date();
-      const endDate = new Date();
+      let endDate = new Date();
       
-      // Get current day of week (0 = Sunday, 6 = Saturday)
-      const currentDay = now.getDay();
-      
-      // Calculate days until Saturday (6)
-      // If today is Saturday, use next Saturday (7 days)
-      // Otherwise, calculate days until this Saturday
-      let daysUntilSaturday = 6 - currentDay;
-      if (daysUntilSaturday <= 0) {
-        daysUntilSaturday += 7; // Next Saturday if today is Saturday or past Saturday
-      }
-      
-      endDate.setDate(now.getDate() + daysUntilSaturday);
-      endDate.setHours(23, 59, 59, 999);
+      // Check if promo has an end date from Django template
+      {% if sitewide_promo.ends_at %}
+        // Use the promo's end date
+        endDate = new Date('{{ sitewide_promo.ends_at|date:"c" }}');
+      {% else %}
+        // Fallback: Set end date to this Saturday at 23:59:59
+        const currentDay = now.getDay();
+        let daysUntilSaturday = 6 - currentDay;
+        if (daysUntilSaturday <= 0) {
+          daysUntilSaturday += 7; // Next Saturday if today is Saturday or past Saturday
+        }
+        endDate.setDate(now.getDate() + daysUntilSaturday);
+        endDate.setHours(23, 59, 59, 999);
+      {% endif %}
       
       function updateTimer() {
         const now = new Date().getTime();
@@ -299,4 +308,4 @@
     });
   })();
 </script>
-
+{% endif %}
