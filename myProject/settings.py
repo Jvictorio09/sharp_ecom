@@ -257,6 +257,21 @@ WASSEL = {
     "WEBHOOK_SHARED_SECRET": os.getenv("WASSEL_WEBHOOK_SHARED_SECRET", ""),
 }
 
+DLX = {
+    "BASE_URL": os.getenv("DLX_BASE_URL", "https://dlx.olivery.io"),
+    "LOGIN": os.getenv("DLX_LOGIN", os.getenv("WASSEL_EMAIL", "")),
+    "PASSWORD": os.getenv("DLX_PASSWORD", os.getenv("WASSEL_PASSWORD", "")),
+    "DB": os.getenv("DLX_DB", "dlx"),
+    "TIMEOUT": int(os.getenv("DLX_TIMEOUT", os.getenv("WASSEL_TIMEOUT", 20))),
+    "DEFAULT_AREA_ID": os.getenv("DLX_DEFAULT_AREA_ID", ""),
+    "COD_PAYMENT_TYPE": os.getenv("DLX_COD_PAYMENT_TYPE", "1"),
+    "PREPAID_PAYMENT_TYPE": os.getenv("DLX_PREPAID_PAYMENT_TYPE", "1"),
+    "WEBHOOK_SHARED_SECRET": os.getenv(
+        "DLX_WEBHOOK_SHARED_SECRET",
+        os.getenv("WASSEL_WEBHOOK_SHARED_SECRET", ""),
+    ),
+}
+
 
 # settings.py
 import os
@@ -266,6 +281,7 @@ ZOHO = {
     "REFRESH_TOKEN": os.getenv("ZOHO_REFRESH_TOKEN"),
     "ORG_ID": os.getenv("ZOHO_ORG_ID"),
     "BASE": os.getenv("ZOHO_BASE", "https://www.zohoapis.com"),
+    "ENABLED": os.getenv("ZOHO_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on"),
 }
 
 

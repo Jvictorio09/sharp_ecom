@@ -44,192 +44,155 @@ from django.core.cache import cache
 
 log = logging.getLogger(__name__)
 
-# Try both demo stacks they sent you:
-WASSEL_HOSTS = [
-    {  # put this FIRST
-      "BASE": "https://dlx.wasselexpress.com",
-      "LOGIN_PATH": "/web-api/api/account/Login",
-      "SUBMIT_PATH": "/API/Integration/SubmitShippingRequests",
-      "SUBMIT_PATH_ALT": "/web-api/api/Integration/SubmitShippingRequests",
-      "AUTH_SHAPES": [
-          lambda u,p: {"email": u, "password": p, "rememberMe": True},
-          lambda u,p: {"username": u, "password": p},
-      ],
-    },
-    {
-      "BASE": "http://demoapi.wasselexpress.com",
-      "LOGIN_PATH": "/API/Account/Login",
-      "SUBMIT_PATH": "/API/Integration/SubmitShippingRequests",
-      "AUTH_SHAPES": [
-          lambda u,p: {"email": u, "password": p, "rememberMe": True},
-          lambda u,p: {"username": u, "password": p},
-      ],
-    },
-]
-
-
-from django.conf import settings
-
 WASSEL = settings.WASSEL
-WASSEL_EMAIL = WASSEL["EMAIL"]
-WASSEL_PASSWORD = WASSEL["PASSWORD"]
-WASSEL_COMPANY_STORE_ID = int(WASSEL["COMPANY_STORE_ID"])
-WASSEL_TIMEOUT = WASSEL["TIMEOUT"]
 WASSEL_WEBHOOK_SECRET = WASSEL["WEBHOOK_SHARED_SECRET"]
-def _wsl_token():
-    """
-    Login to Wassel LIVE and cache the JWT for 30 minutes.
-    Live expects: {email, password, rememberMe: true}
-    Response: plain text token (sometimes quoted JSON string).
-    """
-    base = "https://dlx.wasselexpress.com"
-    login_url = f"{base}/web-api/api/account/Login"
-    cache_key = f"wsl_token::{base}"
 
-    tk = cache.get(cache_key)
-    if tk:
-        return (base, tk)
+DLX = getattr(settings, "DLX", {})
+DLX_BASE_URL = (DLX.get("BASE_URL") or "https://dlx.olivery.io").rstrip("/")
+DLX_LOGIN = DLX.get("LOGIN") or ""
+DLX_PASSWORD = DLX.get("PASSWORD") or ""
+DLX_DB = DLX.get("DB") or "dlx"
+DLX_TIMEOUT = int(DLX.get("TIMEOUT") or 20)
+DLX_DEFAULT_AREA_ID = str(DLX.get("DEFAULT_AREA_ID") or "").strip()
+DLX_COD_PAYMENT_TYPE = str(DLX.get("COD_PAYMENT_TYPE") or "1")
+DLX_PREPAID_PAYMENT_TYPE = str(DLX.get("PREPAID_PAYMENT_TYPE") or "1")
 
+
+def _dlx_call(path: str, extra_params: dict | None = None, *, expect_json: bool = True):
+    """
+    Unified DLX JSON-RPC caller.
+    Raises RuntimeError on transport/API failure.
+    """
+    if not (DLX_LOGIN and DLX_PASSWORD and DLX_DB):
+        raise RuntimeError("DLX credentials are missing. Set DLX_LOGIN, DLX_PASSWORD, DLX_DB.")
+
+    url = f"{DLX_BASE_URL}/{path.lstrip('/')}"
     payload = {
-        "email": WASSEL_EMAIL,
-        "password": WASSEL_PASSWORD,
-        "rememberMe": True,
+        "jsonrpc": "2.0",
+        "params": {
+            "login": DLX_LOGIN,
+            "password": DLX_PASSWORD,
+            "db": DLX_DB,
+            **(extra_params or {}),
+        },
     }
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    }
-
-    r = requests.post(login_url, json=payload, headers=headers, timeout=WASSEL_TIMEOUT)
-    r.raise_for_status()
-
-    # Token is plain text; sometimes it's a JSON string like: "eyJhbGciOi..."
-    token = (r.text or "").strip().strip('"')
-    if not token:
-        # Safety: if they ever switch to JSON {token: "..."}
-        try:
-            data = r.json()
-            token = (
-                data if isinstance(data, str)
-                else data.get("token") or data.get("access_token") or ""
-            )
-        except Exception:
-            token = ""
-    if not token:
-        raise RuntimeError(f"Login succeeded but token missing: {(r.text or '')[:300]}")
-
-    cache.set(cache_key, token, 60 * 30)  # 30 minutes
-    return (base, token)
-
-
-
-# --- Lookup existing shipment by reference -----------------------------------
-def _extract_awb_from_lookup(res: dict, ref: str):
-    """Best-effort extractor for AWB from various response shapes."""
-    data = res.get("data", res)
-    # Normalize ref for comparisons
-    want = (ref or "").strip().upper()
-
-    def get_ref(x):
-        return str(
-            x.get("referenceNumber")
-            or x.get("referenceID")
-            or x.get("reference")
-            or ""
-        ).strip().upper()
-
-    def get_awb(x):
-        return (
-            x.get("awb")
-            or x.get("AWB")
-            or x.get("Awb")
-            or x.get("AwB")
-            or x.get("ShipmentAWB")
-            or None
+    try:
+        resp = requests.post(
+            url,
+            json=payload,
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            timeout=DLX_TIMEOUT,
         )
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        body = ""
+        if getattr(exc, "response", None) is not None:
+            body = ((exc.response.text or "")[:800]).strip()
+        msg = f"DLX call failed at {path}: {exc}"
+        if body:
+            msg = f"{msg} | body={body}"
+        raise RuntimeError(msg) from exc
 
-    if isinstance(data, list):
-        for x in data:
-            if get_ref(x) == want:
-                awb = get_awb(x)
-                if awb:
-                    return str(awb), x
-    elif isinstance(data, dict):
-        # Some APIs return a single object
-        if get_ref(data) in (want, "", None):
-            awb = get_awb(data)
-            if awb:
-                return str(awb), data
-    return None, None
+    if not (resp.text or "").strip():
+        return {} if expect_json else {"ok": True}
+
+    try:
+        data = resp.json()
+    except ValueError:
+        if expect_json:
+            raise RuntimeError(f"DLX {path} returned non-JSON: {(resp.text or '')[:400]}")
+        return {"raw": (resp.text or "")}
+
+    if isinstance(data, dict) and data.get("error"):
+        err = data.get("error")
+        if isinstance(err, dict):
+            code = err.get("code")
+            msg = err.get("message") or err.get("data") or str(err)
+            raise RuntimeError(f"DLX {path} error {code}: {msg}")
+        raise RuntimeError(f"DLX {path} error: {err}")
+    return data
 
 
-def _wsl_lookup_awb_by_reference(ref: str):
+def _pick_first(data, keys: tuple[str, ...]):
+    if isinstance(data, dict):
+        for key in keys:
+            val = data.get(key)
+            if val not in (None, "", [], {}):
+                return val
+        for val in data.values():
+            found = _pick_first(val, keys)
+            if found not in (None, "", [], {}):
+                return found
+    elif isinstance(data, list):
+        for item in data:
+            found = _pick_first(item, keys)
+            if found not in (None, "", [], {}):
+                return found
+    return None
+
+
+def _extract_status_code(raw):
+    status = _pick_first(raw, ("status", "Status", "status_code", "state"))
+    if status in (None, ""):
+        return None
+    try:
+        return str(int(status))
+    except Exception:
+        return str(status).strip()
+
+
+def _extract_awb_like(raw):
+    val = _pick_first(
+        raw,
+        (
+            "awb",
+            "AWB",
+            "tracking_no",
+            "tracking_number",
+            "trackingNumber",
+            "waybill",
+            "waybill_no",
+            "order_id",
+            "id",
+        ),
+    )
+    return str(val).strip() if val not in (None, "") else None
+
+
+def _dlx_lookup_order(reference: str):
     """
-    Try several GET/POST shapes across both demo hosts to fetch an AWB by reference.
-    Returns (awb, raw_response) or (None, None).
+    Best-effort order lookup by local order number/reference.
+    Returns (external_id, raw_response) or (None, None).
     """
-    bases = []
-    base, token = _wsl_token()
-    bases.append(base)
-    # Try the sibling demo host too (your login fallback pattern)
-    if "demoapi.wasselexpress.com" in base:
-        bases.append("https://dlx.wasselexpress.com")
-    else:
-        bases.append("http://demoapi.wasselexpress.com")
+    ref = str(reference or "").strip()
+    if not ref:
+        return None, None
 
-    auth_header = lambda tk: {"Authorization": f"Bearer {tk}"}
-
-    # Endpoint/shape guesses (these match common patterns in their docs/stacks)
     attempts = [
-        # GET with query
-        ("GET", "/API/Integration/GetShippingRequestsByRef",   {"params": [{"referenceID": ref}, {"ReferenceID": ref}]}),
-        ("GET", "/web-api/api/Integration/GetShippingRequestsByRef", {"params": [{"referenceID": ref}, {"ReferenceID": ref}]}),
-        # POST with body
-        ("POST", "/API/Integration/GetShippingRequestsByRef",       {"jsons": [{"referenceID": ref}, {"ReferenceID": ref}, {"ReferenceIDs": [ref]}]}),
-        ("POST", "/web-api/api/Integration/GetShippingRequestsByRef", {"jsons": [{"referenceID": ref}, {"ReferenceID": ref}, {"ReferenceIDs": [ref]}]}),
+        ("order", {"extra_sequence": ref}),
+        ("order", {"reference_id": ref}),
+        ("order", {"order_id": ref}),
+        ("get_status", {"extra_sequence": ref}),
+        ("get_status", {"order_id": ref}),
     ]
-
-    for b in bases:
-        b = b.rstrip("/")
-        tk = token
-        headers = auth_header(tk)
-        for method, path, shapes in attempts:
-            url = f"{b}{path}"
-            try:
-                if method == "GET":
-                    for params in shapes.get("params", []):
-                        r = requests.get(url, headers=headers, params=params, timeout=WASSEL_TIMEOUT)
-                        if r.status_code == 401:
-                            cache.delete(f"wsl_token::{b}")
-                            _, tk = _wsl_token()
-                            headers = auth_header(tk)
-                            r = requests.get(url, headers=headers, params=params, timeout=WASSEL_TIMEOUT)
-                        r.raise_for_status()
-                        res = r.json()
-                        awb, raw = _extract_awb_from_lookup(res, ref)
-                        if awb:
-                            return awb, (res or raw or {})
-                else:
-                    for body in shapes.get("jsons", []):
-                        r = requests.post(url, headers=headers, json=body, timeout=WASSEL_TIMEOUT)
-                        if r.status_code == 401:
-                            cache.delete(f"wsl_token::{b}")
-                            _, tk = _wsl_token()
-                            headers = auth_header(tk)
-                            r = requests.post(url, headers=headers, json=body, timeout=WASSEL_TIMEOUT)
-                        r.raise_for_status()
-                        res = r.json()
-                        awb, raw = _extract_awb_from_lookup(res, ref)
-                        if awb:
-                            return awb, (res or raw or {})
-            except requests.RequestException as e:
-                log.warning("Lookup attempt failed %s %s: %s", method, url, e)
-                continue
-            except Exception as e:
-                log.exception("Lookup parse error on %s %s: %s", method, url, e)
-                continue
-
+    for path, params in attempts:
+        try:
+            res = _dlx_call(path, params, expect_json=True)
+            carrier_id = _extract_awb_like(res)
+            if carrier_id:
+                return carrier_id, res
+            if isinstance(res, dict) and res:
+                # keep first non-empty payload in case API only returns status
+                return None, res
+        except Exception as exc:
+            log.warning("DLX lookup failed for %s with %s: %s", path, params, exc)
+            continue
     return None, None
+
+
+# Backward-compatible name kept for existing call sites.
+def _wsl_lookup_awb_by_reference(ref: str):
+    return _dlx_lookup_order(ref)
 
 
 # add near top with imports
@@ -283,54 +246,25 @@ def _items_summary_for_carrier(order, max_len: int = 230) -> str:
     return txt or "Online order"
 
 
-def _wsl_submit(payload_list: list[dict]):
-    base, token = _wsl_token()
-
-    def _headers(tk: str) -> dict:
-     return {
-        "Authorization": f"Bearer {tk}",
-        "Content-Type": "application/json",   # <- no charset
-        "Accept": "application/json",
-    }
-
-
-    paths = [
-        "/web-api/api/Integration/SubmitShippingRequests",  # per docs
-        "/API/Integration/SubmitShippingRequests",          # legacy fallback
-    ]
-
-    last_err = None
-    for path in paths:
-        url = f"{base.rstrip('/')}{path}"
+def _wsl_submit(payload: dict):
+    """
+    Backward-compatible wrapper name, now targeting DLX `create_order`.
+    """
+    res = _dlx_call("create_order", payload, expect_json=True)
+    result = res.get("result") if isinstance(res, dict) else None
+    if isinstance(result, dict):
+        # DLX may return HTTP 200 with a business-level failure payload.
+        if result.get("fail") is True:
+            raise RuntimeError(f"DLX create_order failed: {result.get('message') or result}")
+        code_like = result.get("status")
+        if code_like is None:
+            code_like = result.get("code")
         try:
-            resp = requests.post(url, json=payload_list, headers=_headers(token), timeout=WASSEL_TIMEOUT)
-            if resp.status_code == 401:
-                cache.delete(f"wsl_token::{base.rstrip('/')}")
-                base, token = _wsl_token()
-                url = f"{base.rstrip('/')}{path}"
-                resp = requests.post(url, json=payload_list, headers=_headers(token), timeout=WASSEL_TIMEOUT)
-
-            if resp.status_code in (404, 405):
-                log.warning("Submit path not available: %s (%s); trying next", url, resp.status_code)
-                continue
-
-            resp.raise_for_status()
-            try:
-                return resp.json()
-            except ValueError:
-                # return raw text if non-JSON
-                return {"raw": resp.text, "status_code": resp.status_code}
-
-        except requests.RequestException as e:
-            body = ""
-            try:
-                body = (e.response.text or "")[:800] if getattr(e, "response", None) else ""
-            except Exception:
-                pass
-            last_err = e
-            log.warning("Submit failed on %s: %s%s", url, e, f" | body={body}" if body else "")
-
-    raise last_err or RuntimeError("All Wassel submit paths failed")
+            if code_like is not None and int(code_like) >= 400:
+                raise RuntimeError(f"DLX create_order failed ({code_like}): {result.get('message') or result}")
+        except (TypeError, ValueError):
+            pass
+    return res
 
 
 def _addr_desc(addr: dict) -> str:
@@ -400,7 +334,37 @@ def _strip_nulls(obj):
         return [_strip_nulls(v) for v in obj]
     return obj
 
-def _order_to_submit_payload(order) -> list[dict]:
+
+def _resolve_dlx_customer_area(order, addr: dict) -> str:
+    """
+    Resolve DLX-compatible customer_area.
+    Prefer numeric IDs from checkout data; otherwise fallback to
+    common mappings and finally configured default area id.
+    """
+    candidates = [
+        addr.get("area_id"),
+        addr.get("customer_area"),
+        addr.get("recipientAreaId"),
+        addr.get("area"),
+        addr.get("city"),
+        getattr(order, "city", None),
+    ]
+    for val in candidates:
+        if val in (None, ""):
+            continue
+        text = str(val).strip()
+        if text.isdigit():
+            return text
+        low = text.lower()
+        if low in ("amman",):
+            return "4"
+        if text == "عمان":
+            return "4"
+    if DLX_DEFAULT_AREA_ID.isdigit():
+        return DLX_DEFAULT_AREA_ID
+    return "4"
+
+def _order_to_submit_payload(order) -> dict:
     addr = getattr(order, "shipping_address", {}) or {}
 
     is_cod = (getattr(order, "payment_method","") or "").lower() == "cod"
@@ -416,26 +380,36 @@ def _order_to_submit_payload(order) -> list[dict]:
     address_desc = _ascii(_addr_desc(addr))
     recip_name = _ascii((getattr(order,"full_name","Customer") or "Customer").strip())
 
-    # 👇 Prefer Arabic / IDs if present; otherwise fall back
-    city_val = addr.get("city_ar") or addr.get("city") or addr.get("area") or "عمان"
-    area_val = addr.get("area_ar") or addr.get("district") or addr.get("area") or None
-    city_id  = addr.get("recipientCityId")   # optional future support
-    area_id  = addr.get("recipientAreaId")   # optional future support
+    # Fields taken from the DLX docs + current checkout data.
+    params = {
+        "extra_sequence": str(order.order_number),
+        "customer_name": recip_name,
+        "customer_mobile": phone,
+        "customer_address": address_desc,
+        "customer_area": _resolve_dlx_customer_area(order, addr),
+        "cost": cod_amount if is_cod else 0,
+        "payment_type": DLX_COD_PAYMENT_TYPE if is_cod else DLX_PREPAID_PAYMENT_TYPE,
+        "additional_values": {
+            "item_details": item_details or "Online order",
+            "remark": _ascii(getattr(order, "notes", "") or "") or "",
+            "reference_id": str(order.order_number),
+        },
+    }
 
-    body = [{
-        "companyStoreID": WASSEL_COMPANY_STORE_ID,
-        **({"recipientCityId": city_id} if city_id else {"recipientCity": city_val}),
-        **({"recipientAreaId": area_id} if area_id else ({"recipientArea": area_val} if area_val else {})),
-        "remark": _ascii(getattr(order, "notes", "") or None) or None,
-        "addressDescription": address_desc,
-        "recipientName": recip_name,
-        "recipientEmail": getattr(order, "email", None) or None,
-        "recipientPhoneNumber": phone,
-        "codAmount": cod_amount or None,
-        "itemDetails": item_details or None,
-        "referenceID": str(order.order_number),  # lower-camel ✔
-    }]
-    return _strip_nulls(body)
+    lat = addr.get("latitude")
+    lng = addr.get("longitude")
+    if lat not in (None, ""):
+        try:
+            params["latitude"] = float(lat)
+        except Exception:
+            pass
+    if lng not in (None, ""):
+        try:
+            params["longitude"] = float(lng)
+        except Exception:
+            pass
+
+    return _strip_nulls(params)
 
 
 
@@ -444,8 +418,9 @@ def _persist_carrier_meta_on_order(order, *, awb: str, label_path: str | None, r
     addr = dict(order.shipping_address or {})
     car  = dict(addr.get("_carrier") or {})
 
-    car["name"] = "wasselexpress"
+    car["name"] = "dlx"
     car["awb"]  = awb
+    car["external_order_id"] = awb
     car.pop("label_pdf", None)
 
     hist = list(car.get("history") or [])
@@ -467,16 +442,17 @@ def _persist_carrier_meta_on_order(order, *, awb: str, label_path: str | None, r
     order.save(update_fields=["shipping_address", "updated_at"])
 
 def _create_wassel_shipment_for_order(order):
-    # Idempotency: if we already have an AWB, do nothing.
+    # Idempotency: if we already have an external carrier id, do nothing.
     addr = dict(order.shipping_address or {})
     car  = dict(addr.get("_carrier") or {})
-    if car.get("awb"):
+    if car.get("awb") or car.get("external_order_id"):
         # 🔧 clear any past error, since we’re good now
         if "_carrier_error" in addr:
             addr.pop("_carrier_error", None)
             order.shipping_address = addr
             order.save(update_fields=["shipping_address"])
-        return (True, f"AWB {car['awb']} already exists")
+        existing = car.get("external_order_id") or car.get("awb")
+        return (True, f"DLX order {existing} already exists")
 
     try:
         payload = _order_to_submit_payload(order)
@@ -487,54 +463,26 @@ def _create_wassel_shipment_for_order(order):
         order.shipping_address = addr
         order.save(update_fields=["shipping_address"])
 
-        res = _wsl_submit(payload)
+        # create_order must be business-successful (not only HTTP-successful).
+        create_res = _wsl_submit(payload)
 
-        if res and res.get("isSuccess"):
-            rec = (res.get("data") or [{}])[0]
-            awb = rec.get("awb")
-            if not awb:
-                msg = f"No AWB in success response: {res}"
-                addr["_carrier_error"] = msg
-                order.shipping_address = addr
-                order.save(update_fields=["shipping_address"])
-                return (False, msg)
+        # Try to fetch external id by local reference; if not found use local ref
+        # so UI/idempotency keep working.
+        ext_id, lookup_raw = _wsl_lookup_awb_by_reference(str(order.order_number))
+        external_id = ext_id or str(order.order_number)
+        _persist_carrier_meta_on_order(
+            order,
+            awb=external_id,
+            label_path=None,
+            raw_response=lookup_raw or create_res or {},
+        )
 
-            _persist_carrier_meta_on_order(order, awb=awb, label_path=None, raw_response=res)
-            # clean previous error if any
-            addr = dict(order.shipping_address or {})
-            addr.pop("_carrier_error", None)
-            order.shipping_address = addr
-            order.save(update_fields=["shipping_address"])
-            return (True, f"AWB {awb} created")
-
-        # Not success → see if it's the duplicate-ref case; try to recover
-        message_texts = [v.get("message","") for v in (res.get("validations") or [])] if res else []
-        combined = " ".join(message_texts).lower()
-        if "already reserved" in combined or "already exists" in combined:
-            # Fetch the existing AWB by reference
-            awb, raw = _wsl_lookup_awb_by_reference(str(order.order_number))
-            if awb:
-                _persist_carrier_meta_on_order(order, awb=awb, label_path=None, raw_response=raw or res or {})
-                addr = dict(order.shipping_address or {})
-                addr.pop("_carrier_error", None)
-                order.shipping_address = addr
-                order.save(update_fields=["shipping_address"])
-                return (True, f"AWB {awb} linked (existing)")
-            # If lookup failed, surface the validation
-            msg = f"Wassel says reference already reserved, but lookup failed. Response={res}"
-            addr = dict(order.shipping_address or {})
-            addr["_carrier_error"] = msg
-            order.shipping_address = addr
-            order.save(update_fields=["shipping_address"])
-            return (False, msg)
-
-        # Generic failure
-        msg = f"Wassel validation failed: {res}"
+        # clean previous error if any
         addr = dict(order.shipping_address or {})
-        addr["_carrier_error"] = msg
+        addr.pop("_carrier_error", None)
         order.shipping_address = addr
         order.save(update_fields=["shipping_address"])
-        return (False, msg)
+        return (True, f"DLX order {external_id} created")
 
     except Exception as e:
         msg = f"{e}"
@@ -545,7 +493,7 @@ def _create_wassel_shipment_for_order(order):
         return (False, msg)
 
 
-# --- WEBHOOK: Wassel → us (status updates) ---
+# --- Status sync + webhook compatibility ---
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from django.utils import timezone
@@ -563,8 +511,97 @@ WASSEL_CODE_LABELS = {
 
 def _ok(data=None): return JsonResponse({"ok": True, "data": data or {}}, status=200)
 
+
+def _apply_carrier_status(order, new_code: str, raw_payload: dict):
+    old_code = (order.status or "").strip()
+
+    addr = dict(order.shipping_address or {})
+    carrier = dict(addr.get("_carrier") or {})
+    hist = list(carrier.get("history") or [])
+    hist.append({
+        "code": new_code,
+        "label": WASSEL_CODE_LABELS.get(int(new_code), f"Code {new_code}") if str(new_code).isdigit() else str(new_code),
+        "at": timezone.now().isoformat(),
+        "raw": raw_payload,
+    })
+    carrier["history"] = hist[-100:]
+    carrier["last_update"] = str(new_code)
+    carrier["last_webhook"] = raw_payload
+    carrier["last_sync_at"] = timezone.now().isoformat()
+    addr["_carrier"] = carrier
+    order.shipping_address = addr
+
+    status_changed = str(new_code) != old_code
+    if status_changed:
+        order.status = str(new_code)
+    order.save(update_fields=["shipping_address", "status", "updated_at"])
+    return status_changed
+
+
+def sync_dlx_status_for_order(order, *, request=None, force: bool = False):
+    """
+    Pull DLX status and update local order + carrier history.
+    This is used as the primary replacement for old webhook-only syncing.
+    """
+    addr = dict(order.shipping_address or {})
+    car = dict(addr.get("_carrier") or {})
+    if (car.get("name") or "").lower() not in ("dlx", "wasselexpress", ""):
+        return False, "Order is linked to another carrier"
+
+    if not force:
+        last_sync = (car.get("last_sync_at") or "").strip()
+        if last_sync:
+            try:
+                dt = timezone.datetime.fromisoformat(last_sync.replace("Z", "+00:00"))
+                if timezone.now() - dt < timezone.timedelta(minutes=5):
+                    return False, "Skipped sync (recently synced)"
+            except Exception:
+                pass
+
+    candidates = []
+    for val in (car.get("external_order_id"), car.get("awb"), str(order.order_number)):
+        if val and str(val) not in candidates:
+            candidates.append(str(val))
+
+    latest_payload = None
+    for candidate in candidates:
+        attempts = [
+            ("get_status", {"order_id": candidate}),
+            ("get_status", {"extra_sequence": candidate}),
+            ("order", {"order_id": candidate}),
+            ("order", {"extra_sequence": candidate}),
+        ]
+        for path, params in attempts:
+            try:
+                res = _dlx_call(path, params, expect_json=True)
+                latest_payload = res
+                code = _extract_status_code(res)
+                if code:
+                    status_changed = _apply_carrier_status(order, code, {"source": path, "payload": res})
+                    try:
+                        if status_changed and order.email and request is not None:
+                            from .views_dashboard import _email_order_status_update
+                            _email_order_status_update(request, order, status_changed=True)
+                    except Exception:
+                        pass
+                    return True, f"Status synced ({code})"
+            except Exception as exc:
+                log.warning("DLX status sync failed for %s %s: %s", path, params, exc)
+                continue
+
+    if latest_payload is not None:
+        car["last_poll_response"] = latest_payload
+        car["last_sync_at"] = timezone.now().isoformat()
+        addr["_carrier"] = car
+        order.shipping_address = addr
+        order.save(update_fields=["shipping_address", "updated_at"])
+    return False, "DLX status not found yet"
+
+
 @csrf_exempt
 def wasselexpress_webhook(request):
+    # Keep route backward-compatible. Supports both old Wassel webhook shape
+    # and generic DLX-like payloads if one is introduced later.
     if request.method != "POST":
         return HttpResponseForbidden("POST only")
 
@@ -591,8 +628,19 @@ def wasselexpress_webhook(request):
     except Exception:
         return HttpResponse("bad json", status=400)
 
-    ref = (body.get("ItemReferenceNo") or "").strip()
+    ref = (
+        body.get("ItemReferenceNo")
+        or body.get("referenceID")
+        or body.get("reference")
+        or body.get("extra_sequence")
+        or ""
+    ).strip()
     status_code = body.get("Status")
+    if status_code is None:
+        status_code = body.get("status")
+    if status_code is None:
+        status_code = body.get("status_code")
+
     if not ref or status_code is None:
         return HttpResponse("missing fields", status=400)
 
@@ -606,30 +654,11 @@ def wasselexpress_webhook(request):
             return _ok({"note": "unknown order"})
 
     # normalize to your stored format (string code like "130")
-    new_code = str(int(status_code))
-    old_code = (order.status or "").strip()
-
-    # ---- persist carrier meta + history
-    addr = dict(order.shipping_address or {})
-    carrier = dict(addr.get("_carrier") or {})
-    hist = list(carrier.get("history") or [])
-    hist.append({
-        "code": new_code,
-        "label": WASSEL_CODE_LABELS.get(int(status_code), f"Code {status_code}"),
-        "at": timezone.now().isoformat(),
-        "raw": body,
-    })
-    carrier["history"] = hist[-100:]            # cap growth
-    carrier["last_update"] = new_code
-    carrier["last_webhook"] = body
-    addr["_carrier"] = carrier
-    order.shipping_address = addr
-
-    status_changed = (new_code != old_code)
-    if status_changed:
-        order.status = new_code
-
-    order.save(update_fields=["shipping_address", "status", "updated_at"])
+    try:
+        new_code = str(int(status_code))
+    except Exception:
+        new_code = str(status_code).strip()
+    status_changed = _apply_carrier_status(order, new_code, body)
 
     """
     if status_changed:
@@ -1599,7 +1628,10 @@ def checkout(request):
                 except:
                     pass
         
-        transaction.on_commit(sync_to_zoho)
+        if getattr(settings, "ZOHO", {}).get("ENABLED", True):
+            transaction.on_commit(sync_to_zoho)
+        else:
+            log.info("Zoho sync disabled by ZOHO_ENABLED=false; skipping sync for %s", order.order_number)
 
         messages.success(request, "Order placed! We've emailed your confirmation.")
         return redirect(f"/thanks/?o={order.order_number}")
@@ -1752,6 +1784,12 @@ def order_status(request):
         return render(request, template, context)
 
     # If email provided, it must match
+    # Opportunistic carrier refresh to keep user-facing status current.
+    try:
+        sync_dlx_status_for_order(order, request=request)
+    except Exception:
+        pass
+
     if input_email:
         candidates = [
             (order.email or ""),
@@ -1775,6 +1813,10 @@ def order_status(request):
 def order_detail(request, order_number):
     """Auth-less, read-only order detail by order number."""
     order = get_object_or_404(Order, order_number=order_number)
+    try:
+        sync_dlx_status_for_order(order, request=request)
+    except Exception:
+        pass
     return render(request, "order_detail.html", {"order": order})
 
 
@@ -2407,6 +2449,12 @@ def order_status(request):
         messages.error(request, "We couldn’t find an order with those details.")
         return render(request, template, context)
 
+    # Opportunistic carrier refresh to keep user-facing status current.
+    try:
+        sync_dlx_status_for_order(order, request=request)
+    except Exception:
+        pass
+
     # If email provided, it must match
     if input_email:
         candidates = [
@@ -2431,6 +2479,10 @@ def order_status(request):
 def order_detail(request, order_number):
     """Auth-less, read-only order detail by order number."""
     order = get_object_or_404(Order, order_number=order_number)
+    try:
+        sync_dlx_status_for_order(order, request=request)
+    except Exception:
+        pass
     return render(request, "order_detail.html", {"order": order})
 
 

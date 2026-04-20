@@ -1040,11 +1040,17 @@ from django.utils.safestring import mark_safe
 import json
 
 # at top
-from myApp.views import _physical_items_for_order, WASSEL_CODE_LABELS
+from myApp.views import _physical_items_for_order, WASSEL_CODE_LABELS, sync_dlx_status_for_order
 
 @dashboard_required
 def wasselexpress_preview(request, order_number):
     order = get_object_or_404(Order, order_number=order_number)
+    try:
+        sync_dlx_status_for_order(order, request=request, force=True)
+        order.refresh_from_db(fields=["shipping_address", "status", "updated_at"])
+    except Exception:
+        pass
+
     addr = dict(order.shipping_address or {})
     car  = dict(addr.get("_carrier") or {})
     hist = list(car.get("history") or [])
@@ -1061,7 +1067,7 @@ def wasselexpress_preview(request, order_number):
             "awb": car.get("awb"),
             "status_code": code or "0",
             "status_label": label or "Created",
-            "companyStoreID": getattr(settings, "WASSEL", {}).get("COMPANY_STORE_ID", 13),
+            "companyStoreID": getattr(settings, "DLX", {}).get("DB", "dlx"),
             "recipientCity": addr.get("city") or addr.get("area") or addr.get("emirate") or "",
             "recipientArea": addr.get("area") or addr.get("barangay") or "",
             "addressDescription": ", ".join([str(addr.get(k) or "") for k in
